@@ -381,6 +381,16 @@ public class RealtorController : Controller
                 p.IsPaid = true;
             }
 
+            var pendingViewings = await _db.ViewingRequests
+                .Where(v => v.LandPlotId == deal.LandPlotId &&
+                            v.Status != ViewingStatus.Completed &&
+                            v.Status != ViewingStatus.Cancelled)
+                .ToListAsync();
+            foreach (var v in pendingViewings)
+            {
+                v.CancelViewing("Ділянку продано (угоду посвідчено у нотаріуса та зареєстровано в ДРРП).");
+            }
+
             await _db.SaveChangesAsync();
             TempData["RealtorMessage"] = $"Право власності за угодою {deal.DraftContractNumber} зареєстровано в ДРРП. Ділянку переведено у статус «Продано».";
         }
