@@ -325,6 +325,12 @@ public class ClientController : Controller
             return View(model);
         }
 
+        if (!model.ValidateCadastralFormat())
+        {
+            TempData["PlotError"] = "Невірний формат кадастрового номера. Очікується формат стандарту України: XXXXXXXXXX:XX:XXX:XXXX (наприклад, 3222486200:01:002:1111).";
+            return View(model);
+        }
+
         bool duplicateCadastral = await _db.LandPlots.AnyAsync(p =>
             p.CadastralNumber == model.CadastralNumber &&
             p.Status != PlotStatus.RejectedByLawyer);
@@ -588,11 +594,9 @@ public class ClientController : Controller
 
         if (file != null && file.Length > 0)
         {
-            var safeExt = Path.GetExtension(file.FileName);
-            if (string.IsNullOrWhiteSpace(safeExt))
-            {
-                safeExt = ".pdf";
-            }
+            var rawExt = Path.GetExtension(file.FileName)?.ToLowerInvariant();
+            var allowedExts = new[] { ".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".txt" };
+            var safeExt = !string.IsNullOrWhiteSpace(rawExt) && allowedExts.Contains(rawExt) ? rawExt : ".pdf";
 
             var fileName = $"plot_{plotId}_{DateTime.Now:yyyyMMddHHmmss}{safeExt}";
             var fullPath = Path.Combine(uploadsFolder, fileName);
