@@ -4,6 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LandAgencyMvc.Controllers;
 
+/// <summary>
+/// Робоче місце сертифікованого рієлтора агентства.
+/// Відповідає за індивідуальний підбір ділянок за запитами клієнтів, узгодження та проведення
+/// виїзних оглядів, формування проєктів договорів із розрахунком 3% комісії та супровід нотаріальних угод.
+/// </summary>
 public class RealtorController : Controller
 {
     private readonly LandAgencyContext _db;
@@ -36,8 +41,12 @@ public class RealtorController : Controller
         return user;
     }
 
+    /// <summary>
+    /// Робоча черга заявок на підбір ділянок: підбір об'єктів з виключенням власних ділянок клієнта.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Requests(int userId, int? matchedRequestId)
+
     {
         var currentUser = await SetCurrentUserAsync(userId);
         var requests = await _db.SelectionRequests
@@ -113,6 +122,9 @@ public class RealtorController : Controller
         return RedirectToAction(nameof(Requests), new { userId = currentUser?.Id ?? userId });
     }
 
+    /// <summary>
+    /// Реєстр запланованих та проведених виїзних оглядів ділянок з покупцями.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Viewings(int userId)
     {
@@ -127,8 +139,13 @@ public class RealtorController : Controller
         return View(viewings);
     }
 
+    /// <summary>
+    /// Оновлює стан огляду: узгоджує дату, фіксує успішний огляд або відмову покупця
+    /// з поверненням запиту клієнта на повторний підбір.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> UpdateViewingStatus(int userId, int viewingId, ViewingStatus status, string? resultNotes)
+
     {
         var currentUser = await SetCurrentUserAsync(userId);
         var viewing = await _db.ViewingRequests.FindAsync(viewingId);
@@ -173,6 +190,9 @@ public class RealtorController : Controller
         return RedirectToAction(nameof(Viewings), new { userId = currentUser?.Id ?? userId });
     }
 
+    /// <summary>
+    /// Реєстр нотаріальних угод купівлі-продажу з візуальним відображенням стадій правового супроводу.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Deals(int userId, int? plotId, int? buyerId)
     {
@@ -204,6 +224,10 @@ public class RealtorController : Controller
         return View(deals);
     }
 
+    /// <summary>
+    /// Створює проєкт угоди: розраховує 3% комісію агентства, формує графік безготівкових платежів (IBAN)
+    /// та направляє проект договору юристу для отримання правової візи.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> CreateDeal(
         int userId,
@@ -213,6 +237,7 @@ public class RealtorController : Controller
         string draftContractNumber,
         string notaryOffice,
         DateTime notaryDate)
+
     {
         var currentUser = await SetCurrentUserAsync(userId);
         var plot = await _db.LandPlots
@@ -350,8 +375,13 @@ public class RealtorController : Controller
         return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
     }
 
+    /// <summary>
+    /// Фіналізує угоду: фіксує перехід права власності в ДРРП, змінює статус ділянки на 'Sold'
+    /// та автоматично скасовує всі інші активні заявки на виїзний огляд цього об'єкта.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> CompleteNotaryDeal(int userId, int dealId, string? notarialRegistryNumber)
+
     {
         var currentUser = await SetCurrentUserAsync(userId);
         var deal = await _db.SaleDeals

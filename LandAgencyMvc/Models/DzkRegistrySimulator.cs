@@ -1,7 +1,18 @@
 namespace LandAgencyMvc.Models;
 
+/// <summary>
+/// Сервіс емуляції міжвідомчої взаємодії з Державним земельним кадастром (ДЗК)
+/// та Державним реєстром речових прав на нерухоме майно (ДРРП).
+/// Виконує автоматичну верифікацію кадастрового формату, нормативної грошової оцінки (НГО) та факторів ризику.
+/// </summary>
 public static class DzkRegistrySimulator
 {
+    /// <summary>
+    /// Формує електронний витяг з реєстрів ДЗК/ДРРП, перевіряючи наявність арештів,
+    /// сервітутів, накладок меж і розраховуючи нормативну грошову оцінку.
+    /// </summary>
+    /// <param name="plot">Об'єкт земельної ділянки для аудиту.</param>
+    /// <returns>Структурований витяг DzkRegistryExtract із рекомендацією рівня правового ризику.</returns>
     public static DzkRegistryExtract QueryRegistries(LandPlot plot)
     {
         var cadastral = (plot.CadastralNumber ?? string.Empty).Trim();

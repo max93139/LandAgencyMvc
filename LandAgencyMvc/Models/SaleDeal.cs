@@ -2,6 +2,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace LandAgencyMvc.Models;
 
+/// <summary>
+/// Угода купівлі-продажу земельної ділянки.
+/// Керує 3-етапним життєвим циклом:
+/// 1) Підготовка проекту рієлтором (DraftPreparedByRealtor)
+/// 2) Правова експертиза юристом (ApprovedByLawyerForNotary / ReturnedForRevision)
+/// 3) Нотаріальне посвідчення та держреєстрація в ДРРП (SignedAtNotary -> CompletedAtNotary).
+/// </summary>
 public class SaleDeal
 {
     public int Id { get; set; }
@@ -22,8 +29,14 @@ public class SaleDeal
 
     public AppUser? Lawyer { get; set; }
 
+    /// <summary>
+    /// Фінальна ціна відчуження ділянки в доларах США.
+    /// </summary>
     public decimal FinalPriceUsd { get; set; }
 
+    /// <summary>
+    /// Комісійна винагорода агентства (за замовчуванням 3% від фінальної ціни).
+    /// </summary>
     public decimal AgencyCommissionUsd { get; set; }
 
     public string NotaryOffice { get; set; } = string.Empty;
@@ -32,6 +45,9 @@ public class SaleDeal
 
     public string DraftContractNumber { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Номер у реєстрі нотаріальних дій після офіційного посвідчення договору.
+    /// </summary>
     public string? NotarialRegistryNumber { get; set; }
 
     public string LawyerApprovalNotes { get; set; } = string.Empty;
@@ -66,6 +82,9 @@ public class SaleDeal
         _ => "la-badge-indigo"
     };
 
+    /// <summary>
+    /// Ініціалізує чернетку договору купівлі-продажу та розраховує комісію агентства.
+    /// </summary>
     public void PrepareContractDraft(string contractNumber, decimal finalPriceUsd, double commissionRatePercent = 3.0)
     {
         DraftContractNumber = contractNumber.Trim();
@@ -74,11 +93,17 @@ public class SaleDeal
         Status = DealStatus.DraftPreparedByRealtor;
     }
 
+    /// <summary>
+    /// Розраховує суму комісійної винагороди агентства нерухомості.
+    /// </summary>
     public void CalculateCommission(double ratePercent = 3.0)
     {
         AgencyCommissionUsd = Math.Round(FinalPriceUsd * (decimal)(ratePercent / 100.0), 2);
     }
 
+    /// <summary>
+    /// Генерує графік платежів угоди: оплату вартості продавцю за IBAN та комісію агентства.
+    /// </summary>
     public List<Payment> CreateDefaultPayments(string? sellerIban, bool isPaid = false, string? senderIban = null, string? agencyIban = null)
     {
         string resolvedSellerIban = !string.IsNullOrWhiteSpace(sellerIban)
@@ -120,6 +145,10 @@ public class SaleDeal
         return new List<Payment> { p1, p2 };
     }
 
+    /// <summary>
+    /// Фіксує нотаріальне підписання договору сторонами після погодження юристом.
+    /// </summary>
+    /// <param name="notarialNumber">Номер запису в реєстрі нотаріальних дій.</param>
     public bool SignByParties(string notarialNumber)
     {
         if (Status != DealStatus.ApprovedByLawyerForNotary && Status != DealStatus.SignedAtNotary)
@@ -132,6 +161,10 @@ public class SaleDeal
         return true;
     }
 
+    /// <summary>
+    /// Завершує угоду: фіксує держреєстрацію права власності за покупцем у ДРРП
+    /// та переводить земельну ділянку у статус 'Sold' (Продано).
+    /// </summary>
     public bool RegisterOwnershipRight()
     {
         if (Status != DealStatus.SignedAtNotary && Status != DealStatus.CompletedAtNotary)
@@ -148,3 +181,4 @@ public class SaleDeal
         return true;
     }
 }
+

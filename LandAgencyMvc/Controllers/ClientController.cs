@@ -4,6 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LandAgencyMvc.Controllers;
 
+/// <summary>
+/// Єдиний клієнтський контролер (модель взаємодії 'Покупець / Продавець' за стандартом платформи OLX).
+/// Забезпечує перегляд каталогу ділянок, подачу заявок на огляд, оформлення запитів на індивідуальний підбір,
+/// публікацію власних ділянок на продаж та супровід платежів.
+/// </summary>
 public class ClientController : Controller
 {
     private readonly LandAgencyContext _db;
@@ -38,9 +43,14 @@ public class ClientController : Controller
         return user;
     }
 
+    /// <summary>
+    /// Каталог перевірених земельних ділянок, схвалених юридичним аудитом ДЗК/ДРРП.
+    /// Підтримує фільтрацію за кодом КВЦПЗ, максимальним бюджетом, мінімальною площею та текстом.
+    /// </summary>
     [HttpGet("/Catalog")]
     [HttpGet("/Client/Catalog")]
     public async Task<IActionResult> Catalog(int userId, string? purpose, decimal? maxBudget, double? minArea, string? search)
+
     {
         await SetCurrentUserAsync(userId);
 
@@ -88,6 +98,9 @@ public class ClientController : Controller
         return View(plots);
     }
 
+    /// <summary>
+    /// Створює заявку на індивідуальний підбір земельних ділянок для рієлтора з бажаними параметрами.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> CreateSelectionRequest(int userId, string desiredDistrict, double minAreaHa, decimal maxBudgetUsd, string purpose)
     {
@@ -125,9 +138,13 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet), new { userId = currentUser.Id });
     }
 
+    /// <summary>
+    /// Сторінка картки земельної ділянки з переліком документів, юридичним висновком та формою огляду.
+    /// </summary>
     [HttpGet("/Catalog/Details/{id:int}")]
     [HttpGet("/Client/Details/{id:int}")]
     public async Task<IActionResult> Details(int id, int userId)
+
     {
         await SetCurrentUserAsync(userId);
         var plot = await _db.LandPlots
@@ -146,8 +163,13 @@ public class ClientController : Controller
         return View(plot);
     }
 
+    /// <summary>
+    /// Оформлює заявку на виїзний огляд обраної ділянки із зазначенням бажаної дати та таймслоту.
+    /// Перевіряє заборону огляду власної ділянки продавцем та доступність об'єкта в каталозі.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> CreateViewing(int userId, int landPlotId, DateTime preferredDate, string timeSlot, string comment)
+
     {
         var currentUser = await SetCurrentUserAsync(userId);
         if (currentUser == null)
@@ -268,6 +290,9 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
     }
 
+    /// <summary>
+    /// Сторінка подачі ділянки на продаж власником із заповненням банківських реквізитів IBAN.
+    /// </summary>
     [HttpGet("/Plots/Create")]
     [HttpGet("/Client/CreatePlot")]
     public async Task<IActionResult> CreatePlot(int userId)
@@ -280,6 +305,11 @@ public class ClientController : Controller
         return View(model);
     }
 
+    /// <summary>
+    /// Реєстрація ділянки продавцем: валідація кадастрового стандарту України,
+    /// завантаження правовстановлюючого документа, накладення КЕП-підпису
+    /// та передача об'єкта в чергу юридичного аудиту ДЗК/ДРРП.
+    /// </summary>
     [HttpPost("/Plots/Create")]
     [HttpPost("/Client/CreatePlot")]
     public async Task<IActionResult> CreatePlot(
@@ -290,6 +320,7 @@ public class ClientController : Controller
         DateTime? docIssueDate,
         bool signWithKep = false,
         IFormFile? documentFile = null)
+
     {
         var currentUser = await SetCurrentUserAsync(userId);
         if (currentUser == null)

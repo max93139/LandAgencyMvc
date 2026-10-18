@@ -4,6 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LandAgencyMvc.Controllers;
 
+/// <summary>
+/// Робоче місце штатного юриста агентства.
+/// Відповідає за правовий аудит земельних ділянок (ДЗК/ДРРП), формування висновків
+/// та юридичну експертизу проектів договорів купівлі-продажу для нотаріуса.
+/// </summary>
 public class LawyerController : Controller
 {
     private readonly LandAgencyContext _db;
@@ -36,8 +41,12 @@ public class LawyerController : Controller
         return user;
     }
 
+    /// <summary>
+    /// Черга земельних ділянок для юридичного аудиту: очікують перевірки, верифіковані або відхилені.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Queue(int userId)
+
     {
         await SetCurrentUserAsync(userId);
         var plots = await _db.LandPlots
@@ -55,6 +64,9 @@ public class LawyerController : Controller
         return View(plots);
     }
 
+    /// <summary>
+    /// Детальний перегляд ділянки з автоматичним запитом до ДЗК/ДРРП для складання висновку.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Conclusion(int id, int userId)
     {
@@ -89,6 +101,9 @@ public class LawyerController : Controller
         return View(plot);
     }
 
+    /// <summary>
+    /// Фіксує юридичний висновок адвоката: погоджує ділянку для публікації або відхиляє з актом ризиків.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> SubmitLegalConclusion(
         int userId,
@@ -188,6 +203,9 @@ public class LawyerController : Controller
         return RedirectToAction(nameof(Queue), new { userId = currentUser?.Id ?? userId });
     }
 
+    /// <summary>
+    /// Реєстр договорів купівлі-продажу, що надійшли від рієлторів на правову експертизу перед нотаріусом.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Contracts(int userId)
     {
@@ -204,8 +222,12 @@ public class LawyerController : Controller
         return View(deals);
     }
 
+    /// <summary>
+    /// Правова віза юриста: погоджує передачу договору нотаріусу або повертає рієлтору на доопрацювання.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> ApproveDealContract(int userId, int dealId, string? lawyerNotes, string decision = "approve")
+
     {
         var currentUser = await SetCurrentUserAsync(userId);
         var deal = await _db.SaleDeals.FindAsync(dealId);
