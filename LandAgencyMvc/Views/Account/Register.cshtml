@@ -1,0 +1,57 @@
+@{
+    ViewData["Title"] = "Реєстрація клієнта — LandAgency UA";
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-auth">
+        <strong style="font-size:18px;">LandAgency UA</strong>
+        <div class="la-nav-links">
+            <a asp-controller="Account" asp-action="Login">Увійти</a>
+            <a class="active" asp-controller="Account" asp-action="Register">Реєстрація</a>
+        </div>
+    </div>
+    <div class="la-body" style="display:flex; justify-content:center; align-items:center;">
+        <div class="la-card" style="width:540px;">
+            <h4 style="margin-bottom:6px;">Реєстрація нового клієнта</h4>
+            <p class="text-muted" style="font-size:14px; margin-bottom:18px;">Створення єдиного облікового запису для купівлі та продажу земельних ділянок</p>
+
+            @if (TempData["RegisterError"] != null)
+            {
+                <div class="la-alert la-alert-error">
+                    @TempData["RegisterError"]
+                </div>
+            }
+
+            <form asp-controller="Account" asp-action="Register" method="post">
+                <label class="la-label">Прізвище, ім'я та по батькові (ПІБ)</label>
+                <input name="fullName" class="la-input" placeholder="Прізвище Ім'я По батькові" required />
+
+                <div class="la-grid-2">
+                    <div>
+                        <label class="la-label">Номер телефону</label>
+                        <input name="phone" class="la-input" placeholder="+380 XX XXX XX XX" required />
+                    </div>
+                    <div>
+                        <label class="la-label">РНОКПП (ІПН)</label>
+                        <input name="taxId" class="la-input" placeholder="10 цифр" required />
+                    </div>
+                </div>
+
+                <label class="la-label">Банківський рахунок IBAN (для розрахунків за угодами)</label>
+                <input name="bankDetails" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+
+                <label class="la-label">Електронна пошта (Логін)</label>
+                <input name="email" type="email" class="la-input" placeholder="name@ukr.net" required />
+
+                <label class="la-label">Пароль</label>
+                <input name="password" type="password" class="la-input" placeholder="Мінімум 6 символів" required />
+
+                <button type="submit" class="la-btn la-btn-green" style="width:100%;">Зареєструватися</button>
+            </form>
+
+            <div style="margin-top:16px; text-align:center; font-size:13px;">
+                Вже є акаунт? <a asp-controller="Account" asp-action="Login" style="color:#16a34a; font-weight:700; text-decoration:none;">Увійти в систему</a>
+            </div>
+        </div>
+    </div>
+</div>

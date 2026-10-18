@@ -1,0 +1,283 @@
+@model LandAgencyMvc.Models.CabinetViewModel
+@{
+    ViewData["Title"] = "Мій кабінет — LandAgency UA";
+    int userId = Model.CurrentUser?.Id ?? 0;
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-client">
+        <div class="la-nav-links">
+            <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
+            <a asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">Каталог ділянок</a>
+            <a class="active" asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId">Мій кабінет (Оголошення / Угоди)</a>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot" asp-route-userId="@userId">+ Виставити ділянку</a>
+            <span style="font-size:13px; opacity:0.9;">@Model.CurrentUser?.FullName</span>
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+        </div>
+    </div>
+
+    <div class="la-body">
+        @if (TempData["CabinetMessage"] != null)
+        {
+            <div class="la-alert la-alert-success">
+                @TempData["CabinetMessage"]
+            </div>
+        }
+        @if (TempData["CabinetError"] != null)
+        {
+            <div class="la-alert la-alert-error">
+                @TempData["CabinetError"]
+            </div>
+        }
+
+        <div class="la-grid-2">
+            <div>
+                <div class="la-card">
+                    <h5>Мої оголошення на продаж (Мої ділянки)</h5>
+                    @if (!Model.MyPlots.Any())
+                    {
+                        <p class="text-muted" style="font-size:13px; margin:0;">Ви ще не виставляли власних земельних ділянок на продаж.</p>
+                    }
+                    else
+                    {
+                        @foreach (var myPlot in Model.MyPlots)
+                        {
+                            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <div>
+                                        <strong>@myPlot.CadastralNumber (@myPlot.AreaHectares га, @myPlot.Title)</strong>
+                                        <span class="la-badge @myPlot.StatusBadgeClass" style="margin-left:6px;">@myPlot.StatusDisplayName</span>
+                                    </div>
+                                    @if (myPlot.Status != LandAgencyMvc.Models.PlotStatus.Sold)
+                                    {
+                                        <form asp-controller="Client" asp-action="UpdatePlotPrice" method="post" style="display:flex; gap:6px; align-items:center;">
+                                            <input type="hidden" name="userId" value="@userId" />
+                                            <input type="hidden" name="plotId" value="@myPlot.Id" />
+                                            <input type="number" name="newPriceUsd" value="@myPlot.PriceUsd" class="la-input" style="margin:0; width:110px; padding:6px 10px;" required />
+                                            <button type="submit" class="la-btn la-btn-blue" style="padding:6px 12px; font-size:12px;">Оновити ціну</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <strong style="color:#15803d;">$@myPlot.PriceUsd.ToString("N0")</strong>
+                                    }
+                                </div>
+                                <div style="font-size:12px; color:#64748b; margin-top:6px;">
+                                    Призначення: @myPlot.Purpose • IBAN: @(string.IsNullOrEmpty(myPlot.SellerBankIban) ? Model.CurrentUser?.BankDetails : myPlot.SellerBankIban)
+                                </div>
+                                @if (myPlot.LegalConclusion != null)
+                                {
+                                    <div style="font-size:12px; margin-top:6px; color:@(myPlot.LegalConclusion.IsApproved ? "#15803d" : "#dc2626");">
+                                        Висновок юриста №@myPlot.LegalConclusion.ConclusionNumber: @myPlot.LegalConclusion.ConclusionText
+                                    </div>
+                                }
+                                @if (myPlot.Documents.Any())
+                                {
+                                    <div style="margin-top:8px; font-size:12px;">
+                                        @foreach (var doc in myPlot.Documents)
+                                        {
+                                            <span class="la-badge @(doc.IsVerified ? "la-badge-green" : "la-badge-indigo")" style="margin-right:6px;">
+                                                📄 @doc.DocType №@doc.DocumentNumber @(doc.IsSignedByKep ? "(КЕП ✓)" : "")
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                @if (myPlot.Status != LandAgencyMvc.Models.PlotStatus.Sold)
+                                {
+                                    <details style="margin-top:10px; font-size:12px;">
+                                        <summary style="cursor:pointer; color:#1d4ed8; font-weight:700;">+ Додати правовстановлюючий документ або витяг ДЗК</summary>
+                                        <form asp-controller="Client" asp-action="AddPlotDocument" method="post" enctype="multipart/form-data" style="margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                                            <input type="hidden" name="userId" value="@userId" />
+                                            <input type="hidden" name="plotId" value="@myPlot.Id" />
+                                            <div class="la-grid-2">
+                                                <div>
+                                                    <label class="la-label">Тип документа</label>
+                                                    <select name="docType" class="la-input" style="margin-bottom:6px; padding:5px 8px; font-size:12px;">
+                                                        <option value="Витяг з ДРРП про право власності">Витяг з ДРРП про право власності</option>
+                                                        <option value="Витяг з Державного земельного кадастру">Витяг з ДЗК</option>
+                                                        <option value="Державний акт на право власності на землю">Державний акт на право власності</option>
+                                                        <option value="Технічна документація із землеустрою">Технічна документація із землеустрою</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label class="la-label">Реєстраційний № документа</label>
+                                                    <input name="documentNumber" class="la-input" style="margin-bottom:6px; padding:5px 8px; font-size:12px;" placeholder="Номер документа" required />
+                                                </div>
+                                            </div>
+                                            <div class="la-grid-2" style="align-items:center;">
+                                                <div>
+                                                    <input type="file" name="documentFile" class="la-input" style="margin-bottom:0; padding:4px; font-size:11px;" />
+                                                </div>
+                                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                                    <label style="display:flex; align-items:center; gap:4px; font-weight:600; color:#166534; cursor:pointer;">
+                                                        <input type="checkbox" name="signWithKep" value="true" checked /> КЕП
+                                                    </label>
+                                                    <button type="submit" class="la-btn la-btn-green" style="padding:5px 10px; font-size:11px;">Завантажити</button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </details>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+
+                @if (Model.MySelectionRequests.Any())
+                {
+                    <div class="la-card">
+                        <h5>Мої запити на індивідуальний підбір ділянки</h5>
+                        @foreach (var req in Model.MySelectionRequests)
+                        {
+                            <div style="border-bottom:1px solid #e2e8f0; padding-bottom:10px; margin-bottom:10px; font-size:13px;">
+                                <div style="display:flex; justify-content:space-between;">
+                                    <strong>@req.DesiredDistrict (від @req.MinAreaHa га, до $@req.MaxBudgetUsd.ToString("N0"))</strong>
+                                    <span class="la-badge @(req.IsProcessedByRealtor ? "la-badge-green" : "la-badge-amber")">
+                                        @(req.IsProcessedByRealtor ? "Підбір надіслано ✓" : "В обробці")
+                                    </span>
+                                </div>
+                                <div class="text-muted">@req.Purpose</div>
+                                @if (!string.IsNullOrEmpty(req.RealtorNotes))
+                                {
+                                    <div style="color:#15803d; margin-top:4px; font-weight:600;">Рієлтор: @req.RealtorNotes</div>
+                                }
+                            </div>
+                        }
+                        @if (Model.MatchedPlotsForUser.Any())
+                        {
+                            <strong style="font-size:13px; display:block; margin-bottom:6px;">Підібрані для вас варіанти ділянок:</strong>
+                            @foreach (var mp in Model.MatchedPlotsForUser)
+                            {
+                                <div style="display:flex; justify-content:space-between; align-items:center; background:#f0fdf4; padding:8px 12px; border-radius:8px; margin-bottom:6px; font-size:13px;">
+                                    <span><strong>@mp.Title</strong> (@mp.CadastralNumber) — $@mp.PriceUsd.ToString("N0")</span>
+                                    <a asp-controller="Client" asp-action="Details" asp-route-id="@mp.Id" asp-route-userId="@userId" style="color:#15803d; font-weight:700; text-decoration:none;">Переглянути →</a>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+
+            <div>
+                <div class="la-card">
+                    <h5>Мої заявки на огляд та Активні покупки</h5>
+                    @if (!Model.MyViewings.Any())
+                    {
+                        <p class="text-muted" style="font-size:13px;">Активних заявок на огляд ділянок немає.</p>
+                    }
+                    else
+                    {
+                        @foreach (var v in Model.MyViewings)
+                        {
+                            <div style="border-bottom:1px solid #e2e8f0; padding-bottom:10px; margin-bottom:10px; font-size:13px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span>• Заявка на огляд ділянки <strong>@v.LandPlot?.CadastralNumber</strong> (@v.LandPlot?.Title)</span>
+                                    <span class="la-badge @v.StatusBadgeClass">@v.StatusDisplayName</span>
+                                </div>
+                                <div class="text-muted" style="margin-top:4px;">
+                                    Дата виїзду: @v.PreferredDate.ToString("dd.MM.yyyy") о @v.TimeSlot
+                                    @if (!string.IsNullOrEmpty(v.ResultNotes))
+                                    {
+                                        <span> • @v.ResultNotes</span>
+                                    }
+                                </div>
+                                <div style="margin-top:8px; display:flex; gap:8px;">
+                                    @if (v.Status == LandAgencyMvc.Models.ViewingStatus.Completed && !v.BuyerReadyToBuy)
+                                    {
+                                        <form asp-controller="Client" asp-action="RequestPurchaseFromViewing" method="post" style="display:inline;">
+                                            <input type="hidden" name="userId" value="@userId" />
+                                            <input type="hidden" name="viewingId" value="@v.Id" />
+                                            <button type="submit" class="la-btn la-btn-green" style="padding:5px 12px; font-size:12px;">Подати заявку на купівлю ділянки</button>
+                                        </form>
+                                    }
+                                    @if (v.Status == LandAgencyMvc.Models.ViewingStatus.NewRequest || v.Status == LandAgencyMvc.Models.ViewingStatus.Scheduled)
+                                    {
+                                        <form asp-controller="Client" asp-action="CancelViewingByClient" method="post" style="display:inline;">
+                                            <input type="hidden" name="userId" value="@userId" />
+                                            <input type="hidden" name="viewingId" value="@v.Id" />
+                                            <button type="submit" class="la-btn" style="padding:5px 10px; font-size:12px; background:#fee2e2; color:#dc2626;">Скасувати огляд</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    @foreach (var d in Model.MyDeals)
+                    {
+                        <div style="background:#f0fdf4; border:1.5px solid #22c55e; padding:14px; border-radius:10px; margin-top:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <strong>Угода купівлі №@d.DraftContractNumber (Ділянка @d.LandPlot?.CadastralNumber, @d.LandPlot?.Title)</strong>
+                                <span class="la-badge @d.StatusBadgeClass">@d.StatusDisplayName</span>
+                            </div>
+                            <p style="font-size:12px; color:#475569; margin:6px 0;">
+                                Продавець: @d.LandPlot?.Seller?.FullName • IBAN: @(string.IsNullOrEmpty(d.LandPlot?.SellerBankIban) ? (d.LandPlot?.Seller?.BankDetails ?? "Не вказано") : d.LandPlot.SellerBankIban) • Сума: <strong>$@d.FinalPriceUsd.ToString("N0")</strong> (+ комісія $@d.AgencyCommissionUsd.ToString("N0"))
+                            </p>
+                            <p style="font-size:12px; color:#475569; margin:0 0 10px 0;">
+                                Нотаріус: @d.NotaryOffice • Дата: @d.NotaryDate.ToString("dd.MM.yyyy HH:mm")
+                                @if (!string.IsNullOrEmpty(d.NotarialRegistryNumber))
+                                {
+                                    <span> • Реєстровий №: <strong>@d.NotarialRegistryNumber</strong></span>
+                                }
+                            </p>
+                            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                @if (!d.IsFullyPaid)
+                                {
+                                    <form asp-controller="Client" asp-action="ConfirmPayment" method="post" style="display:inline;">
+                                        <input type="hidden" name="userId" value="@userId" />
+                                        <input type="hidden" name="dealId" value="@d.Id" />
+                                        <button type="submit" class="la-btn la-btn-green" style="padding:7px 14px; font-size:12px;">Підтвердити банківську оплату</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="la-badge la-badge-green">✓ Банківську оплату проведено</span>
+                                }
+                                <a class="la-btn" style="background:#fff; border:1px solid #cbd5e1; color:#0f172a; padding:7px 14px; font-size:12px;" asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" asp-route-userId="@userId" target="_blank">Завантажити квитанцію</a>
+                                <a class="la-btn" style="background:#fff; border:1px solid #cbd5e1; color:#1d4ed8; padding:7px 14px; font-size:12px;" asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" asp-route-userId="@userId" target="_blank">Текст договору</a>
+                            </div>
+                        </div>
+                    }
+
+                    @if (Model.MySellerDeals.Any())
+                    {
+                        <hr />
+                        <h6>Угоди з продажу моїх ділянок:</h6>
+                        @foreach (var sd in Model.MySellerDeals)
+                        {
+                            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:8px; margin-top:8px; font-size:13px;">
+                                <div style="display:flex; justify-content:space-between;">
+                                    <strong>Угода №@sd.DraftContractNumber — Ділянка @sd.LandPlot?.CadastralNumber</strong>
+                                    <span class="la-badge @sd.StatusBadgeClass">@sd.StatusDisplayName</span>
+                                </div>
+                                <div>Покупець: @sd.Buyer?.FullName • Сума: $@sd.FinalPriceUsd.ToString("N0") • Оплата: @(sd.IsFullyPaid ? "Оплачено ✓" : "Очікує оплати")</div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div class="la-card">
+                    <h6>Налаштування профілю, IBAN та зміна пароля</h6>
+                    <form asp-controller="Client" asp-action="ChangePassword" method="post">
+                        <input type="hidden" name="userId" value="@userId" />
+                        <label class="la-label">Мій банківський рахунок IBAN</label>
+                        <input name="bankDetails" value="@Model.CurrentUser?.BankDetails" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+                        <div class="la-grid-2">
+                            <div>
+                                <label class="la-label">Поточний пароль</label>
+                                <input type="password" name="currentPassword" class="la-input" placeholder="Для зміни пароля" />
+                            </div>
+                            <div>
+                                <label class="la-label">Новий пароль</label>
+                                <input type="password" name="newPassword" class="la-input" placeholder="Новий пароль" />
+                            </div>
+                        </div>
+                        <button type="submit" class="la-btn la-btn-dark" style="padding:7px 14px; font-size:12px;">Зберегти зміни профілю</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

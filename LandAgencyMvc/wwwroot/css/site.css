@@ -1,0 +1,208 @@
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100%;
+    background: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.la-window {
+    background: #f8fafc;
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.la-topbar {
+    padding: 16px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    width: 100%;
+}
+
+.la-topbar-client { background: #0f172a; }
+.la-topbar-realtor { background: #1e1b18; }
+.la-topbar-lawyer { background: #1e1b4b; }
+.la-topbar-auth { background: #0f172a; }
+
+.la-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.la-nav-links a {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    transition: 0.15s;
+}
+
+.la-nav-links a:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.la-nav-links a.active {
+    background: #2563eb;
+    color: #fff;
+}
+
+.la-topbar-realtor .la-nav-links a.active {
+    background: #475569;
+    color: #fff;
+}
+
+.la-topbar-lawyer .la-nav-links a.active {
+    background: #6366f1;
+    color: #fff;
+}
+
+.la-body {
+    padding: 32px 40px;
+    background: #f8fafc;
+    flex: 1;
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+}
+
+.la-card {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 16px;
+}
+
+.la-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.la-badge-green { background: #dcfce7; color: #166534; }
+.la-badge-amber { background: #fef3c7; color: #92400e; }
+.la-badge-indigo { background: #e0e7ff; color: #3730a3; }
+.la-badge-red { background: #fee2e2; color: #dc2626; }
+
+.la-alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.la-alert-success {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    color: #166534;
+}
+
+.la-alert-error {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #dc2626;
+}
+
+.la-btn {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: 0.15s;
+}
+
+.la-btn-green { background: #16a34a; color: #fff; }
+.la-btn-green:hover { background: #15803d; color: #fff; }
+.la-btn-amber { background: #d97706; color: #fff; }
+.la-btn-amber:hover { background: #b45309; color: #fff; }
+.la-btn-indigo { background: #6366f1; color: #fff; }
+.la-btn-indigo:hover { background: #4f46e5; color: #fff; }
+.la-btn-blue { background: #0284c7; color: #fff; }
+.la-btn-blue:hover { background: #0369a1; color: #fff; }
+.la-btn-dark { background: #0f172a; color: #fff; }
+.la-btn-dark:hover { background: #1e293b; color: #fff; }
+
+.la-btn-outline {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.la-btn-outline:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.la-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.la-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.la-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.la-label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    color: #334155;
+}
+
+.la-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    margin-top: 4px;
+    margin-bottom: 14px;
+    font-size: 14px;
+    background: #fff;
+}
+
+.la-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.la-table th {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #cbd5e1;
+    font-size: 12px;
+}
+
+.la-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}

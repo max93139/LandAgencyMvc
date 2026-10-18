@@ -1,0 +1,172 @@
+@model IEnumerable<LandAgencyMvc.Models.SaleDeal>
+@{
+    ViewData["Title"] = "Супровід угод та Нотаріат — Панель Рієлтора";
+    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
+    int userId = ViewBag.CurrentUserId is int id ? id : 0;
+    var availablePlots = ViewBag.AvailablePlots as List<LandAgencyMvc.Models.LandPlot> ?? new();
+    var clients = ViewBag.Clients as List<LandAgencyMvc.Models.AppUser> ?? new();
+    int? preselectedPlotId = ViewBag.PreselectedPlotId as int?;
+    int? preselectedBuyerId = ViewBag.PreselectedBuyerId as int?;
+    decimal? preselectedPrice = ViewBag.PreselectedPrice as decimal?;
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-realtor">
+        <div class="la-nav-links">
+            <span class="la-badge la-badge-amber" style="margin-right:8px;">РІЄЛТОР</span>
+            <a asp-controller="Realtor" asp-action="Requests" asp-route-userId="@userId">Запити на підбір</a>
+            <a asp-controller="Realtor" asp-action="Viewings" asp-route-userId="@userId">Черга оглядів</a>
+            <a class="active" asp-controller="Realtor" asp-action="Deals" asp-route-userId="@userId">Угоди та нотаріат</a>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.LicenseNumber)</span>
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+        </div>
+    </div>
+
+    <div class="la-body">
+        @if (TempData["RealtorMessage"] != null)
+        {
+            <div class="la-alert la-alert-success">
+                @TempData["RealtorMessage"]
+            </div>
+        }
+        @if (TempData["RealtorError"] != null)
+        {
+            <div class="la-alert la-alert-error">
+                @TempData["RealtorError"]
+            </div>
+        }
+
+        <div class="la-card">
+            <h5>Підготувати новий проєкт договору купівлі-продажу</h5>
+            <form asp-controller="Realtor" asp-action="CreateDeal" method="post">
+                <input type="hidden" name="userId" value="@userId" />
+                <div class="la-grid-3">
+                    <div>
+                        <label class="la-label">Земельна ділянка</label>
+                        <select name="landPlotId" class="la-input" required>
+                            @if (!availablePlots.Any())
+                            {
+                                <option value="0">-- Немає вільних перевірених ділянок --</option>
+                            }
+                            @foreach (var p in availablePlots)
+                            {
+                                <option value="@p.Id" selected="@(preselectedPlotId == p.Id)">@p.CadastralNumber (@p.AreaHectares га, @p.Title — $@p.PriceUsd.ToString("N0"))</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="la-label">Покупець</label>
+                        <select name="buyerId" class="la-input" required>
+                            @if (!clients.Any())
+                            {
+                                <option value="0">-- Немає зареєстрованих клієнтів --</option>
+                            }
+                            @foreach (var c in clients)
+                            {
+                                <option value="@c.Id" selected="@(preselectedBuyerId == c.Id)">@c.FullName (@c.Phone)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="la-label">Узгоджена сума угоди (USD)</label>
+                        <input name="finalPriceUsd" type="number" value="@preselectedPrice" class="la-input" placeholder="0" required />
+                    </div>
+                </div>
+                <div class="la-grid-3">
+                    <div>
+                        <label class="la-label">Номер проєкту договору</label>
+                        <input name="draftContractNumber" class="la-input" placeholder="Напр. ДГ-2026-108" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Нотаріальна контора</label>
+                        <input name="notaryOffice" class="la-input" placeholder="ПІБ нотаріуса / адреса нотаріальної контори" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Дата і час візиту до нотаріуса</label>
+                        <input name="notaryDate" type="datetime-local" class="la-input" required />
+                    </div>
+                </div>
+                <button type="submit" class="la-btn la-btn-amber">1. Сформувати проєкт угоди та передати юристу на візу</button>
+            </form>
+        </div>
+
+        @foreach (var d in Model)
+        {
+            <div class="la-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h5 style="margin:0;">Картка угоди №@d.DraftContractNumber</h5>
+                    <span class="la-badge @d.StatusBadgeClass">@d.StatusDisplayName</span>
+                </div>
+
+                <p style="font-size:13px; color:#334155; margin:8px 0 4px 0;">
+                    <strong>Ділянка:</strong> @d.LandPlot?.CadastralNumber (@d.LandPlot?.AreaHectares га, @d.LandPlot?.Title)<br />
+                    <strong>Продавець:</strong> @d.LandPlot?.Seller?.FullName • <strong>Покупець:</strong> @d.Buyer?.FullName<br />
+                    <strong>Ціна угоди:</strong> $@d.FinalPriceUsd.ToString("N0") • <strong>Комісія агентства (3%):</strong> $@d.AgencyCommissionUsd.ToString("N0") •
+                    <strong>Оплата:</strong> @(d.IsFullyPaid ? "Підтверджено ✓" : "Очікує оплати")
+                </p>
+                @if (!string.IsNullOrEmpty(d.LawyerApprovalNotes))
+                {
+                    <p style="font-size:12px; color:#4338ca; margin:4px 0 10px 0;"><strong>Віза юриста:</strong> @d.LawyerApprovalNotes</p>
+                }
+
+                <div style="margin-top:10px;">
+                    <strong style="font-size:12px; display:block; margin-bottom:6px;">Управління етапами оформлення:</strong>
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                        <form asp-controller="Realtor" asp-action="SendDealToLawyer" method="post" style="display:inline;">
+                            <input type="hidden" name="userId" value="@userId" />
+                            <input type="hidden" name="dealId" value="@d.Id" />
+                            <button type="submit" class="la-btn la-btn-indigo" style="padding:7px 14px; font-size:12px;">1. Передати юристу на візу</button>
+                        </form>
+
+                        <form asp-controller="Realtor" asp-action="SignDealAtNotary" method="post" style="display:inline-flex; gap:6px; align-items:center;">
+                            <input type="hidden" name="userId" value="@userId" />
+                            <input type="hidden" name="dealId" value="@d.Id" />
+                            <input name="notarialRegistryNumber" value="@d.NotarialRegistryNumber" class="la-input" style="margin:0; padding:6px 10px; font-size:12px; width:170px;" placeholder="Реєстровий № нотаріуса" />
+                            <button type="submit" class="la-btn la-btn-blue" style="padding:7px 14px; font-size:12px;">2. Підтвердити підпис у нотаріуса</button>
+                        </form>
+
+                        <form asp-controller="Realtor" asp-action="CompleteNotaryDeal" method="post" style="display:inline;">
+                            <input type="hidden" name="userId" value="@userId" />
+                            <input type="hidden" name="dealId" value="@d.Id" />
+                            <input type="hidden" name="notarialRegistryNumber" value="@d.NotarialRegistryNumber" />
+                            <button type="submit" class="la-btn la-btn-green" style="padding:7px 14px; font-size:12px;">3. Зареєструвати право в ДРРП</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div style="margin-top:12px; font-size:13px;">
+                    <a asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" asp-route-userId="@userId" target="_blank" style="color:#1d4ed8; font-weight:700; text-decoration:none;">Друкована форма договору (PDF)</a>
+                    <span style="margin:0 8px; color:#94a3b8;">•</span>
+                    <a asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" asp-route-userId="@userId" target="_blank" style="color:#1d4ed8; font-weight:700; text-decoration:none;">Квитанція на оплату</a>
+                </div>
+            </div>
+        }
+
+        <div class="la-card">
+            <h5>Реєстр угод агентства</h5>
+            <table class="la-table">
+                <thead>
+                    <tr>
+                        <th>№ ДОГОВОРУ</th>
+                        <th>КАДАСТРОВИЙ №</th>
+                        <th>СУМА / КОМІСІЯ</th>
+                        <th>СТАТУС УГОДИ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in Model)
+                    {
+                        <tr>
+                            <td><strong>@d.DraftContractNumber</strong></td>
+                            <td>@d.LandPlot?.CadastralNumber</td>
+                            <td><strong>$@d.FinalPriceUsd.ToString("N0")</strong> (комісія $@d.AgencyCommissionUsd.ToString("N0"))</td>
+                            <td><span style="color:#1d4ed8; font-weight:700;">@d.StatusDisplayName</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

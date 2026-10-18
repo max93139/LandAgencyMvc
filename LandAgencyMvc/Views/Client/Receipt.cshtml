@@ -1,0 +1,73 @@
+@model LandAgencyMvc.Models.SaleDeal
+@{
+    ViewData["Title"] = $"Квитанція про оплату — Угода {Model.DraftContractNumber}";
+}
+
+<div class="la-window">
+    <div class="la-body" style="max-width:820px; margin:0 auto;">
+        <div class="la-card" style="border:2px solid #0f172a; padding:32px;">
+            <div style="display:flex; justify-content:space-between; align-items:start; border-bottom:2px solid #e2e8f0; padding-bottom:16px; margin-bottom:20px;">
+                <div>
+                    <h4 style="margin:0;">БАНКІВСЬКА КВИТАНЦІЯ ЗА ДОГОВОРОМ КУПІВЛІ-ПРОДАЖУ</h4>
+                    <p class="text-muted" style="margin:4px 0 0 0; font-size:13px;">Договір № @Model.DraftContractNumber від @Model.NotaryDate.ToString("dd.MM.yyyy") • LandAgency UA</p>
+                </div>
+                <span class="la-badge @(Model.IsFullyPaid ? "la-badge-green" : "la-badge-amber")" style="font-size:14px; padding:6px 14px;">
+                    @(Model.IsFullyPaid ? "✓ ОПЛАЧЕНО" : "РАХУНОК ДО СПЛАТИ")
+                </span>
+            </div>
+
+            <div class="la-grid-2" style="margin-bottom:20px; font-size:14px;">
+                <div>
+                    <strong>Платник (Покупець):</strong><br />
+                    ПІБ: @Model.Buyer?.FullName<br />
+                    РНОКПП (ІПН): @Model.Buyer?.TaxId<br />
+                    Телефон: @Model.Buyer?.Phone
+                </div>
+                <div>
+                    <strong>Одержувач (Продавець ділянки):</strong><br />
+                    ПІБ: @Model.LandPlot?.Seller?.FullName<br />
+                    РНОКПП (ІПН): @Model.LandPlot?.Seller?.TaxId<br />
+                    IBAN: @(string.IsNullOrEmpty(Model.LandPlot?.SellerBankIban) ? (Model.LandPlot?.Seller?.BankDetails ?? "Не вказано") : Model.LandPlot.SellerBankIban)
+                </div>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:14px; margin-bottom:20px; font-size:14px;">
+                <strong>Призначення платежу:</strong> Оплата за земельну ділянку з кадастровим номером <strong>@Model.LandPlot?.CadastralNumber</strong> (площа @Model.LandPlot?.AreaHectares га, @Model.LandPlot?.Location) згідно з договором купівлі-продажу №@Model.DraftContractNumber.
+            </div>
+
+            <table class="la-table" style="margin-bottom:20px;">
+                <thead>
+                    <tr>
+                        <th>№ Квитанції</th>
+                        <th>Призначення транзакції</th>
+                        <th>Рахунок одержувача (IBAN)</th>
+                        <th>Сума (USD)</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Payments)
+                    {
+                        <tr>
+                            <td><strong>@p.ReceiptNumber</strong></td>
+                            <td>@p.PaymentType</td>
+                            <td><code>@p.RecipientIban</code></td>
+                            <td><strong>$@p.AmountUsd.ToString("N2")</strong></td>
+                            <td>@(p.IsPaid ? $"Проведено ({p.PaymentDate:dd.MM.yyyy HH:mm})" : "Очікує проведення")</td>
+                        </tr>
+                    }
+                    <tr style="background:#f1f5f9; font-weight:700;">
+                        <td colspan="3">РАЗОМ ЗА УГОДОЮ:</td>
+                        <td>$@Model.TotalAmountUsd.ToString("N2")</td>
+                        <td>@(Model.IsFullyPaid ? "Виконано в повному обсязі" : "До сплати")</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
+                <button onclick="window.print()" class="la-btn la-btn-dark">Друкувати / Зберегти у PDF</button>
+                <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@Model.BuyerId" style="color:#15803d; font-weight:700; text-decoration:none;">← Повернутися до кабінету</a>
+            </div>
+        </div>
+    </div>
+</div>

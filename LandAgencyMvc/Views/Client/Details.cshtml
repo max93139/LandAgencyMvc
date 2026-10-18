@@ -1,0 +1,148 @@
+@model LandAgencyMvc.Models.LandPlot
+@{
+    ViewData["Title"] = $"{Model.Title} — LandAgency UA";
+    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
+    int userId = ViewBag.CurrentUserId is int id ? id : 0;
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-client">
+        <div class="la-nav-links">
+            <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
+            <a class="active" asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">← Назад до каталогу</a>
+            <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId">Мій кабінет (Оголошення / Угоди)</a>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot" asp-route-userId="@userId">+ Виставити ділянку</a>
+            <span style="font-size:13px; opacity:0.9;">@currentUser?.FullName</span>
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+        </div>
+    </div>
+
+    <div class="la-body">
+        @if (TempData["DetailsError"] != null)
+        {
+            <div class="la-alert la-alert-error">
+                @TempData["DetailsError"]
+            </div>
+        }
+        <div class="la-grid-2">
+            <div class="la-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="la-badge la-badge-green">✓ Перевірено ДЗК</span>
+                    <h3 style="color:#1d4ed8; margin:0; font-weight:800;">$@Model.PriceUsd.ToString("N0")</h3>
+                </div>
+
+                <h4 style="margin-top:12px; margin-bottom:4px;">@Model.Title (@Model.AreaHectares га)</h4>
+                <p class="text-muted" style="font-size:13px; margin-bottom:14px;">Кадастровий №: <strong>@Model.CadastralNumber</strong></p>
+
+                <table class="la-table" style="margin-bottom:14px;">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted" style="width:42%;">Власник (Продавець):</td>
+                            <td><strong>@Model.Seller?.FullName</strong> (@Model.Seller?.Phone)</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Адреса розташування:</td>
+                            <td>@Model.Location</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Площа ділянки:</td>
+                            <td><strong>@Model.AreaHectares га</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Цільове призначення:</td>
+                            <td><strong>@Model.Purpose</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Юридичний висновок:</td>
+                            <td>
+                                @if (Model.LegalConclusion != null)
+                                {
+                                    <span style="color:#15803d; font-weight:700;">
+                                        №@Model.LegalConclusion.ConclusionNumber (@Model.LegalConclusion.RiskLevel)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span>Пройдено первинний контроль</span>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Рієлтор об'єкта:</td>
+                            <td>
+                                @if (Model.AssignedRealtor != null)
+                                {
+                                    <strong>@Model.AssignedRealtor.FullName (@Model.AssignedRealtor.Phone, ліц. @Model.AssignedRealtor.LicenseNumber)</strong>
+                                }
+                                else
+                                {
+                                    <span>Черговий рієлтор агентства</span>
+                                }
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:14px;">
+                    <strong style="font-size:13px;">Опис ділянки:</strong>
+                    <p style="color:#334155; font-size:13px; margin:6px 0 0 0;">@Model.Description</p>
+                </div>
+
+                @if (Model.Documents.Any())
+                {
+                    <div>
+                        <strong style="font-size:13px; display:block; margin-bottom:6px;">Правовстановлюючі документи ділянки (Перевірено):</strong>
+                        @foreach (var doc in Model.Documents)
+                        {
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:12px;">
+                                <div>
+                                    <strong>@doc.Title</strong> (@doc.DocType №@doc.DocumentNumber від @doc.IssueDate.ToString("dd.MM.yyyy"))
+                                    @if (doc.IsSignedByKep)
+                                    {
+                                        <span class="la-badge la-badge-green" style="margin-left:6px;">✓ @doc.KepSignatureHash</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(doc.FileUrl))
+                                {
+                                    <a href="@doc.FileUrl" target="_blank" style="color:#15803d; font-weight:700; text-decoration:none;">Переглянути файл ↗</a>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="la-card">
+                <h5>Записатися на огляд</h5>
+                @if (Model.SellerId == userId)
+                {
+                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:14px; font-size:13px;">
+                        Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId" style="color:#1d4ed8; font-weight:700;">Мій кабінет</a>.
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted" style="font-size:13px; margin-bottom:16px;">Оберіть зручний час виїзду на ділянку для огляду межових знаків, комунікацій та оригіналів документів з рієлтором</p>
+
+                    <form asp-controller="Client" asp-action="CreateViewing" method="post">
+                        <input type="hidden" name="userId" value="@userId" />
+                        <input type="hidden" name="landPlotId" value="@Model.Id" />
+
+                        <label class="la-label">Бажана дата огляду</label>
+                        <input type="date" name="preferredDate" class="la-input" required />
+
+                        <label class="la-label">Бажаний час</label>
+                        <input name="timeSlot" type="time" class="la-input" required />
+
+                        <label class="la-label">Коментар для рієлтора</label>
+                        <textarea name="comment" rows="3" class="la-input" placeholder="Вкажіть побажання щодо огляду межових знаків, під'їзної дороги чи комунікацій"></textarea>
+
+                        <button type="submit" class="la-btn la-btn-blue" style="width:100%;">Подати заявку на огляд</button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>

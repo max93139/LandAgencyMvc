@@ -1,0 +1,121 @@
+@model IEnumerable<LandAgencyMvc.Models.LandPlot>
+@{
+    ViewData["Title"] = "Статистика та Черга перевірки ДЗК — Панель Юриста";
+    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
+    int userId = ViewBag.CurrentUserId is int id ? id : 0;
+
+    int totalCount = ViewBag.TotalPlotsCount is int tc ? tc : 0;
+    int verifiedCount = ViewBag.VerifiedPlotsCount is int vc ? vc : 0;
+    int pendingCount = ViewBag.PendingPlotsCount is int pc ? pc : 0;
+    int rejectedCount = ViewBag.RejectedPlotsCount is int rc ? rc : 0;
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-lawyer">
+        <div class="la-nav-links">
+            <span class="la-badge la-badge-indigo" style="margin-right:8px;">ЮРИСТ</span>
+            <a class="active" asp-controller="Lawyer" asp-action="Queue" asp-route-userId="@userId">Черга перевірки ДЗК</a>
+            <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-userId="@userId">Юридичний висновок</a>
+            <a asp-controller="Lawyer" asp-action="Contracts" asp-route-userId="@userId">Погодження договорів</a>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.CertificateNumber)</span>
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+        </div>
+    </div>
+
+    <div class="la-body">
+        @if (TempData["LawyerMessage"] != null)
+        {
+            <div class="la-alert la-alert-success">
+                @TempData["LawyerMessage"]
+            </div>
+        }
+        @if (TempData["LawyerError"] != null)
+        {
+            <div class="la-alert la-alert-error">
+                @TempData["LawyerError"]
+            </div>
+        }
+
+        <div class="la-grid-4" style="margin-bottom:20px;">
+            <div class="la-card" style="margin-bottom:0;">
+                <span class="text-muted" style="font-size:12px; font-weight:700;">УСЬОГО В РЕЄСТРІ</span>
+                <h2 style="margin:6px 0 0 0; color:#0f172a; font-weight:800;">@totalCount</h2>
+            </div>
+            <div class="la-card" style="margin-bottom:0;">
+                <span class="text-muted" style="font-size:12px; font-weight:700;">ПЕРЕВІРЕНО ДЗК</span>
+                <h2 style="margin:6px 0 0 0; color:#16a34a; font-weight:800;">@verifiedCount</h2>
+            </div>
+            <div class="la-card" style="margin-bottom:0;">
+                <span class="text-muted" style="font-size:12px; font-weight:700;">ОЧІКУЮТЬ АУДИТУ</span>
+                <h2 style="margin:6px 0 0 0; color:#d97706; font-weight:800;">@pendingCount</h2>
+            </div>
+            <div class="la-card" style="margin-bottom:0;">
+                <span class="text-muted" style="font-size:12px; font-weight:700;">ВІДХИЛЕНО (АРЕШТ)</span>
+                <h2 style="margin:6px 0 0 0; color:#dc2626; font-weight:800;">@rejectedCount</h2>
+            </div>
+        </div>
+
+        <div class="la-card">
+            <h4>Черга нових ділянок на перевірку в ДЗК та ДРРП</h4>
+            @if (!Model.Any())
+            {
+                <p class="text-muted" style="margin:0;">У черзі наразі немає земельних ділянок.</p>
+            }
+            else
+            {
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>КАДАСТРОВИЙ №</th>
+                            <th>ВЛАСНИК / ДОКУМЕНТ</th>
+                            <th>СТАТУС</th>
+                            <th>ДІЯ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model)
+                        {
+                            var firstDoc = p.Documents.FirstOrDefault();
+                            <tr>
+                                <td><strong>@p.CadastralNumber</strong></td>
+                                <td>
+                                    <strong>@p.Seller?.FullName (@p.AreaHectares га, @p.Title)</strong><br />
+                                    @if (p.Status == LandAgencyMvc.Models.PlotStatus.RejectedByLawyer)
+                                    {
+                                        <small style="color:#dc2626; font-weight:600;">@(p.LegalConclusion?.ConclusionText ?? "Виявлено обтяження в ДРРП")</small>
+                                    }
+                                    else if (p.LegalConclusion != null)
+                                    {
+                                        <small class="text-muted">Висновок №@p.LegalConclusion.ConclusionNumber • Документ №@p.OwnershipDocNumber</small>
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted">
+                                            @(firstDoc != null ? $"{firstDoc.DocType} №{firstDoc.DocumentNumber}" : $"Документ №{p.OwnershipDocNumber}")
+                                            @(firstDoc?.IsSignedByKep == true ? "(КЕП ✓)" : "")
+                                        </small>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="la-badge @p.StatusBadgeClass">@p.StatusDisplayName</span>
+                                </td>
+                                <td>
+                                    @if (p.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)
+                                    {
+                                        <a class="la-btn la-btn-indigo" style="padding:7px 14px; font-size:12px;" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@p.Id" asp-route-userId="@userId">Скласти висновок →</a>
+                                    }
+                                    else
+                                    {
+                                        <a class="la-btn" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; padding:7px 14px; font-size:12px;" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@p.Id" asp-route-userId="@userId">Переглянути акт</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>

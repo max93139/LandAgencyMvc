@@ -1,0 +1,124 @@
+@model IEnumerable<LandAgencyMvc.Models.ViewingRequest>
+@{
+    ViewData["Title"] = "Черга заявок на виїзний огляд — Панель Рієлтора";
+    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
+    int userId = ViewBag.CurrentUserId is int id ? id : 0;
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-realtor">
+        <div class="la-nav-links">
+            <span class="la-badge la-badge-amber" style="margin-right:8px;">РІЄЛТОР</span>
+            <a asp-controller="Realtor" asp-action="Requests" asp-route-userId="@userId">Запити на підбір</a>
+            <a class="active" asp-controller="Realtor" asp-action="Viewings" asp-route-userId="@userId">Черга оглядів</a>
+            <a asp-controller="Realtor" asp-action="Deals" asp-route-userId="@userId">Угоди та нотаріат</a>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.LicenseNumber)</span>
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+        </div>
+    </div>
+
+    <div class="la-body">
+        @if (TempData["RealtorMessage"] != null)
+        {
+            <div class="la-alert la-alert-success">
+                @TempData["RealtorMessage"]
+            </div>
+        }
+        @if (TempData["RealtorError"] != null)
+        {
+            <div class="la-alert la-alert-error">
+                @TempData["RealtorError"]
+            </div>
+        }
+
+        <h4 style="margin-bottom:16px;">Черга заявок на виїзний огляд земельних ділянок</h4>
+
+        @if (!Model.Any())
+        {
+            <div class="la-card">
+                <p class="text-muted" style="margin:0;">Заявок на виїзний огляд ділянок наразі немає.</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var v in Model)
+            {
+                <div class="la-card" style="@(v.Status == LandAgencyMvc.Models.ViewingStatus.NewRequest ? "border:1.5px solid #f59e0b;" : "")">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h5 style="margin:0;">Заявка на огляд №@v.Id — Ділянка @v.LandPlot?.CadastralNumber (@v.LandPlot?.Title)</h5>
+                        <span class="la-badge @v.StatusBadgeClass">@v.StatusDisplayName</span>
+                    </div>
+
+                    <p style="font-size:13px; color:#334155; margin:8px 0 4px 0;">
+                        <strong>Покупець:</strong> @v.Buyer?.FullName (@v.Buyer?.Phone) •
+                        <strong>Продавець:</strong> @v.LandPlot?.Seller?.FullName •
+                        <strong>Ціна ділянки:</strong> $@v.LandPlot?.PriceUsd.ToString("N0")
+                    </p>
+                    <p style="font-size:13px; color:#475569; margin:0 0 8px 0;">
+                        <strong>Дата та час виїзду:</strong> <code style="background:#f1f5f9; padding:3px 8px; border-radius:6px; color:#0f172a;">@v.PreferredDate.ToString("dd.MM.yyyy") @v.TimeSlot</code>
+                        @if (!string.IsNullOrEmpty(v.Comment))
+                        {
+                            <span> • Коментар покупця: «@v.Comment»</span>
+                        }
+                    </p>
+                    @if (!string.IsNullOrEmpty(v.ResultNotes))
+                    {
+                        <p style="font-size:12px; color:#15803d; margin:0 0 10px 0; font-weight:600;">Результат огляду: @v.ResultNotes</p>
+                    }
+
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+                        @if (v.Status == LandAgencyMvc.Models.ViewingStatus.NewRequest)
+                        {
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                                <input type="hidden" name="userId" value="@userId" />
+                                <input type="hidden" name="viewingId" value="@v.Id" />
+                                <input type="hidden" name="status" value="Scheduled" />
+                                <button type="submit" class="la-btn la-btn-green" style="padding:8px 16px; font-size:13px;">✓ Підтвердити огляд</button>
+                            </form>
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                                <input type="hidden" name="userId" value="@userId" />
+                                <input type="hidden" name="viewingId" value="@v.Id" />
+                                <input type="hidden" name="status" value="Completed" />
+                                <button type="submit" class="la-btn la-btn-amber" style="padding:8px 16px; font-size:13px;">Огляд проведено (Клієнт купує)</button>
+                            </form>
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                                <input type="hidden" name="userId" value="@userId" />
+                                <input type="hidden" name="viewingId" value="@v.Id" />
+                                <input type="hidden" name="status" value="Cancelled" />
+                                <button type="submit" class="la-btn" style="background:#fee2e2; color:#dc2626; padding:8px 16px; font-size:13px;">✕ Скасувати</button>
+                            </form>
+                        }
+                        else if (v.Status == LandAgencyMvc.Models.ViewingStatus.Scheduled)
+                        {
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                                <input type="hidden" name="userId" value="@userId" />
+                                <input type="hidden" name="viewingId" value="@v.Id" />
+                                <input type="hidden" name="status" value="Completed" />
+                                <button type="submit" class="la-btn la-btn-green" style="padding:8px 16px; font-size:13px;">✓ Провести огляд (Ділянка підходить)</button>
+                            </form>
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline-flex; gap:6px; align-items:center;">
+                                <input type="hidden" name="userId" value="@userId" />
+                                <input type="hidden" name="viewingId" value="@v.Id" />
+                                <input type="hidden" name="status" value="PlotRejectedByBuyer" />
+                                <input name="resultNotes" class="la-input" style="margin:0; padding:6px 10px; font-size:12px; width:210px;" placeholder="Зауваження покупця" />
+                                <button type="submit" class="la-btn" style="background:#fef3c7; color:#92400e; padding:8px 12px; font-size:12px;">Не підійшла (Зафіксувати зауваження)</button>
+                            </form>
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                                <input type="hidden" name="userId" value="@userId" />
+                                <input type="hidden" name="viewingId" value="@v.Id" />
+                                <input type="hidden" name="status" value="Cancelled" />
+                                <button type="submit" class="la-btn" style="background:#fee2e2; color:#dc2626; padding:8px 14px; font-size:12px;">✕ Скасувати</button>
+                            </form>
+                        }
+                        else if (v.Status == LandAgencyMvc.Models.ViewingStatus.Completed)
+                        {
+                            <a class="la-btn la-btn-blue" style="padding:8px 18px; font-size:13px;" asp-controller="Realtor" asp-action="Deals" asp-route-userId="@userId" asp-route-plotId="@v.LandPlotId" asp-route-buyerId="@v.BuyerId">Створити проєкт угоди продажу →</a>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>

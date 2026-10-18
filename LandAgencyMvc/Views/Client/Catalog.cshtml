@@ -1,0 +1,141 @@
+@model IEnumerable<LandAgencyMvc.Models.LandPlot>
+@{
+    ViewData["Title"] = "Каталог земельних ділянок — LandAgency UA";
+    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
+    int userId = ViewBag.CurrentUserId is int id ? id : 0;
+    string filterPurpose = ViewBag.FilterPurpose as string ?? string.Empty;
+    decimal? filterMaxBudget = ViewBag.FilterMaxBudget as decimal?;
+    double? filterMinArea = ViewBag.FilterMinArea as double?;
+    string filterSearch = ViewBag.FilterSearch as string ?? string.Empty;
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-client">
+        <div class="la-nav-links">
+            <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
+            <a class="active" asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">Каталог ділянок</a>
+            <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId">Мій кабінет (Оголошення / Угоди)</a>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot" asp-route-userId="@userId">+ Виставити ділянку</a>
+            <span style="font-size:13px; opacity:0.9;">@currentUser?.FullName</span>
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+        </div>
+    </div>
+
+    <div class="la-body">
+        @if (TempData["CabinetError"] != null)
+        {
+            <div class="la-alert la-alert-error">
+                @TempData["CabinetError"]
+            </div>
+        }
+        <div class="la-card" style="padding:16px 20px; margin-bottom:20px;">
+            <form asp-controller="Client" asp-action="Catalog" method="get" style="display:grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr auto; gap:12px; align-items:end;">
+                <input type="hidden" name="userId" value="@userId" />
+                <div>
+                    <label class="la-label">Цільове призначення</label>
+                    <select name="purpose" class="la-input" style="margin-bottom:0;">
+                        <option value="">Усі цільові призначення</option>
+                        <option value="02.01" selected="@(filterPurpose == "02.01")">02.01 Житлова та громадська забудова</option>
+                        <option value="01.01" selected="@(filterPurpose == "01.01")">01.01 Товарне сільське господарство</option>
+                        <option value="01.03" selected="@(filterPurpose == "01.03")">01.03 Особисте селянське господарство</option>
+                        <option value="03.07" selected="@(filterPurpose == "03.07")">03.07 Комерційне призначення / Торгівля</option>
+                        <option value="01.05" selected="@(filterPurpose == "01.05")">01.05 Індивідуальне садівництво</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="la-label">Макс. бюджет ($)</label>
+                    <input name="maxBudget" type="number" value="@filterMaxBudget" class="la-input" style="margin-bottom:0;" placeholder="Без обмежень" />
+                </div>
+                <div>
+                    <label class="la-label">Мін. площа (га)</label>
+                    <input name="minArea" type="number" step="0.01" value="@filterMinArea" class="la-input" style="margin-bottom:0;" placeholder="Від 0.01" />
+                </div>
+                <div>
+                    <label class="la-label">Пошук за локацією / кадастром</label>
+                    <input name="search" value="@filterSearch" class="la-input" style="margin-bottom:0;" placeholder="Населений пункт або кадастр" />
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="submit" class="la-btn la-btn-dark">Знайти</button>
+                    @if (!string.IsNullOrEmpty(filterPurpose) || filterMaxBudget.HasValue || filterMinArea.HasValue || !string.IsNullOrEmpty(filterSearch))
+                    {
+                        <a class="la-btn" style="background:#e2e8f0; color:#334155;" asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">Скинути</a>
+                    }
+                </div>
+            </form>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <div>
+                <h4 style="margin:0;">Каталог перевірених земельних ділянок</h4>
+                <span class="text-muted" style="font-size:14px;">Усі ділянки в каталозі пройшли юридичний аудит у ДЗК та ДРРП</span>
+            </div>
+            <span class="la-badge la-badge-green">Знайдено пропозицій: @Model.Count()</span>
+        </div>
+
+        @if (!Model.Any())
+        {
+            <div class="la-card">
+                <p class="text-muted" style="margin:0;">За вибраними критеріями перевірених ділянок у каталозі наразі немає. Ви можете виставити власну ділянку або залишити запит на індивідуальний підбір для рієлтора нижче.</p>
+            </div>
+        }
+        else
+        {
+            <div class="la-grid-2">
+                @foreach (var plot in Model)
+                {
+                    <div class="la-card">
+                        <div style="display:flex; justify-content:space-between; align-items:start;">
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <span class="la-badge la-badge-green">✓ Перевірено ДЗК</span>
+                                @if (plot.LegalConclusion != null && !string.IsNullOrEmpty(plot.LegalConclusion.ConclusionNumber))
+                                {
+                                    <span class="la-badge la-badge-indigo">Висновок №@plot.LegalConclusion.ConclusionNumber</span>
+                                }
+                            </div>
+                            <strong style="font-size:22px; color:#15803d;">$@plot.PriceUsd.ToString("N0")</strong>
+                        </div>
+                        <h5 style="margin-top:12px; margin-bottom:6px;">@plot.Title (@plot.AreaHectares га)</h5>
+                        <p class="text-muted" style="margin-bottom:4px; font-size:13px;">Кадастр: <strong>@plot.CadastralNumber</strong></p>
+                        <p class="text-muted" style="margin-bottom:4px; font-size:13px;">Призначення: @plot.Purpose</p>
+                        <p style="margin-bottom:8px; font-size:14px;">📍 @plot.Location • Власник: <strong>@plot.Seller?.FullName</strong></p>
+                        <p style="font-size:13px; color:#475569; margin-bottom:14px;">@plot.Description</p>
+                        <a class="la-btn la-btn-dark" style="width:100%; text-align:center;" asp-controller="Client" asp-action="Details" asp-route-id="@plot.Id" asp-route-userId="@userId">Детальніше та запис на огляд →</a>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="la-card" style="margin-top:20px;">
+            <h5>Замовити індивідуальний підбір ділянки рієлтором</h5>
+            <p class="text-muted" style="font-size:13px; margin-bottom:12px;">Вкажіть бажані параметри земельної ділянки — рієлтор агентства підбере відповідні варіанти</p>
+            <form asp-controller="Client" asp-action="CreateSelectionRequest" method="post">
+                <input type="hidden" name="userId" value="@userId" />
+                <div class="la-grid-3">
+                    <div>
+                        <label class="la-label">Бажаний район або населений пункт</label>
+                        <input name="desiredDistrict" class="la-input" placeholder="Вкажіть район або громаду" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Мінімальна площа (га)</label>
+                        <input name="minAreaHa" type="number" step="0.01" class="la-input" placeholder="0.00" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Максимальний бюджет (USD)</label>
+                        <input name="maxBudgetUsd" type="number" class="la-input" placeholder="0" required />
+                    </div>
+                </div>
+                <label class="la-label">Цільове призначення</label>
+                <select name="purpose" class="la-input" required>
+                    <option value="02.01 Житлова забудова">02.01 Для будівництва і обслуговування житлового будинку</option>
+                    <option value="01.01 Товарне сільське господарство">01.01 Для ведення товарного сільськогосподарського виробництва</option>
+                    <option value="01.03 Особисте селянське господарство">01.03 Для ведення особистого селянського господарства</option>
+                    <option value="03.07 Комерційне призначення">03.07 Для будівництва та обслуговування об'єктів торгівлі</option>
+                    <option value="01.05 Індивідуальне садівництво">01.05 Для індивідуального садівництва</option>
+                </select>
+                <button type="submit" class="la-btn la-btn-green">Подати запит на підбір рієлтору</button>
+            </form>
+        </div>
+    </div>
+</div>

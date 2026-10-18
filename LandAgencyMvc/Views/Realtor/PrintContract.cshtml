@@ -1,0 +1,64 @@
+@model LandAgencyMvc.Models.SaleDeal
+@{
+    ViewData["Title"] = $"Договір купівлі-продажу №{Model.DraftContractNumber}";
+}
+
+<div class="la-window">
+    <div class="la-body" style="max-width:860px; margin:0 auto;">
+        <div class="la-card" style="border:2px solid #0f172a; padding:36px; line-height:1.6;">
+            <div style="text-align:center; border-bottom:2px solid #cbd5e1; padding-bottom:16px; margin-bottom:20px;">
+                <h4 style="margin:0;">ДОГОВІР КУПІВЛІ-ПРОДАЖУ ЗЕМЕЛЬНОЇ ДІЛЯНКИ № @Model.DraftContractNumber</h4>
+                <p class="text-muted" style="margin:4px 0 0 0; font-size:13px;">Посвідчується нотаріально відповідно до ст. 132 Земельного кодексу України</p>
+            </div>
+
+            <p><strong>Дата та місце укладення:</strong> @Model.NotaryDate.ToString("dd.MM.yyyy") р., @Model.NotaryOffice</p>
+
+            <h6>1. СТОРОНИ ДОГОВОРУ</h6>
+            <p>
+                <strong>ПРОДАВЕЦЬ:</strong> Громадянин(ка) України <strong>@Model.LandPlot?.Seller?.FullName</strong>, РНОКПП: <strong>@Model.LandPlot?.Seller?.TaxId</strong>, тел.: @Model.LandPlot?.Seller?.Phone, банківський рахунок IBAN: <code>@Model.LandPlot?.SellerBankIban</code>, з однієї сторони, та<br />
+                <strong>ПОКУПЕЦЬ:</strong> Громадянин(ка) України <strong>@Model.Buyer?.FullName</strong>, РНОКПП: <strong>@Model.Buyer?.TaxId</strong>, тел.: @Model.Buyer?.Phone, з іншої сторони, уклали цей Договір про наступне:
+            </p>
+
+            <h6>2. ПРЕДМЕТ ДОГОВОРУ</h6>
+            <p>
+                2.1. Продавець передає у власність Покупця, а Покупець приймає у власність земельну ділянку:<br />
+                • <strong>Кадастровий номер:</strong> @Model.LandPlot?.CadastralNumber<br />
+                • <strong>Площа земельної ділянки:</strong> @Model.LandPlot?.AreaHectares га<br />
+                • <strong>Цільове призначення:</strong> @Model.LandPlot?.Purpose<br />
+                • <strong>Місце розташування:</strong> @Model.LandPlot?.Location<br />
+                • <strong>Правовстановлюючий документ Продавця:</strong> @Model.LandPlot?.OwnershipDocNumber
+            </p>
+
+            <h6>3. ЦІНА ДОГОВОРУ ТА ПОРЯДОК РОЗРАХУНКІВ</h6>
+            <p>
+                3.1. За домовленістю Сторін продаж земельної ділянки вчиняється за узгоджену суму в еквіваленті <strong>$@Model.FinalPriceUsd.ToString("N2") USD</strong>.<br />
+                3.2. Комісійна винагорода агентства нерухомості складає <strong>$@Model.AgencyCommissionUsd.ToString("N2") USD</strong> (3%).
+            </p>
+
+            <h6>4. ВІДОМОСТІ ПРО ЮРИДИЧНУ ПЕРЕВІРКУ ТА ВІДСУТНІСТЬ ОБТЯЖЕНЬ</h6>
+            <p>
+                4.1. Юридичний аудит проведено юристом агентства (@Model.Lawyer?.FullName, свідоцтво №@Model.Lawyer?.CertificateNumber).<br />
+                4.2. Реєстраційний номер юридичного висновку: <strong>@(Model.LandPlot?.LegalConclusion?.ConclusionNumber ?? "Перевірено в ДЗК")</strong>.<br />
+                4.3. Віза юриста: <em>@(string.IsNullOrEmpty(Model.LawyerApprovalNotes) ? "Договір відповідає вимогам Земельного кодексу України." : Model.LawyerApprovalNotes)</em><br />
+                @if (!string.IsNullOrEmpty(Model.NotarialRegistryNumber))
+                {
+                    <span>4.4. Номер у реєстрі для реєстрації нотаріальних дій та ДРРП: <strong>@Model.NotarialRegistryNumber</strong>.</span>
+                }
+            </p>
+
+            <div style="display:flex; justify-content:space-between; margin-top:32px; padding-top:16px; border-top:1px solid #cbd5e1;">
+                <div>
+                    <strong>ПРОДАВЕЦЬ:</strong> ________________ / @Model.LandPlot?.Seller?.FullName /
+                </div>
+                <div>
+                    <strong>ПОКУПЕЦЬ:</strong> ________________ / @Model.Buyer?.FullName /
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:28px;">
+                <button onclick="window.print()" class="la-btn la-btn-dark">Друкувати договір</button>
+                <a asp-controller="Realtor" asp-action="Deals" style="color:#b45309; font-weight:700; text-decoration:none;">← Повернутися до панелі угод</a>
+            </div>
+        </div>
+    </div>
+</div>

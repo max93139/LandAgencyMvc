@@ -1,0 +1,13 @@
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.DS_Store
+.idea/
+*.db
+*.db-shm
+*.db-wal
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep
