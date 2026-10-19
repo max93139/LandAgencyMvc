@@ -118,6 +118,70 @@ public class CadastralValidationServiceTests : IDisposable
         Assert.Equal("https://opendatabot.ua/c/3221884000:03:001:0120", openDataBot);
     }
 
+    [Fact]
+    public async Task DzkRegistrySimulator_DetectsArrestsAndServitudes_Correctly()
+    {
+        var cleanPlot = new LandPlot
+        {
+            Id = 1,
+            CadastralNumber = "3221884000:03:001:0120",
+            Title = "Чиста ділянка",
+            Description = "Асфальтований під'їзд, газ",
+            Purpose = "02.01 Для будівництва",
+            AreaHectares = 0.15,
+            PriceUsd = 22500m
+        };
+        var cleanExtract = await DzkRegistrySimulator.QueryRegistriesAsync(cleanPlot, _service);
+        Assert.False(cleanExtract.HasDrrpArrestsOrMortgages);
+        Assert.False(cleanExtract.HasDzkServitudesOrRestrictions);
+        Assert.StartsWith("Низький", cleanExtract.RecommendedRiskLevel);
+
+        var arrestPlot = new LandPlot
+        {
+            Id = 2,
+            CadastralNumber = "3221884000:03:001:0000",
+            Title = "Ділянка з обтяженням",
+            Description = "Наявний судовий арешт у реєстрі",
+            Purpose = "02.01 Для будівництва",
+            AreaHectares = 0.15,
+            PriceUsd = 22500m
+        };
+        var arrestExtract = await DzkRegistrySimulator.QueryRegistriesAsync(arrestPlot, _service);
+        Assert.True(arrestExtract.HasDrrpArrestsOrMortgages);
+        Assert.False(arrestExtract.OwnerAbsentInDebtorsRegistry);
+        Assert.StartsWith("Високий", arrestExtract.RecommendedRiskLevel);
+
+        var servitudePlot = new LandPlot
+        {
+            Id = 3,
+            CadastralNumber = "3221884000:03:001:0009",
+            Title = "Ділянка з охоронною зоною",
+            Description = "Встановлено земельний сервітут проходу",
+            Purpose = "02.01 Для будівництва",
+            AreaHectares = 0.15,
+            PriceUsd = 22500m
+        };
+        var servitudeExtract = await DzkRegistrySimulator.QueryRegistriesAsync(servitudePlot, _service);
+        Assert.False(servitudeExtract.HasDrrpArrestsOrMortgages);
+        Assert.True(servitudeExtract.HasDzkServitudesOrRestrictions);
+        Assert.StartsWith("Середній", servitudeExtract.RecommendedRiskLevel);
+    }
+
+    [Fact]
+    public void InitializeDatabase_SeedsCompleteDomainData_WhenDatabaseIsEmpty()
+    {
+        _context.InitializeDatabase();
+
+        Assert.True(_context.Users.Count() >= 4);
+        Assert.True(_context.LandPlots.Count() >= 4);
+        Assert.True(_context.PlotDocuments.Any());
+        Assert.True(_context.LegalConclusions.Any());
+        Assert.True(_context.SelectionRequests.Any());
+        Assert.True(_context.ViewingRequests.Any());
+        Assert.True(_context.SaleDeals.Any());
+        Assert.True(_context.Payments.Count() >= 2);
+    }
+
     public void Dispose()
     {
         _context.Dispose();

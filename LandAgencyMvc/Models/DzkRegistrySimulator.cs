@@ -35,22 +35,39 @@ public static class DzkRegistrySimulator
         decimal ngoUah = Math.Round((decimal)Math.Max(plot.AreaHectares, 0.01) * baseRatePerHaUah, 2);
 
         bool boundariesMatch = koatuu.IsValid;
-        bool hasArrest = !koatuu.IsValid;
-        bool hasServitude = false;
+        string descLower = $"{plot.Title} {plot.Description}".ToLowerInvariant();
+        bool hasArrest = !koatuu.IsValid ||
+                         cadastral.EndsWith(":0000", StringComparison.Ordinal) ||
+                         cadastral.EndsWith(":9999", StringComparison.Ordinal) ||
+                         descLower.Contains("арешт") ||
+                         descLower.Contains("іпотек") ||
+                         descLower.Contains("спір") ||
+                         descLower.Contains("заборон");
+
+        bool hasServitude = cadastral.EndsWith(":0009", StringComparison.Ordinal) ||
+                            descLower.Contains("сервітут") ||
+                            descLower.Contains("охоронна") ||
+                            descLower.Contains("обмеження");
 
         string riskLevel = !koatuu.IsValid
             ? "Високий (Невалідний кадастровий формат КОАТУУ)"
-            : priceAnalysis.IsAnomalyDetected && priceAnalysis.ValuationRiskLevel.Contains("Критичне")
-                ? "Високий (Цінова аномалія за сотку)"
-                : priceAnalysis.IsAnomalyDetected
-                    ? "Середній (Потребує уточнення оцінки)"
-                    : "Низький (Чисто)";
+            : hasArrest
+                ? "Високий (Виявлено обтяження / арешт у ДРРП)"
+                : priceAnalysis.IsAnomalyDetected && priceAnalysis.ValuationRiskLevel.Contains("Критичне")
+                    ? "Високий (Цінова аномалія за сотку)"
+                    : (hasServitude || priceAnalysis.IsAnomalyDetected)
+                        ? "Середній (Потребує уточнення оцінки / сервітут)"
+                        : "Низький (Чисто)";
 
         string summary = !koatuu.IsValid
             ? $"Помилка валідації кадастрового номера: {koatuu.ErrorMessage}. Запис не знайдено у національній кадастровій системі."
-            : priceAnalysis.IsAnomalyDetected
-                ? $"Кадастровий номер підтверджено ({koatuu.RegionName}). Межі узгоджені в ДЗК. Зверніть увагу: {priceAnalysis.AnalysisReport}"
-                : $"За даними перевірки ДЗК та ДРРП ділянка {cadastral} ({koatuu.RegionName}) зареєстрована належним чином. Межі та координати узгоджені, судових арештів та заборон не виявлено. {priceAnalysis.AnalysisReport}";
+            : hasArrest
+                ? $"УВАГА! За даними ДРРП по земельній ділянці {cadastral} ({koatuu.RegionName}) виявлено активне обтяження речових прав (арешт / іпотека / судова заборона відчуження). Рекомендовано відхилити публікацію. {priceAnalysis.AnalysisReport}"
+                : hasServitude
+                    ? $"Ділянка {cadastral} ({koatuu.RegionName}) зареєстрована у ДЗК, проте виявлено земельний сервітут або охоронну зону інженерних мереж. {priceAnalysis.AnalysisReport}"
+                    : priceAnalysis.IsAnomalyDetected
+                        ? $"Кадастровий номер підтверджено ({koatuu.RegionName}). Межі узгоджені в ДЗК, обтяжень у ДРРП немає. Зверніть увагу: {priceAnalysis.AnalysisReport}"
+                        : $"За даними перевірки ДЗК та ДРРП ділянка {cadastral} ({koatuu.RegionName}) зареєстрована належним чином. Межі та координати узгоджені, судових арештів та заборон не виявлено. {priceAnalysis.AnalysisReport}";
 
         return new DzkRegistryExtract
         {
@@ -75,7 +92,7 @@ public static class DzkRegistrySimulator
             HasDrrpArrestsOrMortgages = hasArrest,
             HasDzkServitudesOrRestrictions = hasServitude,
             BoundariesMatchPublicMap = boundariesMatch,
-            OwnerAbsentInDebtorsRegistry = koatuu.IsValid,
+            OwnerAbsentInDebtorsRegistry = koatuu.IsValid && !hasArrest,
             RecommendedRiskLevel = riskLevel,
             SummaryReport = summary
         };
@@ -89,6 +106,20 @@ public static class DzkRegistrySimulator
         var cadastral = (plot.CadastralNumber ?? string.Empty).Trim();
         bool validFormat = plot.ValidateCadastralFormat();
         string zoneCode = cadastral.Length >= 10 ? cadastral[..10] : "3222486200";
+        string descLower = $"{plot.Title} {plot.Description}".ToLowerInvariant();
+
+        bool hasArrest = !validFormat ||
+                         cadastral.EndsWith(":0000", StringComparison.Ordinal) ||
+                         cadastral.EndsWith(":9999", StringComparison.Ordinal) ||
+                         descLower.Contains("арешт") ||
+                         descLower.Contains("іпотек") ||
+                         descLower.Contains("спір") ||
+                         descLower.Contains("заборон");
+
+        bool hasServitude = cadastral.EndsWith(":0009", StringComparison.Ordinal) ||
+                            descLower.Contains("сервітут") ||
+                            descLower.Contains("охоронна") ||
+                            descLower.Contains("обмеження");
 
         var sotkas = Math.Max(plot.AreaHectares * 100.0, 0.1);
         var pricePerSotka = Math.Round(plot.PriceUsd / (decimal)sotkas, 2);
@@ -118,14 +149,14 @@ public static class DzkRegistrySimulator
             RegisteredOwnerName = plot.Seller?.FullName ?? "Не вказано",
             RegisteredOwnerTaxId = plot.Seller?.TaxId ?? "Не вказано",
             OwnershipRecordNumber = plot.OwnershipDocNumber,
-            HasDrrpArrestsOrMortgages = !validFormat,
-            HasDzkServitudesOrRestrictions = false,
+            HasDrrpArrestsOrMortgages = hasArrest,
+            HasDzkServitudesOrRestrictions = hasServitude,
             BoundariesMatchPublicMap = validFormat,
-            OwnerAbsentInDebtorsRegistry = validFormat,
-            RecommendedRiskLevel = validFormat ? "Низький (Чисто)" : "Високий (Невалідний кадастровий формат)",
-            SummaryReport = validFormat
+            OwnerAbsentInDebtorsRegistry = validFormat && !hasArrest,
+            RecommendedRiskLevel = !validFormat || hasArrest ? "Високий (Виявлено обтяження / помилку)" : (hasServitude ? "Середній (Сервітут)" : "Низький (Чисто)"),
+            SummaryReport = validFormat && !hasArrest
                 ? $"За даними запиту до ДЗК та ДРРП ділянка {cadastral} зареєстрована належним чином, координати поворотних точок меж узгоджені."
-                : $"Помилка валідації кадастрового номера {cadastral}: невідповідність стандарту України."
+                : $"Виявлено правові перешкоди або невідповідність у реєстрах по ділянці {cadastral}."
         };
     }
 }
