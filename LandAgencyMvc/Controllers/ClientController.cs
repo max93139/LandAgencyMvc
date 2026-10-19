@@ -1,4 +1,7 @@
+using System.Security.Claims;
 using LandAgencyMvc.Models;
+using LandAgencyMvc.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,41 +9,45 @@ namespace LandAgencyMvc.Controllers;
 
 /// <summary>
 /// Єдиний клієнтський контролер (модель взаємодії 'Покупець / Продавець' за стандартом платформи OLX).
-/// Забезпечує перегляд каталогу ділянок, подачу заявок на огляд, оформлення запитів на індивідуальний підбір,
-/// публікацію власних ділянок на продаж та супровід платежів.
+/// Забезпечує перегляд каталогу ділянок, подачу заявок на огляд, автоматизований підбір,
+/// публікацію власних ділянок на продаж з верифікацією КОАТУУ та подання платіжних реквізитів.
 /// </summary>
 public class ClientController : Controller
 {
     private readonly LandAgencyContext _db;
     private readonly IWebHostEnvironment _env;
+    private readonly ICadastralValidationService _cadastralService;
+    private readonly IAutoMatchingService _autoMatchingService;
 
-    public ClientController(LandAgencyContext context, IWebHostEnvironment env)
+    public ClientController(
+        LandAgencyContext context,
+        IWebHostEnvironment env,
+        ICadastralValidationService cadastralService,
+        IAutoMatchingService autoMatchingService)
     {
         _db = context;
         _env = env;
+        _cadastralService = cadastralService;
+        _autoMatchingService = autoMatchingService;
     }
 
-    private async Task<AppUser?> SetCurrentUserAsync(int userId)
+    private async Task<AppUser?> GetCurrentUserAsync()
     {
-        int resolvedId = userId;
-        if (resolvedId <= 0 &&
-            Request.Cookies.TryGetValue("LandAgencyUserId", out var cookieVal) &&
-            int.TryParse(cookieVal, out var parsedCookieId))
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(idClaim, out var userId) && userId > 0)
         {
-            resolvedId = parsedCookieId;
+            var user = await _db.Users.FindAsync(userId);
+            if (user != null)
+            {
+                ViewBag.CurrentUser = user;
+                ViewBag.CurrentUserId = user.Id;
+                return user;
+            }
         }
 
-        AppUser? user = null;
-        if (resolvedId > 0)
-        {
-            user = await _db.Users.FirstOrDefaultAsync(u => u.Id == resolvedId);
-        }
-
-        user ??= await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Client);
-
-        ViewBag.CurrentUser = user;
-        ViewBag.CurrentUserId = user?.Id ?? 0;
-        return user;
+        ViewBag.CurrentUser = null;
+        ViewBag.CurrentUserId = 0;
+        return null;
     }
 
     /// <summary>
@@ -49,10 +56,9 @@ public class ClientController : Controller
     /// </summary>
     [HttpGet("/Catalog")]
     [HttpGet("/Client/Catalog")]
-    public async Task<IActionResult> Catalog(int userId, string? purpose, decimal? maxBudget, double? minArea, string? search)
-
+    public async Task<IActionResult> Catalog(string? purpose, decimal? maxBudget, double? minArea, string? search)
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentUserAsync();
 
         var query = _db.LandPlots
             .Include(p => p.Seller)
@@ -72,49 +78,57 @@ public class ClientController : Controller
             query = query.Where(p => p.AreaHectares >= minArea.Value);
         }
 
-        var plots = await query.OrderByDescending(p => p.Id).ToListAsync();
-
         if (!string.IsNullOrWhiteSpace(purpose))
         {
             var cleanPurpose = purpose.Trim();
-            plots = plots.Where(p =>
-                p.Purpose.Contains(cleanPurpose, StringComparison.OrdinalIgnoreCase)).ToList();
+            query = query.Where(p => p.Purpose.Contains(cleanPurpose));
         }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var cleanSearch = search.Trim();
-            plots = plots.Where(p =>
-                p.Location.Contains(cleanSearch, StringComparison.OrdinalIgnoreCase) ||
-                p.Title.Contains(cleanSearch, StringComparison.OrdinalIgnoreCase) ||
-                p.CadastralNumber.Contains(cleanSearch, StringComparison.OrdinalIgnoreCase)).ToList();
+            var cleanSearch = search.Trim().ToLower();
+            query = query.Where(p =>
+                p.Title.ToLower().Contains(cleanSearch) ||
+                p.Location.ToLower().Contains(cleanSearch) ||
+                p.CadastralNumber.ToLower().Contains(cleanSearch) ||
+                p.Description.ToLower().Contains(cleanSearch));
         }
+
+        var plots = await query.OrderByDescending(p => p.Id).ToListAsync();
 
         ViewBag.FilterPurpose = purpose;
         ViewBag.FilterMaxBudget = maxBudget;
         ViewBag.FilterMinArea = minArea;
         ViewBag.FilterSearch = search;
+        ViewBag.TotalCount = plots.Count;
 
         return View(plots);
     }
 
     /// <summary>
-    /// Створює заявку на індивідуальний підбір земельних ділянок для рієлтора з бажаними параметрами.
+    /// Створює заявку покупця на індивідуальний підбір ділянок рієлтором
+    /// та негайно запускає автоматичний двигун підбору (AutoMatchingService).
     /// </summary>
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> CreateSelectionRequest(int userId, string desiredDistrict, double minAreaHa, decimal maxBudgetUsd, string purpose)
+    [HttpPost("/Client/CreateSelectionRequest")]
+    [HttpPost("/Client/SubmitSelectionRequest")]
+    public async Task<IActionResult> SubmitSelectionRequest(
+        string desiredDistrict,
+        double minAreaHa,
+        decimal maxBudgetUsd,
+        string? purpose)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentUserAsync();
         if (currentUser == null)
         {
-            TempData["LoginError"] = "Будь ласка, увійдіть або зареєструйтеся в системі.";
             return RedirectToAction("Login", "Account");
         }
 
-        if (maxBudgetUsd <= 0 || minAreaHa <= 0 || string.IsNullOrWhiteSpace(desiredDistrict))
+        if (string.IsNullOrWhiteSpace(desiredDistrict) || maxBudgetUsd <= 0)
         {
-            TempData["CabinetError"] = "Вкажіть коректний район, мінімальну площу та бюджет для підбору ділянки.";
-            return RedirectToAction(nameof(Catalog), new { userId = currentUser.Id });
+            TempData["CabinetError"] = "Вкажіть бажаний район та максимальний бюджет для підбору ділянок.";
+            return RedirectToAction(nameof(Cabinet));
         }
 
         currentUser.MaxBudget = (double)maxBudgetUsd;
@@ -134,8 +148,10 @@ public class ClientController : Controller
         _db.SelectionRequests.Add(request);
         await _db.SaveChangesAsync();
 
-        TempData["CabinetMessage"] = "Запит на індивідуальний підбір ділянки успішно передано рієлтору.";
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser.Id });
+        int matchedCount = await _autoMatchingService.MatchRequestAsync(request.Id);
+
+        TempData["CabinetMessage"] = $"Запит на підбір ділянки створено. Автоматично знайдено {matchedCount} відповідних об'єктів у каталозі!";
+        return RedirectToAction(nameof(Cabinet));
     }
 
     /// <summary>
@@ -143,10 +159,9 @@ public class ClientController : Controller
     /// </summary>
     [HttpGet("/Catalog/Details/{id:int}")]
     [HttpGet("/Client/Details/{id:int}")]
-    public async Task<IActionResult> Details(int id, int userId)
-
+    public async Task<IActionResult> Details(int id)
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentUserAsync();
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.AssignedRealtor)
@@ -157,24 +172,25 @@ public class ClientController : Controller
 
         if (plot == null)
         {
-            return RedirectToAction(nameof(Catalog), new { userId });
+            return RedirectToAction(nameof(Catalog));
         }
+
+        ViewBag.KadastrLiveUrl = _cadastralService.GetKadastrLiveUrl(plot.CadastralNumber);
+        ViewBag.OpenDataBotUrl = _cadastralService.GetOpenDataBotUrl(plot.CadastralNumber);
 
         return View(plot);
     }
 
     /// <summary>
     /// Оформлює заявку на виїзний огляд обраної ділянки із зазначенням бажаної дати та таймслоту.
-    /// Перевіряє заборону огляду власної ділянки продавцем та доступність об'єкта в каталозі.
     /// </summary>
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> CreateViewing(int userId, int landPlotId, DateTime preferredDate, string timeSlot, string comment)
-
+    public async Task<IActionResult> CreateViewing(int landPlotId, DateTime preferredDate, string timeSlot, string comment)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentUserAsync();
         if (currentUser == null)
         {
-            TempData["LoginError"] = "Будь ласка, увійдіть або зареєструйтеся для запису на огляд.";
             return RedirectToAction("Login", "Account");
         }
 
@@ -182,13 +198,13 @@ public class ClientController : Controller
         if (plot == null || plot.Status != PlotStatus.VerifiedInCatalog)
         {
             TempData["CabinetError"] = "Обрана земельна ділянка не знайдена або недоступна для виїзного огляду.";
-            return RedirectToAction(nameof(Catalog), new { userId = currentUser.Id });
+            return RedirectToAction(nameof(Catalog));
         }
 
         if (plot.SellerId == currentUser.Id)
         {
             TempData["DetailsError"] = "Ви є власником цієї ділянки і не можете подати заявку на її огляд як покупець.";
-            return RedirectToAction(nameof(Details), new { id = landPlotId, userId = currentUser.Id });
+            return RedirectToAction(nameof(Details), new { id = landPlotId });
         }
 
         var realtor = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Realtor);
@@ -208,14 +224,16 @@ public class ClientController : Controller
         await _db.SaveChangesAsync();
 
         TempData["CabinetMessage"] = "Заявку на виїзний огляд ділянки створено та передано рієлтору.";
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser.Id });
+        return RedirectToAction(nameof(Cabinet));
     }
 
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> CancelViewingByClient(int userId, int viewingId)
+    public async Task<IActionResult> CancelViewingByClient(int viewingId)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
-        var viewing = await _db.ViewingRequests.FindAsync(viewingId);
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var viewing = await _db.ViewingRequests.FirstOrDefaultAsync(v => v.Id == viewingId && v.BuyerId == currentUserId);
         if (viewing != null)
         {
             viewing.CancelViewing("Скасовано покупцем з особистого кабінету");
@@ -223,52 +241,51 @@ public class ClientController : Controller
             TempData["CabinetMessage"] = $"Заявку на огляд #{viewingId} скасовано.";
         }
 
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Cabinet));
     }
 
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> RequestPurchaseFromViewing(int userId, int viewingId)
+    public async Task<IActionResult> RequestPurchaseFromViewing(int viewingId)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
         var viewing = await _db.ViewingRequests
             .Include(v => v.LandPlot)
             .ThenInclude(p => p!.Seller)
-            .FirstOrDefaultAsync(v => v.Id == viewingId);
+            .FirstOrDefaultAsync(v => v.Id == viewingId && v.BuyerId == currentUserId);
 
         if (viewing != null && viewing.LandPlot != null)
         {
             if (viewing.LandPlot.SellerId == viewing.BuyerId)
             {
                 TempData["CabinetError"] = "Власник ділянки не може укласти угоду купівлі власного об'єкта.";
-                return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+                return RedirectToAction(nameof(Cabinet));
             }
 
             if (viewing.LandPlot.Status == PlotStatus.Sold)
             {
                 TempData["CabinetError"] = "Ця земельна ділянка вже продана.";
-                return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+                return RedirectToAction(nameof(Cabinet));
             }
 
-            viewing.BuyerReadyToBuy = true;
-            if (viewing.Status == ViewingStatus.Scheduled)
-            {
-                viewing.Status = ViewingStatus.Completed;
-            }
+            var realtor = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Realtor);
 
-            bool dealExists = await _db.SaleDeals.AnyAsync(d =>
-                d.LandPlotId == viewing.LandPlotId && d.Status != DealStatus.ReturnedForRevision);
+            var existingDeal = await _db.SaleDeals
+                .Include(d => d.Payments)
+                .FirstOrDefaultAsync(d => d.LandPlotId == viewing.LandPlotId);
 
-            if (!dealExists)
+            if (existingDeal == null)
             {
-                var realtor = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Realtor);
                 var deal = new SaleDeal
                 {
                     LandPlotId = viewing.LandPlotId,
                     BuyerId = viewing.BuyerId,
-                    RealtorId = realtor?.Id,
+                    RealtorId = viewing.RealtorId ?? realtor?.Id,
                     NotaryOffice = "Перша Київська державна нотаріальна контора",
-                    NotaryDate = DateTime.Today.AddDays(5).AddHours(11)
+                    NotaryDate = DateTime.Today.AddDays(3).AddHours(11)
                 };
+
                 deal.PrepareContractDraft(
                     $"ДГ-{DateTime.Now:yyyy}-{viewing.LandPlotId:D3}",
                     viewing.LandPlot.PriceUsd,
@@ -280,24 +297,27 @@ public class ClientController : Controller
                 _db.Payments.AddRange(deal.CreateDefaultPayments(
                     viewing.LandPlot.SellerBankIban ?? viewing.LandPlot.Seller?.BankDetails,
                     isPaid: false,
+                    senderIban: currentUser?.BankDetails,
                     agencyIban: realtor?.BankDetails));
-            }
+                await _db.SaveChangesAsync();
 
-            await _db.SaveChangesAsync();
-            TempData["CabinetMessage"] = "Заявку на купівлю подано! Проєкт договору сформовано та передано юристу й рієлтору.";
+                TempData["CabinetMessage"] = $"Проєкт нотаріальної угоди {deal.DraftContractNumber} успішно ініційовано на підставі проведеного огляду.";
+            }
+            else
+            {
+                TempData["CabinetMessage"] = $"По ділянці {viewing.LandPlot.CadastralNumber} вже існує проект угоди {existingDeal.DraftContractNumber}.";
+            }
         }
 
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Cabinet));
     }
 
-    /// <summary>
-    /// Сторінка подачі ділянки на продаж власником із заповненням банківських реквізитів IBAN.
-    /// </summary>
+    [Authorize]
     [HttpGet("/Plots/Create")]
     [HttpGet("/Client/CreatePlot")]
-    public async Task<IActionResult> CreatePlot(int userId)
+    public async Task<IActionResult> CreatePlot()
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentUserAsync();
         var model = new LandPlot
         {
             SellerBankIban = currentUser?.BankDetails ?? string.Empty
@@ -306,26 +326,23 @@ public class ClientController : Controller
     }
 
     /// <summary>
-    /// Реєстрація ділянки продавцем: валідація кадастрового стандарту України,
-    /// завантаження правовстановлюючого документа, накладення КЕП-підпису
-    /// та передача об'єкта в чергу юридичного аудиту ДЗК/ДРРП.
+    /// Реєстрація ділянки продавцем: валідація КОАТУУ, завантаження документа з SHA-256 хешуванням,
+    /// накладення електронного підпису та передача в чергу аудиту ДЗК/ДРРП.
     /// </summary>
+    [Authorize]
     [HttpPost("/Plots/Create")]
     [HttpPost("/Client/CreatePlot")]
     public async Task<IActionResult> CreatePlot(
-        int userId,
         LandPlot model,
         string? docTitle,
         string? docType,
         DateTime? docIssueDate,
         bool signWithKep = false,
         IFormFile? documentFile = null)
-
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentUserAsync();
         if (currentUser == null)
         {
-            TempData["LoginError"] = "Будь ласка, увійдіть або зареєструйтеся в системі, щоб виставити ділянку.";
             return RedirectToAction("Login", "Account");
         }
 
@@ -356,9 +373,10 @@ public class ClientController : Controller
             return View(model);
         }
 
-        if (!model.ValidateCadastralFormat())
+        var koatuu = _cadastralService.ValidateKoatuuFormat(model.CadastralNumber);
+        if (!koatuu.IsValid)
         {
-            TempData["PlotError"] = "Невірний формат кадастрового номера. Очікується формат стандарту України: XXXXXXXXXX:XX:XXX:XXXX (наприклад, 3222486200:01:002:1111).";
+            TempData["PlotError"] = $"Помилка валідації кадастрового номера: {koatuu.ErrorMessage}";
             return View(model);
         }
 
@@ -390,7 +408,7 @@ public class ClientController : Controller
         _db.LandPlots.Add(model);
         await _db.SaveChangesAsync();
 
-        string savedFileUrl = await SaveUploadedDocumentAsync(documentFile, model.Id, model.OwnershipDocNumber);
+        var (savedFileUrl, fileBytes, mimeType) = await SaveUploadedDocumentAsync(documentFile, model.Id, model.OwnershipDocNumber);
 
         var plotDoc = new PlotDocument
         {
@@ -405,25 +423,27 @@ public class ClientController : Controller
             IssueDate = docIssueDate ?? DateTime.Today,
             IsVerified = false
         };
-        plotDoc.AttachFile(savedFileUrl);
+        plotDoc.AttachFile(savedFileUrl, fileBytes, mimeType);
 
         if (signWithKep)
         {
-            plotDoc.ApplyKepSignature(currentUser.FullName, currentUser.TaxId);
+            plotDoc.ApplyKepSignature(currentUser.FullName, currentUser.TaxId, fileBytes);
         }
 
         _db.PlotDocuments.Add(plotDoc);
         await _db.SaveChangesAsync();
 
-        TempData["CabinetMessage"] = $"Ділянку {model.CadastralNumber} та правовстановлюючий документ додано і відправлено юристу на перевірку в ДЗК/ДРРП.";
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser.Id });
+        TempData["CabinetMessage"] = $"Ділянку {model.CadastralNumber} ({koatuu.RegionName}) успішно подано на модерацію. Документ зафіксовано з контрольною сумою SHA-256.";
+        return RedirectToAction(nameof(Cabinet));
     }
 
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> UpdatePlotPrice(int userId, int plotId, decimal newPriceUsd)
+    public async Task<IActionResult> UpdatePlotPrice(int plotId, decimal newPriceUsd)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
-        var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId);
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId && p.SellerId == currentUserId);
         if (plot != null && newPriceUsd > 0)
         {
             plot.UpdatePrice(newPriceUsd);
@@ -431,12 +451,12 @@ public class ClientController : Controller
             TempData["CabinetMessage"] = $"Ціну ділянки {plot.CadastralNumber} оновлено до ${newPriceUsd:N0}.";
         }
 
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Cabinet));
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> AddPlotDocument(
-        int userId,
         int plotId,
         string title,
         string docType,
@@ -445,11 +465,12 @@ public class ClientController : Controller
         bool signWithKep = false,
         IFormFile? documentFile = null)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
-        var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId);
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId && p.SellerId == currentUserId);
         if (plot != null && currentUser != null)
         {
-            string fileUrl = await SaveUploadedDocumentAsync(documentFile, plot.Id, documentNumber);
+            var (savedFileUrl, fileBytes, mimeType) = await SaveUploadedDocumentAsync(documentFile, plot.Id, documentNumber);
             var doc = new PlotDocument
             {
                 LandPlotId = plot.Id,
@@ -459,11 +480,11 @@ public class ClientController : Controller
                 IssueDate = issueDate ?? DateTime.Today,
                 IsVerified = plot.Status == PlotStatus.VerifiedInCatalog
             };
-            doc.AttachFile(fileUrl);
+            doc.AttachFile(savedFileUrl, fileBytes, mimeType);
 
             if (signWithKep)
             {
-                doc.ApplyKepSignature(currentUser.FullName, currentUser.TaxId);
+                doc.ApplyKepSignature(currentUser.FullName, currentUser.TaxId, fileBytes);
             }
 
             _db.PlotDocuments.Add(doc);
@@ -471,49 +492,76 @@ public class ClientController : Controller
             TempData["CabinetMessage"] = $"Документ «{doc.Title}» {(signWithKep ? "підписано КЕП та " : "")}прикріплено до ділянки {plot.CadastralNumber}.";
         }
 
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Cabinet));
     }
 
+    /// <summary>
+    /// Подання клієнтом реквізитів банківської оплати (код квитанції, IBAN) за виставленим рахунком-фактурою.
+    /// Переводить платіж у статус очікування підтвердження виписки агентством.
+    /// </summary>
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> ConfirmPayment(int userId, int dealId, string? payerIban)
+    public async Task<IActionResult> SubmitPayment(int paymentId, string paymentReference, string? senderIban)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var payment = await _db.Payments
+            .Include(p => p.SaleDeal)
+            .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+        if (payment != null && payment.SaleDeal != null && payment.SaleDeal.BuyerId == currentUserId)
+        {
+            if (string.IsNullOrWhiteSpace(paymentReference))
+            {
+                TempData["CabinetError"] = "Вкажіть номер платіжної інструкції або код квитанції банку.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
+            payment.SubmitPayment(paymentReference, senderIban ?? currentUser?.BankDetails);
+            await _db.SaveChangesAsync();
+
+            TempData["CabinetMessage"] = $"Реквізити оплати за рахунком {payment.InvoiceNumber} (транзакція {payment.PaymentReference}) надіслано на верифікацію банківської виписки рієлтору.";
+        }
+
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
+    /// Альтернативний обробник для зворотної сумісності форми кабінету.
+    /// </summary>
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> ConfirmPayment(int dealId, string? payerIban, string? paymentReference)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
         var deal = await _db.SaleDeals
             .Include(d => d.Payments)
-            .Include(d => d.LandPlot)
-            .ThenInclude(p => p!.Seller)
-            .Include(d => d.Realtor)
-            .FirstOrDefaultAsync(d => d.Id == dealId);
+            .FirstOrDefaultAsync(d => d.Id == dealId && d.BuyerId == currentUserId);
 
         if (deal != null)
         {
-            if (!deal.Payments.Any())
-            {
-                _db.Payments.AddRange(deal.CreateDefaultPayments(
-                    deal.LandPlot?.SellerBankIban ?? deal.LandPlot?.Seller?.BankDetails,
-                    isPaid: true,
-                    senderIban: payerIban ?? currentUser?.BankDetails,
-                    agencyIban: deal.Realtor?.BankDetails));
-            }
-            else
-            {
-                foreach (var payment in deal.Payments)
-                {
-                    payment.ExecuteTransaction(payerIban ?? currentUser?.BankDetails);
-                }
-            }
+            string reference = !string.IsNullOrWhiteSpace(paymentReference)
+                ? paymentReference.Trim()
+                : $"TRX-{DateTime.Now:yyyyMMdd}-{deal.Id:D4}";
 
-            await _db.SaveChangesAsync();
-            TempData["CabinetMessage"] = $"Банківську оплату за угодою {deal.DraftContractNumber} успішно підтверджено. Квитанцію сформовано.";
+            var pendingPayment = deal.Payments.FirstOrDefault(p => !p.IsPaid) ?? deal.Payments.FirstOrDefault();
+            if (pendingPayment != null)
+            {
+                pendingPayment.SubmitPayment(reference, payerIban ?? currentUser?.BankDetails);
+                await _db.SaveChangesAsync();
+                TempData["CabinetMessage"] = $"Повідомлення про оплату за договором {deal.DraftContractNumber} передано рієлтору. Код транзакції: {reference}.";
+            }
         }
 
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Cabinet));
     }
 
+    [Authorize]
     [HttpGet]
-    public async Task<IActionResult> DownloadReceipt(int dealId, int userId)
+    public async Task<IActionResult> DownloadReceipt(int dealId)
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentUserAsync();
         var deal = await _db.SaleDeals
             .Include(d => d.LandPlot)
             .ThenInclude(p => p!.Seller)
@@ -523,16 +571,17 @@ public class ClientController : Controller
 
         if (deal == null)
         {
-            return RedirectToAction(nameof(Cabinet), new { userId });
+            return RedirectToAction(nameof(Cabinet));
         }
 
         return View("Receipt", deal);
     }
 
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> ChangePassword(int userId, string currentPassword, string newPassword, string? bankDetails)
+    public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string? bankDetails)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentUserAsync();
         if (currentUser != null)
         {
             if (!string.IsNullOrWhiteSpace(bankDetails))
@@ -545,7 +594,7 @@ public class ClientController : Controller
                 if (!currentUser.ChangePassword(currentPassword, newPassword))
                 {
                     TempData["CabinetError"] = "Невірний поточний пароль. Пароль не змінено.";
-                    return RedirectToAction(nameof(Cabinet), new { userId = currentUser.Id });
+                    return RedirectToAction(nameof(Cabinet));
                 }
             }
 
@@ -553,15 +602,21 @@ public class ClientController : Controller
             TempData["CabinetMessage"] = "Налаштування профілю та реквізити успішно оновлено.";
         }
 
-        return RedirectToAction(nameof(Cabinet), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Cabinet));
     }
 
+    [Authorize]
     [HttpGet("/Cabinet")]
     [HttpGet("/Client/Cabinet")]
-    public async Task<IActionResult> Cabinet(int userId)
+    public async Task<IActionResult> Cabinet()
     {
-        var currentUser = await SetCurrentUserAsync(userId);
-        int activeUserId = currentUser?.Id ?? userId;
+        var currentUser = await GetCurrentUserAsync();
+        if (currentUser == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        int activeUserId = currentUser.Id;
 
         var mySelectionRequests = await _db.SelectionRequests
             .Where(r => r.BuyerId == activeUserId)
@@ -618,7 +673,10 @@ public class ClientController : Controller
         return View(viewModel);
     }
 
-    private async Task<string> SaveUploadedDocumentAsync(IFormFile? file, int plotId, string? docNum)
+    private async Task<(string fileUrl, byte[] fileBytes, string mimeType)> SaveUploadedDocumentAsync(
+        IFormFile? file,
+        int plotId,
+        string? docNum)
     {
         var uploadsFolder = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads");
         Directory.CreateDirectory(uploadsFolder);
@@ -626,25 +684,32 @@ public class ClientController : Controller
         if (file != null && file.Length > 0)
         {
             var rawExt = Path.GetExtension(file.FileName)?.ToLowerInvariant();
-            var allowedExts = new[] { ".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".txt" };
+            var allowedExts = new[] { ".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".txt", ".p7s" };
             var safeExt = !string.IsNullOrWhiteSpace(rawExt) && allowedExts.Contains(rawExt) ? rawExt : ".pdf";
 
             var fileName = $"plot_{plotId}_{DateTime.Now:yyyyMMddHHmmss}{safeExt}";
             var fullPath = Path.Combine(uploadsFolder, fileName);
-            await using var stream = new FileStream(fullPath, FileMode.Create);
-            await file.CopyToAsync(stream);
-            return $"/uploads/{fileName}";
+
+            using var memoryStream = new MemoryStream();
+            await file.CopyToAsync(memoryStream);
+            var bytes = memoryStream.ToArray();
+
+            await System.IO.File.WriteAllBytesAsync(fullPath, bytes);
+            string mime = string.IsNullOrWhiteSpace(file.ContentType) ? "application/pdf" : file.ContentType;
+
+            return ($"/uploads/{fileName}", bytes, mime);
         }
 
         var generatedFileName = $"extract_drrp_plot_{plotId}.txt";
         var generatedPath = Path.Combine(uploadsFolder, generatedFileName);
+        string textContent = $"ВИТЯГ З ДЕРЖАВНОГО РЕЄСТРУ РЕЧОВИХ ПРАВ НА НЕРУХОМЕ МАЙНО\nДокумент №: {docNum}\nID ділянки: {plotId}\nДата формування: {DateTime.Now:dd.MM.yyyy HH:mm}\nСтатус КЕП: Дійсний кваліфікований електронний підпис власника.";
+        var defaultBytes = System.Text.Encoding.UTF8.GetBytes(textContent);
+
         if (!System.IO.File.Exists(generatedPath))
         {
-            await System.IO.File.WriteAllTextAsync(
-                generatedPath,
-                $"ВИТЯГ З ДЕРЖАВНОГО РЕЄСТРУ РЕЧОВИХ ПРАВ НА НЕРУХОМЕ МАЙНО\nДокумент №: {docNum}\nID ділянки: {plotId}\nДата формування: {DateTime.Now:dd.MM.yyyy HH:mm}\nСтатус КЕП: Дійсний кваліфікований електронний підпис власника.");
+            await System.IO.File.WriteAllBytesAsync(generatedPath, defaultBytes);
         }
 
-        return $"/uploads/{generatedFileName}";
+        return ($"/uploads/{generatedFileName}", defaultBytes, "text/plain");
     }
 }

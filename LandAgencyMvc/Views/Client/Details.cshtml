@@ -2,20 +2,28 @@
 @{
     ViewData["Title"] = $"{Model.Title} — LandAgency UA";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    int userId = ViewBag.CurrentUserId is int id ? id : 0;
+    string kadastrUrl = ViewBag.KadastrLiveUrl as string ?? $"https://kadastr.live/parcel/{Model.CadastralNumber}";
+    string openDataUrl = ViewBag.OpenDataBotUrl as string ?? $"https://opendatabot.ua/c/{Model.CadastralNumber}";
 }
 
 <div class="la-window">
     <div class="la-topbar la-topbar-client">
         <div class="la-nav-links">
             <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
-            <a class="active" asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">← Назад до каталогу</a>
-            <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId">Мій кабінет (Оголошення / Угоди)</a>
+            <a class="active" asp-controller="Client" asp-action="Catalog">← Назад до каталогу</a>
+            <a asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
-            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot" asp-route-userId="@userId">+ Виставити ділянку</a>
-            <span style="font-size:13px; opacity:0.9;">@currentUser?.FullName</span>
-            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
+            @if (currentUser != null)
+            {
+                <span style="font-size:13px; opacity:0.9;">@currentUser.FullName</span>
+                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+            }
+            else
+            {
+                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Login">Увійти</a>
+            }
         </div>
     </div>
 
@@ -34,7 +42,13 @@
                 </div>
 
                 <h4 style="margin-top:12px; margin-bottom:4px;">@Model.Title (@Model.AreaHectares га)</h4>
-                <p class="text-muted" style="font-size:13px; margin-bottom:14px;">Кадастровий №: <strong>@Model.CadastralNumber</strong></p>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                    <span class="text-muted" style="font-size:13px;">Кадастровий №: <strong>@Model.CadastralNumber</strong></span>
+                    <div style="display:flex; gap:6px;">
+                        <a href="@kadastrUrl" target="_blank" class="la-btn" style="background:#e0e7ff; color:#3730a3; font-size:11px; padding:4px 8px; text-decoration:none;">🗺️ Кадастрова карта ↗</a>
+                        <a href="@openDataUrl" target="_blank" class="la-btn" style="background:#e0f2fe; color:#0369a1; font-size:11px; padding:4px 8px; text-decoration:none;">🔍 OpenDataBot ↗</a>
+                    </div>
+                </div>
 
                 <table class="la-table" style="margin-bottom:14px;">
                     <tbody>
@@ -48,7 +62,7 @@
                         </tr>
                         <tr>
                             <td class="text-muted">Площа ділянки:</td>
-                            <td><strong>@Model.AreaHectares га</strong></td>
+                            <td><strong>@Model.AreaHectares га</strong> (@(Math.Round(Model.AreaHectares * 100, 1)) соток)</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Цільове призначення:</td>
@@ -65,7 +79,7 @@
                                 }
                                 else
                                 {
-                                    <span>Пройдено первинний контроль</span>
+                                    <span>Пройдено первинний контроль ДЗК</span>
                                 }
                             </td>
                         </tr>
@@ -93,12 +107,16 @@
                 @if (Model.Documents.Any())
                 {
                     <div>
-                        <strong style="font-size:13px; display:block; margin-bottom:6px;">Правовстановлюючі документи ділянки (Перевірено):</strong>
+                        <strong style="font-size:13px; display:block; margin-bottom:6px;">Правовстановлюючі документи ділянки (Контроль цілісності):</strong>
                         @foreach (var doc in Model.Documents)
                         {
                             <div style="display:flex; justify-content:space-between; align-items:center; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:12px;">
                                 <div>
-                                    <strong>@doc.Title</strong> (@doc.DocType №@doc.DocumentNumber від @doc.IssueDate.ToString("dd.MM.yyyy"))
+                                    <strong>@doc.Title</strong> (@doc.DocType №@doc.DocumentNumber від @doc.IssueDate.ToString("dd.MM.yyyy"))<br />
+                                    @if (!string.IsNullOrWhiteSpace(doc.FileHash))
+                                    {
+                                        <small class="text-muted">SHA-256: <code style="background:#e2e8f0; padding:1px 4px; border-radius:3px;">@doc.FileHash[..Math.Min(16, doc.FileHash.Length)]...</code></small>
+                                    }
                                     @if (doc.IsSignedByKep)
                                     {
                                         <span class="la-badge la-badge-green" style="margin-left:6px;">✓ @doc.KepSignatureHash</span>
@@ -115,11 +133,11 @@
             </div>
 
             <div class="la-card">
-                <h5>Записатися на огляд</h5>
-                @if (Model.SellerId == userId)
+                <h5>Записатися на виїзний огляд</h5>
+                @if (currentUser != null && Model.SellerId == currentUser.Id)
                 {
                     <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:14px; font-size:13px;">
-                        Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId" style="color:#1d4ed8; font-weight:700;">Мій кабінет</a>.
+                        Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" style="color:#1d4ed8; font-weight:700;">Мій кабінет</a>.
                     </div>
                 }
                 else
@@ -127,7 +145,6 @@
                     <p class="text-muted" style="font-size:13px; margin-bottom:16px;">Оберіть зручний час виїзду на ділянку для огляду межових знаків, комунікацій та оригіналів документів з рієлтором</p>
 
                     <form asp-controller="Client" asp-action="CreateViewing" method="post">
-                        <input type="hidden" name="userId" value="@userId" />
                         <input type="hidden" name="landPlotId" value="@Model.Id" />
 
                         <label class="la-label">Бажана дата огляду</label>

@@ -2,27 +2,33 @@
 @{
     ViewData["Title"] = "Виставити ділянку на продаж — LandAgency UA";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    int userId = ViewBag.CurrentUserId is int id ? id : 0;
 }
 
 <div class="la-window">
     <div class="la-topbar la-topbar-client">
         <div class="la-nav-links">
             <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
-            <a asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">Каталог ділянок</a>
-            <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId">Мій кабінет (Оголошення / Угоди)</a>
+            <a asp-controller="Client" asp-action="Catalog">Каталог ділянок</a>
+            <a asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
-            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot" asp-route-userId="@userId">+ Виставити ділянку</a>
-            <span style="font-size:13px; opacity:0.9;">@currentUser?.FullName</span>
-            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
+            @if (currentUser != null)
+            {
+                <span style="font-size:13px; opacity:0.9;">@currentUser.FullName</span>
+                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+            }
+            else
+            {
+                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Login">Увійти</a>
+            }
         </div>
     </div>
 
     <div class="la-body">
         <div class="la-card" style="max-width:820px; margin:0 auto;">
             <h4>Нове оголошення: Виставити земельну ділянку на продаж</h4>
-            <p class="text-muted" style="font-size:13px; margin-bottom:18px;">Після відправки анкети та правовстановлюючого документа юрист агентства виконає перевірку в ДЗК та ДРРП перед публікацією в каталозі</p>
+            <p class="text-muted" style="font-size:13px; margin-bottom:18px;">Після подачі анкети та документа юрист проведе перевірку КОАТУУ в ДЗК та ДРРП перед публікацією в каталозі</p>
 
             @if (TempData["PlotError"] != null)
             {
@@ -32,11 +38,9 @@
             }
 
             <form asp-controller="Client" asp-action="CreatePlot" method="post" enctype="multipart/form-data">
-                <input type="hidden" name="userId" value="@userId" />
-
                 <div class="la-grid-3">
                     <div>
-                        <label class="la-label">Кадастровий номер</label>
+                        <label class="la-label">Кадастровий номер (КОАТУУ)</label>
                         <input asp-for="CadastralNumber" class="la-input" placeholder="XXXXXXXXXX:XX:XXX:XXXX" required />
                     </div>
                     <div>
@@ -78,7 +82,7 @@
                 </div>
 
                 <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:16px; margin-bottom:16px;">
-                    <h6 style="margin-top:0; margin-bottom:10px;">Правовстановлюючий документ земельної ділянки (Витяг з ДРРП або Державний акт)</h6>
+                    <h6 style="margin-top:0; margin-bottom:10px;">Правовстановлюючий документ (Витяг з ДРРП або Державний акт)</h6>
                     <div class="la-grid-3">
                         <div>
                             <label class="la-label">Тип документа</label>
@@ -99,13 +103,13 @@
                     </div>
                     <div class="la-grid-2" style="align-items:center;">
                         <div>
-                            <label class="la-label">Файл правовстановлюючого документа (PDF / Скан)</label>
+                            <label class="la-label">Файл документа (PDF / Скан — цілісність SHA-256)</label>
                             <input type="file" name="documentFile" class="la-input" style="margin-bottom:0;" />
                         </div>
                         <div style="padding-top:16px;">
                             <label style="display:flex; align-items:center; gap:8px; background:#dcfce7; color:#166534; padding:10px 14px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;">
                                 <input type="checkbox" name="signWithKep" value="true" checked />
-                                ✓ Підписано КЕП / ЕЦП власника
+                                ✓ Засвідчити файл КЕП (SHA-256 + РНОКПП)
                             </label>
                         </div>
                     </div>

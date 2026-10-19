@@ -2,7 +2,6 @@
 @{
     ViewData["Title"] = "Каталог земельних ділянок — LandAgency UA";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    int userId = ViewBag.CurrentUserId is int id ? id : 0;
     string filterPurpose = ViewBag.FilterPurpose as string ?? string.Empty;
     decimal? filterMaxBudget = ViewBag.FilterMaxBudget as decimal?;
     double? filterMinArea = ViewBag.FilterMinArea as double?;
@@ -13,13 +12,20 @@
     <div class="la-topbar la-topbar-client">
         <div class="la-nav-links">
             <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
-            <a class="active" asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">Каталог ділянок</a>
-            <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@userId">Мій кабінет (Оголошення / Угоди)</a>
+            <a class="active" asp-controller="Client" asp-action="Catalog">Каталог ділянок</a>
+            <a asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
-            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot" asp-route-userId="@userId">+ Виставити ділянку</a>
-            <span style="font-size:13px; opacity:0.9;">@currentUser?.FullName</span>
-            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
+            @if (currentUser != null)
+            {
+                <span style="font-size:13px; opacity:0.9;">@currentUser.FullName</span>
+                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+            }
+            else
+            {
+                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Login">Увійти</a>
+            }
         </div>
     </div>
 
@@ -30,9 +36,14 @@
                 @TempData["CabinetError"]
             </div>
         }
+        @if (TempData["CabinetMessage"] != null)
+        {
+            <div class="la-alert la-alert-success">
+                @TempData["CabinetMessage"]
+            </div>
+        }
         <div class="la-card" style="padding:16px 20px; margin-bottom:20px;">
             <form asp-controller="Client" asp-action="Catalog" method="get" style="display:grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr auto; gap:12px; align-items:end;">
-                <input type="hidden" name="userId" value="@userId" />
                 <div>
                     <label class="la-label">Цільове призначення</label>
                     <select name="purpose" class="la-input" style="margin-bottom:0;">
@@ -60,7 +71,7 @@
                     <button type="submit" class="la-btn la-btn-dark">Знайти</button>
                     @if (!string.IsNullOrEmpty(filterPurpose) || filterMaxBudget.HasValue || filterMinArea.HasValue || !string.IsNullOrEmpty(filterSearch))
                     {
-                        <a class="la-btn" style="background:#e2e8f0; color:#334155;" asp-controller="Client" asp-action="Catalog" asp-route-userId="@userId">Скинути</a>
+                        <a class="la-btn" style="background:#e2e8f0; color:#334155;" asp-controller="Client" asp-action="Catalog">Скинути</a>
                     }
                 </div>
             </form>
@@ -69,7 +80,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
             <div>
                 <h4 style="margin:0;">Каталог перевірених земельних ділянок</h4>
-                <span class="text-muted" style="font-size:14px;">Усі ділянки в каталозі пройшли юридичний аудит у ДЗК та ДРРП</span>
+                <span class="text-muted" style="font-size:14px;">Усі ділянки в каталозі пройшли юридичний аудит КОАТУУ у ДЗК та ДРРП</span>
             </div>
             <span class="la-badge la-badge-green">Знайдено пропозицій: @Model.Count()</span>
         </div>
@@ -101,21 +112,20 @@
                         <p class="text-muted" style="margin-bottom:4px; font-size:13px;">Призначення: @plot.Purpose</p>
                         <p style="margin-bottom:8px; font-size:14px;">📍 @plot.Location • Власник: <strong>@plot.Seller?.FullName</strong></p>
                         <p style="font-size:13px; color:#475569; margin-bottom:14px;">@plot.Description</p>
-                        <a class="la-btn la-btn-dark" style="width:100%; text-align:center;" asp-controller="Client" asp-action="Details" asp-route-id="@plot.Id" asp-route-userId="@userId">Детальніше та запис на огляд →</a>
+                        <a class="la-btn la-btn-dark" style="width:100%; text-align:center;" asp-controller="Client" asp-action="Details" asp-route-id="@plot.Id">Детальніше та запис на огляд →</a>
                     </div>
                 }
             </div>
         }
 
         <div class="la-card" style="margin-top:20px;">
-            <h5>Замовити індивідуальний підбір ділянки рієлтором</h5>
-            <p class="text-muted" style="font-size:13px; margin-bottom:12px;">Вкажіть бажані параметри земельної ділянки — рієлтор агентства підбере відповідні варіанти</p>
-            <form asp-controller="Client" asp-action="CreateSelectionRequest" method="post">
-                <input type="hidden" name="userId" value="@userId" />
+            <h5>Замовити індивідуальний підбір ділянки (Автоматичний пошук)</h5>
+            <p class="text-muted" style="font-size:13px; margin-bottom:12px;">Вкажіть бажані параметри земельної ділянки — інтелектуальний двигун AutoMatching миттєво підбере найкращі перевірені варіанти</p>
+            <form asp-controller="Client" asp-action="SubmitSelectionRequest" method="post">
                 <div class="la-grid-3">
                     <div>
-                        <label class="la-label">Бажаний район або населений пункт</label>
-                        <input name="desiredDistrict" class="la-input" placeholder="Вкажіть район або громаду" required />
+                        <label class="la-label">Бажаний район або громада</label>
+                        <input name="desiredDistrict" class="la-input" placeholder="Вкажіть район або населений пункт" required />
                     </div>
                     <div>
                         <label class="la-label">Мінімальна площа (га)</label>
@@ -134,7 +144,7 @@
                     <option value="03.07 Комерційне призначення">03.07 Для будівництва та обслуговування об'єктів торгівлі</option>
                     <option value="01.05 Індивідуальне садівництво">01.05 Для індивідуального садівництва</option>
                 </select>
-                <button type="submit" class="la-btn la-btn-green">Подати запит на підбір рієлтору</button>
+                <button type="submit" class="la-btn la-btn-green">Подати запит на автопідбір ділянок</button>
             </form>
         </div>
     </div>

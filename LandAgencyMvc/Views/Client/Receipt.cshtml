@@ -38,35 +38,57 @@
             <table class="la-table" style="margin-bottom:20px;">
                 <thead>
                     <tr>
-                        <th>№ Квитанції</th>
+                        <th>№ Рахунку / Квитанції</th>
                         <th>Призначення транзакції</th>
                         <th>Рахунок одержувача (IBAN)</th>
                         <th>Сума (USD)</th>
-                        <th>Статус</th>
+                        <th>Статус банківської виписки</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var p in Model.Payments)
                     {
                         <tr>
-                            <td><strong>@p.ReceiptNumber</strong></td>
+                            <td>
+                                <strong>@(string.IsNullOrEmpty(p.InvoiceNumber) ? p.ReceiptNumber : p.InvoiceNumber)</strong>
+                                @if (!string.IsNullOrEmpty(p.PaymentReference))
+                                {
+                                    <div style="font-size:11px; color:#64748b;">Ref: <code>@p.PaymentReference</code></div>
+                                }
+                            </td>
                             <td>@p.PaymentType</td>
                             <td><code>@p.RecipientIban</code></td>
                             <td><strong>$@p.AmountUsd.ToString("N2")</strong></td>
-                            <td>@(p.IsPaid ? $"Проведено ({p.PaymentDate:dd.MM.yyyy HH:mm})" : "Очікує проведення")</td>
+                            <td>
+                                @switch (p.Status)
+                                {
+                                    case LandAgencyMvc.Models.PaymentStatus.Confirmed:
+                                        <span class="la-badge la-badge-green">Проведено (@p.PaymentDate.ToString("dd.MM.yyyy HH:mm"))</span>
+                                        break;
+                                    case LandAgencyMvc.Models.PaymentStatus.PendingVerification:
+                                        <span class="la-badge la-badge-indigo">На перевірці банківської виписки</span>
+                                        break;
+                                    case LandAgencyMvc.Models.PaymentStatus.Rejected:
+                                        <span class="la-badge" style="background:#fee2e2; color:#b91c1c;">Відхилено</span>
+                                        break;
+                                    default:
+                                        <span class="la-badge la-badge-amber">Очікує сплати за IBAN</span>
+                                        break;
+                                }
+                            </td>
                         </tr>
                     }
                     <tr style="background:#f1f5f9; font-weight:700;">
                         <td colspan="3">РАЗОМ ЗА УГОДОЮ:</td>
                         <td>$@Model.TotalAmountUsd.ToString("N2")</td>
-                        <td>@(Model.IsFullyPaid ? "Виконано в повному обсязі" : "До сплати")</td>
+                        <td>@(Model.IsFullyPaid ? "Виконано в повному обсязі" : "Очікує повного розрахунку")</td>
                     </tr>
                 </tbody>
             </table>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
                 <button onclick="window.print()" class="la-btn la-btn-dark">Друкувати / Зберегти у PDF</button>
-                <a asp-controller="Client" asp-action="Cabinet" asp-route-userId="@Model.BuyerId" style="color:#15803d; font-weight:700; text-decoration:none;">← Повернутися до кабінету</a>
+                <a asp-controller="Client" asp-action="Cabinet" style="color:#15803d; font-weight:700; text-decoration:none;">← Повернутися до кабінету</a>
             </div>
         </div>
     </div>
