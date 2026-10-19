@@ -111,6 +111,7 @@ public class ClientController : Controller
     /// </summary>
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitSelectionRequest(
         string desiredDistrict,
         double minAreaHa,
@@ -159,7 +160,7 @@ public class ClientController : Controller
     [HttpGet("/Client/Details/{id:int}")]
     public async Task<IActionResult> Details(int id)
     {
-        await GetCurrentUserAsync();
+        var currentUser = await GetCurrentUserAsync();
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.AssignedRealtor)
@@ -170,6 +171,17 @@ public class ClientController : Controller
 
         if (plot == null)
         {
+            return RedirectToAction(nameof(Catalog));
+        }
+
+        bool isOwnerOrStaff = currentUser != null &&
+                              (currentUser.Id == plot.SellerId ||
+                               currentUser.Role == UserRole.Realtor ||
+                               currentUser.Role == UserRole.Lawyer);
+
+        if (plot.Status != PlotStatus.VerifiedInCatalog && !isOwnerOrStaff)
+        {
+            TempData["CabinetError"] = "Обрана земельна ділянка ще проходить юридичну перевірку або вже знята з публікації.";
             return RedirectToAction(nameof(Catalog));
         }
 
@@ -184,6 +196,7 @@ public class ClientController : Controller
     /// </summary>
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateViewing(int landPlotId, DateTime preferredDate, string timeSlot, string comment)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -227,6 +240,7 @@ public class ClientController : Controller
 
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelViewingByClient(int viewingId)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -244,6 +258,7 @@ public class ClientController : Controller
 
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> RequestPurchaseFromViewing(int viewingId)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -271,7 +286,7 @@ public class ClientController : Controller
 
             var existingDeal = await _db.SaleDeals
                 .Include(d => d.Payments)
-                .FirstOrDefaultAsync(d => d.LandPlotId == viewing.LandPlotId);
+                .FirstOrDefaultAsync(d => d.LandPlotId == viewing.LandPlotId && d.Status != DealStatus.Cancelled);
 
             if (existingDeal == null)
             {
@@ -330,6 +345,7 @@ public class ClientController : Controller
     [Authorize]
     [HttpPost("/Plots/Create")]
     [HttpPost("/Client/CreatePlot")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreatePlot(
         LandPlot model,
         string? docTitle,
@@ -445,6 +461,7 @@ public class ClientController : Controller
 
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePlotPrice(int plotId, decimal newPriceUsd)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -454,6 +471,12 @@ public class ClientController : Controller
         {
             plot.UpdatePrice(newPriceUsd);
             await _db.SaveChangesAsync();
+
+            if (plot.Status == PlotStatus.VerifiedInCatalog)
+            {
+                await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+            }
+
             TempData["CabinetMessage"] = $"Ціну ділянки {plot.CadastralNumber} оновлено до ${newPriceUsd:N0}.";
         }
 
@@ -462,6 +485,7 @@ public class ClientController : Controller
 
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddPlotDocument(
         int plotId,
         string title,
@@ -507,6 +531,7 @@ public class ClientController : Controller
     /// </summary>
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitPayment(int paymentId, string paymentReference, string? senderIban)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -523,7 +548,14 @@ public class ClientController : Controller
                 return RedirectToAction(nameof(Cabinet));
             }
 
-            payment.SubmitPayment(paymentReference, senderIban ?? currentUser?.BankDetails);
+            string resolvedSenderIban = (senderIban ?? currentUser?.BankDetails ?? string.Empty).Trim().ToUpperInvariant();
+            if (!string.IsNullOrEmpty(resolvedSenderIban) && !System.Text.RegularExpressions.Regex.IsMatch(resolvedSenderIban, @"^UA\d{27}$"))
+            {
+                TempData["CabinetError"] = "Невірний формат IBAN платника. Вкажіть рахунок у форматі UA та 27 цифр.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
+            payment.SubmitPayment(paymentReference, resolvedSenderIban);
             await _db.SaveChangesAsync();
 
             TempData["CabinetMessage"] = $"Реквізити оплати за рахунком {payment.InvoiceNumber} (транзакція {payment.PaymentReference}) надіслано на верифікацію банківської виписки рієлтору.";
@@ -537,6 +569,7 @@ public class ClientController : Controller
     /// </summary>
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ConfirmPayment(int dealId, string? payerIban, string? paymentReference)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -567,7 +600,12 @@ public class ClientController : Controller
     [HttpGet]
     public async Task<IActionResult> DownloadReceipt(int dealId)
     {
-        await GetCurrentUserAsync();
+        var currentUser = await GetCurrentUserAsync();
+        if (currentUser == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
         var deal = await _db.SaleDeals
             .Include(d => d.LandPlot)
             .ThenInclude(p => p!.Seller)
@@ -580,11 +618,22 @@ public class ClientController : Controller
             return RedirectToAction(nameof(Cabinet));
         }
 
+        bool isAuthorized = currentUser.Role == UserRole.Realtor ||
+                            currentUser.Role == UserRole.Lawyer ||
+                            deal.BuyerId == currentUser.Id ||
+                            deal.LandPlot?.SellerId == currentUser.Id;
+
+        if (!isAuthorized)
+        {
+            return RedirectToAction("AccessDenied", "Account");
+        }
+
         return View("Receipt", deal);
     }
 
     [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string? bankDetails, string? taxId)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -592,7 +641,13 @@ public class ClientController : Controller
         {
             if (!string.IsNullOrWhiteSpace(bankDetails))
             {
-                currentUser.BankDetails = bankDetails.Trim();
+                var ibanClean = bankDetails.Trim().ToUpperInvariant();
+                if (!System.Text.RegularExpressions.Regex.IsMatch(ibanClean, @"^UA\d{27}$"))
+                {
+                    TempData["CabinetError"] = "Невірний формат IBAN. Банківський рахунок України має містити літери UA та 27 цифр (29 символів).";
+                    return RedirectToAction(nameof(Cabinet));
+                }
+                currentUser.BankDetails = ibanClean;
             }
 
             if (!string.IsNullOrWhiteSpace(taxId))

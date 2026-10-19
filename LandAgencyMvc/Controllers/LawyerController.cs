@@ -110,6 +110,7 @@ public class LawyerController : Controller
     /// При успішному схваленні автоматично запускає автопідбір під активні запити клієнтів.
     /// </summary>
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitLegalConclusion(
         int landPlotId,
         string? conclusionNumber,
@@ -238,12 +239,21 @@ public class LawyerController : Controller
     /// Правова віза юриста: погоджує передачу договору нотаріусу або повертає рієлтору на доопрацювання.
     /// </summary>
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ApproveDealContract(int dealId, string? lawyerNotes, string decision = "approve")
     {
         var currentUser = await GetCurrentLawyerAsync();
         var deal = await _db.SaleDeals.FindAsync(dealId);
         if (deal != null)
         {
+            if (deal.Status == DealStatus.SignedAtNotary ||
+                deal.Status == DealStatus.CompletedAtNotary ||
+                deal.Status == DealStatus.Cancelled)
+            {
+                TempData["LawyerError"] = $"Угода {deal.DraftContractNumber} перебуває у статусі «{deal.StatusDisplayName}» і не підлягає зміні правової візи.";
+                return RedirectToAction(nameof(Contracts));
+            }
+
             deal.LawyerId = currentUser?.Id;
             if (decision == "return")
             {

@@ -29,6 +29,7 @@ public class AccountController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(string email, string password, string? returnUrl = null)
     {
         var normalizedEmail = (email ?? string.Empty).Trim().ToLower();
@@ -85,6 +86,7 @@ public class AccountController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(string fullName, string email, string phone, string password, string? taxId = null, string? bankDetails = null)
     {
         var cleanEmail = (email ?? string.Empty).Trim();
