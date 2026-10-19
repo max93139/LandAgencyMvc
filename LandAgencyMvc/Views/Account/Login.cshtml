@@ -35,20 +35,7 @@
             <div style="margin-top:16px; text-align:center; font-size:13px;">
                 Ще не маєте акаунту? <a asp-controller="Account" asp-action="Register" style="color:#16a34a; font-weight:700; text-decoration:none;">Зареєструватися</a>
             </div>
-
-            <div style="margin-top:20px; padding-top:16px; border-top:1px solid #e2e8f0;">
-                <span class="text-muted" style="font-size:11px; font-weight:700; display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Демо-доступ для тестування ролей:</span>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                    <button type="button" onclick="fillLogin('realtor@landagency.ua', 'realtor123')" class="la-btn" style="background:#fef3c7; color:#92400e; padding:7px 12px; font-size:12px; text-align:left; border-radius:6px;">🏢 Рієлтор: realtor@landagency.ua / realtor123</button>
-                    <button type="button" onclick="fillLogin('lawyer@landagency.ua', 'lawyer123')" class="la-btn" style="background:#e0e7ff; color:#3730a3; padding:7px 12px; font-size:12px; text-align:left; border-radius:6px;">⚖️ Юрист: lawyer@landagency.ua / lawyer123</button>
-                </div>
-            </div>
-            <script>
-                function fillLogin(email, pass) {
-                    document.querySelector('input[name="email"]').value = email;
-                    document.querySelector('input[name="password"]').value = pass;
-                }
-            </script>
         </div>
     </div>
+
 </div>
