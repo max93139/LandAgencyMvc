@@ -166,113 +166,64 @@ LandAgencyMvc/
 
 | Контролер | Основні дії (Actions) | Призначення |
 | :--- | :--- | :--- |
-| **`AccountController`** | `Login`, `Register`, `Logout` | Авторизація за Email та паролем. Автоматично визначає роль: адреси, що містять `realtor@`, стають рієлторами; `lawyer@` — юристами; всі інші — клієнтами. Записує Cookie `LandAgencyUserId`. |
-| **`ClientController`** | `Catalog`, `Details`, `CreatePlot`, `Cabinet`, `CreateViewing`, `ConfirmPayment`, `DownloadReceipt` | Перегляд публічного каталогу, пошук та фільтрація (за бюджетом, площею, призначенням), подача ділянки на продаж, створення заявок на підбір, запис на перегляд, проведення оплати за договором. |
-| **`RealtorController`** | `Requests`, `MatchPlotsForRequest`, `Viewings`, `UpdateViewingStatus`, `Deals`, `CreateDeal`, `SignDealAtNotary`, `CompleteNotaryDeal`, `PrintContract` | Робота рієлтора: підбір ділянок під запити покупців, узгодження часу виїзних переглядів, створення проєкту угоди, друк договору та передача на підпис. |
-| **`LawyerController`** | `Queue`, `Conclusion`, `SubmitLegalConclusion`, `Contracts`, `ApproveDealContract` | Робота юриста: черга ділянок на первинну перевірку ДЗК/ДРРП, затвердження або відхилення ділянки з актом ризиків, юридичне погодження договорів рієлтора перед походом до нотаріуса. |
+| **`AccountController`** | `Login`, `Register`, `Logout`, `AccessDenied` | Безпечна автентифікація на базі ASP.NET Core Cookie Authentication (`LandAgency.Auth`) та криптографічного хешування паролів PBKDF2 (`PasswordHasher<AppUser>`). Реєстрація клієнтів суворо призначає роль `Client`. |
+| **`ClientController`** | `Catalog`, `Details`, `CreatePlot`, `Cabinet`, `CreateViewing`, `SubmitSelectionRequest`, `SubmitPayment`, `DownloadReceipt`, `ChangePassword` | Перегляд публічного каталогу, пошук та фільтрація, подача ділянки на продаж із КЕП та SHA-256 хешуванням документів, автоматичний підбір (`AutoMatchingService`), запис на огляд, повідомлення про оплату за IBAN. |
+| **`RealtorController`** | `Requests`, `MatchPlotsForRequest`, `Viewings`, `UpdateViewingStatus`, `Deals`, `CreateDeal`, `VerifyClientPayment`, `RejectClientPayment`, `SignDealAtNotary`, `CompleteNotaryDeal`, `CancelDeal`, `PrintContract` | Робота рієлтора: автоматизований підбір ділянок, узгодження виїзних оглядів, створення проєктів угод з виставленням рахунків-фактур, верифікація банківських виписок, супровід у нотаріуса та реєстрація в ДРРП. |
+| **`LawyerController`** | `Queue`, `Conclusion`, `SubmitLegalConclusion`, `Contracts`, `ApproveDealContract` | Робота юриста: черга ділянок на аудит у ДЗК/ДРРП (`CadastralValidationService` + `DzkRegistrySimulator`), затвердження або відхилення ділянки з актом ризиків, правова віза договорів перед нотаріусом. |
 
 ---
 
 ## 6. Як працює база даних (`LandAgencyContext.cs`)
 
-База даних створюється автоматично при старті програми в методі `InitializeDatabase()`:
-- `EnsureSchemaUpToDate()` перевіряє цілісність полів (якщо схема змінилася, БД безпечно перестворюється).
-- За замовчуванням створюються тестові облікові записи:
+База даних створюється та наповнюється початковими демонстраційними даними автоматично при старті програми в методі `InitializeDatabase()`:
+- `EnsureSchemaUpToDate()` перевіряє актуальність схеми таблиць.
+- За замовчуванням створюються демонстраційні облікові записи та набір земельних ділянок, документів з SHA-256/КЕП, юридичних висновків, заявок та угод:
   - **Рієлтор**: `realtor@landagency.ua` / пароль: `realtor123`
   - **Юрист**: `lawyer@landagency.ua` / пароль: `lawyer123`
-- Файл бази даних зберігається локально за адресою: `LandAgencyMvc/landagency.db`.
+  - **Клієнт (Продавець)**: `seller@landagency.ua` / пароль: `client123`
+  - **Клієнт (Покупець)**: `buyer@landagency.ua` / пароль: `client123`
+- Файл бази даних зберігається локально: `LandAgencyMvc/land_agency.db`.
 
 ---
 
 ## 7. Практичний посібник: Як редагувати цей код
 
 ### Сценарій А: Зміна бізнес-правила (наприклад, зміна ставки комісії)
-1. Відкрийте файл [`SaleDeal.cs`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc/Models/SaleDeal.cs).
+1. Відкрийте файл [`SaleDeal.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Models/SaleDeal.cs).
 2. Знайдіть метод `CalculateCommission(double ratePercent = 3.0)` та замініть значення за замовчуванням або алгоритм обрахунку.
-3. Якщо потрібно змінити ставку за замовчуванням для рієлтора, відкрийте [`AppUser.cs`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc/Models/AppUser.cs) та змініть значення поля `CommissionRate`.
+3. Якщо потрібно змінити ставку за замовчуванням для рієлтора, відкрийте [`AppUser.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Models/AppUser.cs) та змініть значення поля `CommissionRate`.
 
 ### Сценарій Б: Додавання нового поля до сутності (наприклад, «Газифікація ділянки» у `LandPlot`)
 1. **Зміна моделі**:
-   - Відкрийте [`LandPlot.cs`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc/Models/LandPlot.cs).
+   - Відкрийте [`LandPlot.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Models/LandPlot.cs).
    - Додайте нову властивість:
      ```csharp
      public bool HasGasSupply { get; set; } = false;
      ```
 2. **Оновлення контролера**:
-   - Відкрийте [`ClientController.cs`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc/Controllers/ClientController.cs).
-   - У методі `CreatePlot(...)` додайте вхідний параметр `bool hasGasSupply` і збережіть його:
-     ```csharp
-     new LandPlot { ... HasGasSupply = hasGasSupply };
-     ```
+   - Відкрийте [`ClientController.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Controllers/ClientController.cs).
+   - У методі `CreatePlot(...)` збережіть нову властивість моделі.
 3. **Оновлення форми у View**:
-   - Відкрийте форму створення [`Views/Client/CreatePlot.cshtml`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc/Views/Client/CreatePlot.cshtml).
-   - Додайте чекбокс або випадаючий список для нового поля:
-     ```html
-     <div class="form-check mb-3">
-         <input class="form-check-input" type="checkbox" name="hasGasSupply" value="true" id="gasCheck" />
-         <label class="form-check-label" for="gasCheck">Підведено газопостачання</label>
-     </div>
-     ```
-4. **Оновлення відображення**:
-   - Відкрийте [`Views/Client/Details.cshtml`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc/Views/Client/Details.cshtml) або картку в каталозі і виведіть статус:
-     ```html
-     <span>Газ: @(Model.HasGasSupply ? "Підведено ✓" : "Відсутній ✗")</span>
-     ```
-5. **Оновлення бази даних**:
-   - Якщо ви використовуєте `EnsureDeleted()` / `EnsureCreated()` у `EnsureSchemaUpToDate()`, додайте перевірку нового поля або просто видаліть файл `landagency.db`, і при наступному запуску застосунок створить чисту таблицю з новим полем.
-
-### Сценарій В: Додавання нового пункту меню або нової сторінки
-1. **Створення Action у Контролері**:
-   - Відкрийте потрібний контролер (наприклад, `ClientController.cs`).
-   - Додайте метод:
-     ```csharp
-     [HttpGet]
-     public async Task<IActionResult> MyNewPage(int userId)
-     {
-         await SetCurrentUserAsync(userId);
-         return View();
-     }
-     ```
-2. **Створення представлення (Razor View)**:
-   - Створіть файл `Views/Client/MyNewPage.cshtml`.
-   - Додайте необхідну розмітку та стилі.
-3. **Посилання у навігації**:
-   - Відкрийте шапку в `Views/Shared/_Layout.cshtml` або внутрішню навігацію у відповідному представленні та додайте посилання:
-     ```html
-     <a asp-controller="Client" asp-action="MyNewPage" asp-route-userId="@ViewBag.CurrentUserId">Нова сторінка</a>
-     ```
-
-### Сценарій Г: Зміна валідації кадастрового номера
-- Відкрийте [`LandPlot.cs`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc/Models/LandPlot.cs#L83-L91).
-- У методі `ValidateCadastralFormat()` можна налаштувати або пом'якшити регулярний вираз для перевірки формату:
-  ```csharp
-  return Regex.IsMatch(CadastralNumber.Trim(), @"^\d{10}:\d{2}:\d{3}:\d{4}$");
-  ```
+   - Відкрийте форму створення [`Views/Client/CreatePlot.cshtml`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Views/Client/CreatePlot.cshtml) та додайте відповідне поле вводу.
 
 ---
 
-## 8. Запуск та налагодження проєкту
+## 8. Запуск та тестування проєкту
 
 ### Запуск через термінал:
 ```bash
-# Перехід у папку з проєктом
-cd /Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc
+cd /Users/mac/Desktop/projects/LandAgencyMvc
 
-# Збірка проєкту
-dotnet build
+# Збірка та запуск модульних тестів (xUnit)
+dotnet test
 
 # Запуск веб-сервера
-dotnet run
+dotnet run --project LandAgencyMvc
 ```
-За замовчуванням застосунок запуститься за адресою: `http://localhost:5000` або `https://localhost:5001` (також адреса виводиться у консолі).
-
-### Запуск у JetBrains Rider:
-1. Відкрийте рішення [`LandAgencyMvc.sln`](file:///Users/mac/RiderProjects/LandAgencyMvc/LandAgencyMvc.sln).
-2. У верхньому правому куті оберіть конфігурацію запуску **LandAgencyMvc**.
-3. Натисніть зелену кнопку **Run** (або **Debug** для покрокового трасування коду).
-4. Застосунок автоматично відкриється у браузері.
 
 ### Тестові дані для швидкого входу:
 - **Рієлтор**: email `realtor@landagency.ua`, пароль `realtor123`
 - **Юрист**: email `lawyer@landagency.ua`, пароль `lawyer123`
-- **Клієнт**: можна зареєструвати через сторінку реєстрації або ввести довільний email (наприклад `ivan@gmail.com`).
+- **Клієнт-Продавець**: email `seller@landagency.ua`, пароль `client123`
+- **Клієнт-Покупець**: email `buyer@landagency.ua`, пароль `client123`
+

@@ -121,6 +121,257 @@ public class LandAgencyContext : DbContext
         {
             SaveChanges();
         }
+
+        if (!LandPlots.Any())
+        {
+            SeedInitialDomainData();
+        }
+    }
+
+    private void SeedInitialDomainData()
+    {
+        var realtor = Users.FirstOrDefault(u => u.Role == UserRole.Realtor);
+        var lawyer = Users.FirstOrDefault(u => u.Role == UserRole.Lawyer);
+
+        var seller = Users.FirstOrDefault(u => u.Email == "seller@landagency.ua");
+        if (seller == null)
+        {
+            seller = new AppUser
+            {
+                FullName = "Шевченко Тарас Григорович",
+                Email = "seller@landagency.ua",
+                Phone = "+380 67 111 22 33",
+                TaxId = "2845109283",
+                BankDetails = "UA213223130000026007233566001",
+                OwnershipDoc = "ДРРП-59102847",
+                Role = UserRole.Client
+            };
+            seller.SetPassword("client123");
+            Users.Add(seller);
+        }
+
+        var buyer = Users.FirstOrDefault(u => u.Email == "buyer@landagency.ua");
+        if (buyer == null)
+        {
+            buyer = new AppUser
+            {
+                FullName = "Мельник Оксана Іванівна",
+                Email = "buyer@landagency.ua",
+                Phone = "+380 50 444 55 66",
+                TaxId = "3194827165",
+                BankDetails = "UA453052990000026201234567890",
+                MaxBudget = 40000,
+                TargetPurpose = "02.01 Для будівництва житлового будинку",
+                Role = UserRole.Client
+            };
+            buyer.SetPassword("client123");
+            Users.Add(buyer);
+        }
+
+        SaveChanges();
+
+        var plot1 = new LandPlot
+        {
+            CadastralNumber = "3221884000:03:001:0120",
+            Title = "Ділянка біля соснового лісу в с. Лісники",
+            Location = "Київська область, Обухівський район, с. Лісники, вул. Лісова, 14",
+            AreaHectares = 0.15,
+            Purpose = "02.01 Для будівництва житлового будинку",
+            PriceUsd = 28500m,
+            OwnershipDocNumber = "ДРРП-59102847",
+            SellerBankIban = seller.BankDetails,
+            Description = "Рівна фасаднa ділянка 15 соток, асфальтований під'їзд, газ та електрика 15 кВт уздовж межі, межові знаки винесені в натуру.",
+            Status = PlotStatus.VerifiedInCatalog,
+            SellerId = seller.Id,
+            AssignedRealtorId = realtor?.Id,
+            CreatedAt = DateTime.Now.AddDays(-5)
+        };
+
+        var plot2 = new LandPlot
+        {
+            CadastralNumber = "4623683300:01:002:0045",
+            Title = "Панорамна ділянка під котедж у с. Сокільники",
+            Location = "Львівська область, Львівський район, с. Сокільники, вул. Сонячна, 8",
+            AreaHectares = 0.20,
+            Purpose = "02.01 Для будівництва житлового будинку",
+            PriceUsd = 34000m,
+            OwnershipDocNumber = "ДРРП-60291834",
+            SellerBankIban = seller.BankDetails,
+            Description = "Ділянка правильної прямокутної форми у котеджному масиві, поруч міські комунікації та зручний виїзд на кільцеву дорогу.",
+            Status = PlotStatus.VerifiedInCatalog,
+            SellerId = seller.Id,
+            AssignedRealtorId = realtor?.Id,
+            CreatedAt = DateTime.Now.AddDays(-4)
+        };
+
+        var plot3 = new LandPlot
+        {
+            CadastralNumber = "3222486201:01:015:0084",
+            Title = "Фермерський масив чорнозему в Бучанському районі",
+            Location = "Київська область, Бучанський район, с. Петропавлівська Борщагівка",
+            AreaHectares = 1.20,
+            Purpose = "01.03 Для ведення особистого селянського господарства",
+            PriceUsd = 42000m,
+            OwnershipDocNumber = "ДА-ЯЯ-410293",
+            SellerBankIban = seller.BankDetails,
+            Description = "Родюча земельна ділянка сільськогосподарського призначення, зручний під'їзд для техніки, очікує планової перевірки юриста в ДЗК.",
+            Status = PlotStatus.PendingLegalCheck,
+            SellerId = seller.Id,
+            AssignedRealtorId = realtor?.Id,
+            CreatedAt = DateTime.Now.AddDays(-1)
+        };
+
+        var plot4 = new LandPlot
+        {
+            CadastralNumber = "3221884000:03:001:0000",
+            Title = "Ділянка у с. Гатне (іпотечне обтяження / занижена оцінка)",
+            Location = "Київська область, Фастівський район, с. Гатне, вул. Покровська, 3",
+            AreaHectares = 0.12,
+            Purpose = "02.01 Для будівництва житлового будинку",
+            PriceUsd = 5400m,
+            OwnershipDocNumber = "ДРРП-10029384",
+            SellerBankIban = seller.BankDetails,
+            Description = "Терміновий продаж, наявний запис про іпотечний спір у реєстрі речових прав.",
+            Status = PlotStatus.PendingLegalCheck,
+            SellerId = seller.Id,
+            AssignedRealtorId = realtor?.Id,
+            CreatedAt = DateTime.Now
+        };
+
+        LandPlots.AddRange(plot1, plot2, plot3, plot4);
+        SaveChanges();
+
+        var doc1Bytes = System.Text.Encoding.UTF8.GetBytes($"Витяг з ДРРП №{plot1.OwnershipDocNumber} Кадастровий номер {plot1.CadastralNumber}");
+        var doc1 = new PlotDocument
+        {
+            LandPlotId = plot1.Id,
+            Title = $"Витяг з ДРРП ({plot1.OwnershipDocNumber})",
+            DocType = "Витяг з ДРРП про право власності",
+            DocumentNumber = plot1.OwnershipDocNumber,
+            IssueDate = DateTime.Today.AddMonths(-6),
+            IsVerified = true
+        };
+        doc1.AttachFile(string.Empty, doc1Bytes, "application/pdf");
+        doc1.ApplyKepSignature(seller.FullName, seller.TaxId, doc1Bytes);
+
+        var doc2Bytes = System.Text.Encoding.UTF8.GetBytes($"Витяг з ДРРП №{plot2.OwnershipDocNumber} Кадастровий номер {plot2.CadastralNumber}");
+        var doc2 = new PlotDocument
+        {
+            LandPlotId = plot2.Id,
+            Title = $"Витяг з ДРРП ({plot2.OwnershipDocNumber})",
+            DocType = "Витяг з ДРРП про право власності",
+            DocumentNumber = plot2.OwnershipDocNumber,
+            IssueDate = DateTime.Today.AddMonths(-4),
+            IsVerified = true
+        };
+        doc2.AttachFile(string.Empty, doc2Bytes, "application/pdf");
+        doc2.ApplyKepSignature(seller.FullName, seller.TaxId, doc2Bytes);
+
+        var doc3Bytes = System.Text.Encoding.UTF8.GetBytes($"Державний акт №{plot3.OwnershipDocNumber} Кадастровий номер {plot3.CadastralNumber}");
+        var doc3 = new PlotDocument
+        {
+            LandPlotId = plot3.Id,
+            Title = $"Державний акт ({plot3.OwnershipDocNumber})",
+            DocType = "Державний акт на право власності на землю",
+            DocumentNumber = plot3.OwnershipDocNumber,
+            IssueDate = DateTime.Today.AddYears(-2),
+            IsVerified = false
+        };
+        doc3.AttachFile(string.Empty, doc3Bytes, "application/pdf");
+        doc3.ApplyKepSignature(seller.FullName, seller.TaxId, doc3Bytes);
+
+        PlotDocuments.AddRange(doc1, doc2, doc3);
+
+        var conclusion1 = new LegalConclusion
+        {
+            ConclusionNumber = $"ЮВ-{DateTime.Now:yyyy}-001",
+            LandPlotId = plot1.Id,
+            LawyerId = lawyer?.Id,
+            NoArrestsOrMortgages = true,
+            NoServitudes = true,
+            BoundariesMatchDzk = true,
+            SellerMatchesDrp = true,
+            NoSanctions = true,
+            RiskLevel = "Низький (Чисто)",
+            DzkExtractNumber = $"ВТ-ДЗК-{DateTime.Now:yyyy}-0001",
+            CreatedAt = DateTime.Now.AddDays(-4)
+        };
+        conclusion1.Approve("За даними ДЗК та ДРРП ділянка у с. Лісники зареєстрована належним чином. Координати поворотних точок меж узгоджені, обтяжень не виявлено.", "Низький (Чисто)");
+
+        var conclusion2 = new LegalConclusion
+        {
+            ConclusionNumber = $"ЮВ-{DateTime.Now:yyyy}-002",
+            LandPlotId = plot2.Id,
+            LawyerId = lawyer?.Id,
+            NoArrestsOrMortgages = true,
+            NoServitudes = true,
+            BoundariesMatchDzk = true,
+            SellerMatchesDrp = true,
+            NoSanctions = true,
+            RiskLevel = "Низький (Чисто)",
+            DzkExtractNumber = $"ВТ-ДЗК-{DateTime.Now:yyyy}-0002",
+            CreatedAt = DateTime.Now.AddDays(-3)
+        };
+        conclusion2.Approve("Перевірку у ДЗК та ДРРП пройдено успішно. Судових арештів, іпотек та земельних сервітутів не зареєстровано.", "Низький (Чисто)");
+
+        LegalConclusions.AddRange(conclusion1, conclusion2);
+
+        var selectionReq = new SelectionRequest
+        {
+            BuyerId = buyer.Id,
+            DesiredDistrict = "Обухівський район",
+            MinAreaHa = 0.12,
+            MaxBudgetUsd = 32000m,
+            Purpose = "02.01 Житлова забудова",
+            IsProcessedByRealtor = true,
+            ProcessedByRealtorId = realtor?.Id,
+            MatchedPlotIds = plot1.Id.ToString(),
+            RealtorNotes = $"Автопідбір: знайдено 1 верифіковану ділянку в каталозі (ID: {plot1.Id}).",
+            CreatedAt = DateTime.Now.AddDays(-2)
+        };
+        SelectionRequests.Add(selectionReq);
+
+        var viewing1 = new ViewingRequest
+        {
+            LandPlotId = plot1.Id,
+            BuyerId = buyer.Id,
+            RealtorId = realtor?.Id,
+            PreferredDate = DateTime.Today.AddDays(1),
+            TimeSlot = "11:30",
+            Comment = "Огляд межових знаків та трансформаторної підстанції біля ділянки.",
+            Status = ViewingStatus.Scheduled
+        };
+        ViewingRequests.Add(viewing1);
+
+        var deal1 = new SaleDeal
+        {
+            LandPlotId = plot2.Id,
+            BuyerId = buyer.Id,
+            RealtorId = realtor?.Id,
+            LawyerId = lawyer?.Id,
+            NotaryOffice = "Перша Львівська державна нотаріальна контора",
+            NotaryDate = DateTime.Today.AddDays(3).AddHours(14),
+            LawyerApprovalNotes = "Текст договору відповідає вимогам ст. 132 Земельного кодексу України. Дозволено передачу пакету документів нотаріусу."
+        };
+        deal1.PrepareContractDraft($"ДГ-{DateTime.Now:yyyy}-101", plot2.PriceUsd, 3.0);
+        deal1.Status = DealStatus.ApprovedByLawyerForNotary;
+
+        SaleDeals.Add(deal1);
+        SaveChanges();
+
+        var payments = deal1.CreateDefaultPayments(
+            seller.BankDetails,
+            isPaid: false,
+            senderIban: buyer.BankDetails,
+            agencyIban: realtor?.BankDetails);
+
+        if (payments.Count > 1)
+        {
+            payments[1].SubmitPayment("TRX-PB24-908172", buyer.BankDetails);
+        }
+
+        Payments.AddRange(payments);
+        SaveChanges();
     }
 
     private void EnsureSchemaUpToDate()
