@@ -1,4 +1,7 @@
+using System.Security.Claims;
 using LandAgencyMvc.Models;
+using LandAgencyMvc.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,49 +9,46 @@ namespace LandAgencyMvc.Controllers;
 
 /// <summary>
 /// Робоче місце сертифікованого рієлтора агентства.
-/// Відповідає за індивідуальний підбір ділянок за запитами клієнтів, узгодження та проведення
-/// виїзних оглядів, формування проєктів договорів із розрахунком 3% комісії та супровід нотаріальних угод.
+/// Відповідає за автоматизований та індивідуальний підбір ділянок за запитами клієнтів,
+/// узгодження та фіксацію виїзних оглядів, формування проектів угод з виставленням рахунків-фактур
+/// та перевірку банківських оплат перед нотаріальним посвідченням.
 /// </summary>
+[Authorize(Roles = nameof(UserRole.Realtor))]
 public class RealtorController : Controller
 {
     private readonly LandAgencyContext _db;
+    private readonly IAutoMatchingService _autoMatchingService;
 
-    public RealtorController(LandAgencyContext context)
+    public RealtorController(LandAgencyContext context, IAutoMatchingService autoMatchingService)
     {
         _db = context;
+        _autoMatchingService = autoMatchingService;
     }
 
-    private async Task<AppUser?> SetCurrentUserAsync(int userId)
+    private async Task<AppUser?> GetCurrentRealtorAsync()
     {
-        int resolvedId = userId;
-        if (resolvedId <= 0 &&
-            Request.Cookies.TryGetValue("LandAgencyUserId", out var cookieVal) &&
-            int.TryParse(cookieVal, out var parsedCookieId))
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(idClaim, out var realtorId) && realtorId > 0)
         {
-            resolvedId = parsedCookieId;
+            var realtor = await _db.Users.FirstOrDefaultAsync(u => u.Id == realtorId && u.Role == UserRole.Realtor);
+            if (realtor != null)
+            {
+                ViewBag.CurrentUser = realtor;
+                ViewBag.CurrentUserId = realtor.Id;
+                return realtor;
+            }
         }
 
-        AppUser? user = null;
-        if (resolvedId > 0)
-        {
-            user = await _db.Users.FirstOrDefaultAsync(u => u.Id == resolvedId && u.Role == UserRole.Realtor);
-        }
-
-        user ??= await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Realtor);
-
-        ViewBag.CurrentUser = user;
-        ViewBag.CurrentUserId = user?.Id ?? 0;
-        return user;
+        return null;
     }
 
     /// <summary>
-    /// Робоча черга заявок на підбір ділянок: підбір об'єктів з виключенням власних ділянок клієнта.
+    /// Робоча черга заявок на підбір ділянок з автоматичним двигуном підбору.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Requests(int userId, int? matchedRequestId)
-
+    public async Task<IActionResult> Requests(int? matchedRequestId)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentRealtorAsync();
         var requests = await _db.SelectionRequests
             .Include(r => r.Buyer)
             .OrderByDescending(r => r.Id)
@@ -86,30 +86,34 @@ public class RealtorController : Controller
         return View(viewModel);
     }
 
+    /// <summary>
+    /// Запуск ручного або повторного підбору для конкретної заявки клієнта.
+    /// </summary>
     [HttpPost]
-    public async Task<IActionResult> MatchPlotsForRequest(int userId, int requestId, string? realtorNotes)
+    public async Task<IActionResult> MatchPlotsForRequest(int requestId, string? realtorNotes)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
-        var req = await _db.SelectionRequests.FindAsync(requestId);
-        if (req != null)
+        var currentUser = await GetCurrentRealtorAsync();
+        int matchedCount = await _autoMatchingService.MatchRequestAsync(requestId);
+
+        if (!string.IsNullOrWhiteSpace(realtorNotes))
         {
-            var verifiedPlots = await _db.LandPlots
-                .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
-                .ToListAsync();
-
-            var finalMatches = req.MatchPlots(verifiedPlots, currentUser?.Id, realtorNotes);
-
-            await _db.SaveChangesAsync();
-            TempData["RealtorMessage"] = $"Запит клієнта #{req.Id} опрацьовано. Підібрано ділянок: {finalMatches.Count}.";
+            var req = await _db.SelectionRequests.FindAsync(requestId);
+            if (req != null)
+            {
+                req.ProcessedByRealtorId = currentUser?.Id;
+                req.RealtorNotes = realtorNotes.Trim();
+                await _db.SaveChangesAsync();
+            }
         }
 
-        return RedirectToAction(nameof(Requests), new { userId = currentUser?.Id ?? userId, matchedRequestId = requestId });
+        TempData["RealtorMessage"] = $"Запит клієнта #{requestId} опрацьовано автоматичним двигуном. Підібрано ділянок: {matchedCount}.";
+        return RedirectToAction(nameof(Requests), new { matchedRequestId = requestId });
     }
 
     [HttpPost]
-    public async Task<IActionResult> UpdatePlotDescription(int userId, int plotId, string description)
+    public async Task<IActionResult> UpdatePlotDescription(int plotId, string description)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentRealtorAsync();
         var plot = await _db.LandPlots.FindAsync(plotId);
         if (plot != null)
         {
@@ -119,16 +123,16 @@ public class RealtorController : Controller
             TempData["RealtorMessage"] = $"Комерційний опис ділянки {plot.CadastralNumber} оновлено.";
         }
 
-        return RedirectToAction(nameof(Requests), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Requests));
     }
 
     /// <summary>
     /// Реєстр запланованих та проведених виїзних оглядів ділянок з покупцями.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Viewings(int userId)
+    public async Task<IActionResult> Viewings()
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentRealtorAsync();
         var viewings = await _db.ViewingRequests
             .Include(v => v.LandPlot)
             .ThenInclude(p => p!.Seller)
@@ -144,10 +148,9 @@ public class RealtorController : Controller
     /// з поверненням запиту клієнта на повторний підбір.
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> UpdateViewingStatus(int userId, int viewingId, ViewingStatus status, string? resultNotes)
-
+    public async Task<IActionResult> UpdateViewingStatus(int viewingId, ViewingStatus status, string? resultNotes)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentRealtorAsync();
         var viewing = await _db.ViewingRequests.FindAsync(viewingId);
         if (viewing != null)
         {
@@ -187,16 +190,16 @@ public class RealtorController : Controller
             TempData["RealtorMessage"] = $"Статус заявки на огляд #{viewing.Id} оновлено.";
         }
 
-        return RedirectToAction(nameof(Viewings), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Viewings));
     }
 
     /// <summary>
     /// Реєстр нотаріальних угод купівлі-продажу з візуальним відображенням стадій правового супроводу.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Deals(int userId, int? plotId, int? buyerId)
+    public async Task<IActionResult> Deals(int? plotId, int? buyerId)
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentRealtorAsync();
         var availablePlots = await _db.LandPlots
             .Include(p => p.Seller)
             .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
@@ -225,21 +228,19 @@ public class RealtorController : Controller
     }
 
     /// <summary>
-    /// Створює проєкт угоди: розраховує 3% комісію агентства, формує графік безготівкових платежів (IBAN)
+    /// Створює проєкт угоди: розраховує 3% комісію агентства, формує графік рахунків-фактур (IBAN)
     /// та направляє проект договору юристу для отримання правової візи.
     /// </summary>
     [HttpPost]
     public async Task<IActionResult> CreateDeal(
-        int userId,
         int landPlotId,
         int buyerId,
         decimal finalPriceUsd,
         string draftContractNumber,
         string notaryOffice,
         DateTime notaryDate)
-
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentRealtorAsync();
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .FirstOrDefaultAsync(p => p.Id == landPlotId);
@@ -248,19 +249,19 @@ public class RealtorController : Controller
         if (plot == null || plot.Status != PlotStatus.VerifiedInCatalog)
         {
             TempData["RealtorError"] = "Оберіть перевірену в ДЗК земельну ділянку з каталогу для формування угоди.";
-            return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+            return RedirectToAction(nameof(Deals));
         }
 
         if (buyer == null)
         {
             TempData["RealtorError"] = "Оберіть зареєстрованого покупця для формування угоди.";
-            return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+            return RedirectToAction(nameof(Deals));
         }
 
         if (plot.SellerId == buyer.Id)
         {
             TempData["RealtorError"] = "Власник ділянки (Продавець) не може бути одночасно Покупцем у договорі купівлі-продажу.";
-            return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+            return RedirectToAction(nameof(Deals));
         }
 
         var existingDeal = await _db.SaleDeals
@@ -273,7 +274,7 @@ public class RealtorController : Controller
              existingDeal.BuyerId != buyerId))
         {
             TempData["RealtorError"] = $"По ділянці {plot.CadastralNumber} вже відкрито інший активний або завершений договір купівлі-продажу.";
-            return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+            return RedirectToAction(nameof(Deals));
         }
 
         string contractNum = !string.IsNullOrWhiteSpace(draftContractNumber)
@@ -304,7 +305,7 @@ public class RealtorController : Controller
             await _db.SaveChangesAsync();
 
             TempData["RealtorMessage"] = $"Проєкт договору {existingDeal.DraftContractNumber} оновлено та передано юристу на погодження.";
-            return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+            return RedirectToAction(nameof(Deals));
         }
 
         var deal = new SaleDeal
@@ -327,21 +328,41 @@ public class RealtorController : Controller
             agencyIban: currentUser?.BankDetails));
         await _db.SaveChangesAsync();
 
-        TempData["RealtorMessage"] = $"Проєкт договору {deal.DraftContractNumber} створено та передано юристу на погодження.";
-        return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+        TempData["RealtorMessage"] = $"Проєкт договору {deal.DraftContractNumber} створено, сформовано рахунки на оплату та передано юристу на погодження.";
+        return RedirectToAction(nameof(Deals));
+    }
+
+    /// <summary>
+    /// Перевірка та підтвердження банківського зарахування коштів за квитанцією клієнта.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> VerifyClientPayment(int paymentId, string? verificationNotes)
+    {
+        var currentUser = await GetCurrentRealtorAsync();
+        var payment = await _db.Payments
+            .Include(p => p.SaleDeal)
+            .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+        if (payment != null && currentUser != null)
+        {
+            payment.VerifyPayment(currentUser.Id, verificationNotes);
+            await _db.SaveChangesAsync();
+            TempData["RealtorMessage"] = $"Банківське зарахування за рахунком {payment.InvoiceNumber} (код операції: {payment.PaymentReference}) успішно підтверджено.";
+        }
+
+        return RedirectToAction(nameof(Deals));
     }
 
     [HttpPost]
-    public async Task<IActionResult> SendDealToLawyer(int userId, int dealId)
+    public async Task<IActionResult> SendDealToLawyer(int dealId)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
         var deal = await _db.SaleDeals.FindAsync(dealId);
         if (deal != null)
         {
             if (deal.Status == DealStatus.CompletedAtNotary || deal.Status == DealStatus.SignedAtNotary)
             {
                 TempData["RealtorError"] = $"Угода {deal.DraftContractNumber} вже посвідчена у нотаріуса і не потребує повторного візування.";
-                return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+                return RedirectToAction(nameof(Deals));
             }
 
             deal.Status = DealStatus.DraftPreparedByRealtor;
@@ -349,30 +370,43 @@ public class RealtorController : Controller
             TempData["RealtorMessage"] = $"Проєкт договору {deal.DraftContractNumber} передано юристу на візування.";
         }
 
-        return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Deals));
     }
 
+    /// <summary>
+    /// Нотаріальне підписання договору: перевіряє правову візу юриста та факт зарахування гарантійного внеску/комісії.
+    /// </summary>
     [HttpPost]
-    public async Task<IActionResult> SignDealAtNotary(int userId, int dealId, string? notarialRegistryNumber)
+    public async Task<IActionResult> SignDealAtNotary(int dealId, string? notarialRegistryNumber)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
-        var deal = await _db.SaleDeals.FindAsync(dealId);
+        var deal = await _db.SaleDeals
+            .Include(d => d.Payments)
+            .FirstOrDefaultAsync(d => d.Id == dealId);
+
         if (deal != null)
         {
+            if (!deal.IsAgencyFeePaid)
+            {
+                var agencyPayment = deal.AgencyPayment;
+                TempData["RealtorError"] = $"Неможливо призначити нотаріальне посвідчення до підтвердження зарахування депозиту / комісії агентства (Рахунок {agencyPayment?.InvoiceNumber ?? "INV"}). Очікується банківська виписка.";
+                return RedirectToAction(nameof(Deals));
+            }
+
             var regNum = !string.IsNullOrWhiteSpace(notarialRegistryNumber)
                 ? notarialRegistryNumber.Trim()
                 : $"НР-{DateTime.Now:yyyy}-{deal.Id:D4}";
+
             if (!deal.SignByParties(regNum))
             {
                 TempData["RealtorError"] = $"Неможливо посвідчити договір {deal.DraftContractNumber} у нотаріуса без попереднього погодження (візи) юриста.";
-                return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+                return RedirectToAction(nameof(Deals));
             }
 
             await _db.SaveChangesAsync();
             TempData["RealtorMessage"] = $"Підписання договору {deal.DraftContractNumber} у нотаріуса (реєстровий №{regNum}) зафіксовано.";
         }
 
-        return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Deals));
     }
 
     /// <summary>
@@ -380,10 +414,8 @@ public class RealtorController : Controller
     /// та автоматично скасовує всі інші активні заявки на виїзний огляд цього об'єкта.
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> CompleteNotaryDeal(int userId, int dealId, string? notarialRegistryNumber)
-
+    public async Task<IActionResult> CompleteNotaryDeal(int dealId, string? notarialRegistryNumber)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
         var deal = await _db.SaleDeals
             .Include(d => d.LandPlot)
             .Include(d => d.Payments)
@@ -394,7 +426,7 @@ public class RealtorController : Controller
             if (!deal.RegisterOwnershipRight())
             {
                 TempData["RealtorError"] = $"Неможливо зареєструвати право власності в ДРРП за угодою {deal.DraftContractNumber} до її нотаріального посвідчення (Етап 2).";
-                return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+                return RedirectToAction(nameof(Deals));
             }
 
             if (!string.IsNullOrWhiteSpace(notarialRegistryNumber))
@@ -409,6 +441,7 @@ public class RealtorController : Controller
             foreach (var p in deal.Payments)
             {
                 p.IsPaid = true;
+                p.Status = PaymentStatus.Confirmed;
             }
 
             var pendingViewings = await _db.ViewingRequests
@@ -425,13 +458,13 @@ public class RealtorController : Controller
             TempData["RealtorMessage"] = $"Право власності за угодою {deal.DraftContractNumber} зареєстровано в ДРРП. Ділянку переведено у статус «Продано».";
         }
 
-        return RedirectToAction(nameof(Deals), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Deals));
     }
 
     [HttpGet]
-    public async Task<IActionResult> PrintContract(int dealId, int userId)
+    public async Task<IActionResult> PrintContract(int dealId)
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentRealtorAsync();
         var deal = await _db.SaleDeals
             .Include(d => d.LandPlot)
             .ThenInclude(p => p!.Seller)
@@ -445,7 +478,7 @@ public class RealtorController : Controller
 
         if (deal == null)
         {
-            return RedirectToAction(nameof(Deals), new { userId });
+            return RedirectToAction(nameof(Deals));
         }
 
         return View(deal);
