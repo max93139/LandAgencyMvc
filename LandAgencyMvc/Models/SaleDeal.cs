@@ -79,6 +79,7 @@ public class SaleDeal
         DealStatus.ApprovedByLawyerForNotary => "Погоджено до нотаріуса ✓",
         DealStatus.SignedAtNotary => "Посвідчено у нотаріуса ✓",
         DealStatus.CompletedAtNotary => "Право зареєстровано в ДРРП ✓",
+        DealStatus.Cancelled => "Скасовано ✕",
         _ => Status.ToString()
     };
 
@@ -88,6 +89,7 @@ public class SaleDeal
         DealStatus.ApprovedByLawyerForNotary => "la-badge-green",
         DealStatus.CompletedAtNotary => "la-badge-green",
         DealStatus.ReturnedForRevision => "la-badge-red",
+        DealStatus.Cancelled => "la-badge-red",
         _ => "la-badge-indigo"
     };
 
@@ -174,7 +176,7 @@ public class SaleDeal
 
     /// <summary>
     /// Завершує угоду: фіксує держреєстрацію права власності за покупцем у ДРРП
-    /// та переводить земельну ділянку у статус 'Sold' (Продано).
+    /// за умови повного підтвердження всіх банківських розрахунків та переводить ділянку у статус 'Sold'.
     /// </summary>
     public bool RegisterOwnershipRight()
     {
@@ -183,10 +185,34 @@ public class SaleDeal
             return false;
         }
 
+        if (Payments.Any() && !IsFullyPaid)
+        {
+            return false;
+        }
+
         Status = DealStatus.CompletedAtNotary;
         if (LandPlot != null)
         {
             LandPlot.ChangeStatus(PlotStatus.Sold);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Скасовує активну угоду до моменту реєстрації права власності в ДРРП.
+    /// </summary>
+    public bool CancelDeal(string? reason = null)
+    {
+        if (Status == DealStatus.CompletedAtNotary || Status == DealStatus.Cancelled)
+        {
+            return false;
+        }
+
+        Status = DealStatus.Cancelled;
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            LawyerApprovalNotes = $"Угоду скасовано: {reason.Trim()}";
         }
 
         return true;

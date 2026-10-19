@@ -121,6 +121,21 @@ public class Payment
     }
 
     /// <summary>
+    /// Відхиляє подану клієнтом квитанцію у разі невідповідності банківській виписці IBAN,
+    /// повертаючи можливість повторного подання коректного коду транзакції.
+    /// </summary>
+    public void RejectPayment(int verifierUserId, string? reason = null)
+    {
+        Status = PaymentStatus.Rejected;
+        IsPaid = false;
+        VerifiedAt = DateTime.Now;
+        VerifiedByUserId = verifierUserId;
+        VerificationNotes = !string.IsNullOrWhiteSpace(reason)
+            ? reason.Trim()
+            : "Платіж не знайдено у банківській виписці за вказаним референсом.";
+    }
+
+    /// <summary>
     /// Виконання або пряме підтвердження для зворотної сумісності.
     /// </summary>
     public bool ExecuteTransaction(string? payerIban = null)

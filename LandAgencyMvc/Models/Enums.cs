@@ -30,7 +30,8 @@ public enum DealStatus
     ReturnedForRevision,
     ApprovedByLawyerForNotary,
     SignedAtNotary,
-    CompletedAtNotary
+    CompletedAtNotary,
+    Cancelled
 }
 
 public enum PaymentStatus

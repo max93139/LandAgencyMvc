@@ -57,7 +57,21 @@
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:28px;">
                 <button onclick="window.print()" class="la-btn la-btn-dark">Друкувати договір</button>
-                <a asp-controller="Realtor" asp-action="Deals" style="color:#b45309; font-weight:700; text-decoration:none;">← Повернутися до панелі угод</a>
+                @{
+                    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
+                }
+                @if (currentUser?.Role == LandAgencyMvc.Models.UserRole.Realtor)
+                {
+                    <a asp-controller="Realtor" asp-action="Deals" style="color:#b45309; font-weight:700; text-decoration:none;">← Повернутися до панелі угод</a>
+                }
+                else if (currentUser?.Role == LandAgencyMvc.Models.UserRole.Lawyer)
+                {
+                    <a asp-controller="Lawyer" asp-action="Contracts" style="color:#4338ca; font-weight:700; text-decoration:none;">← Повернутися до погодження договорів</a>
+                }
+                else
+                {
+                    <a asp-controller="Client" asp-action="Cabinet" style="color:#15803d; font-weight:700; text-decoration:none;">← Повернутися до кабінету</a>
+                }
             </div>
         </div>
     </div>
