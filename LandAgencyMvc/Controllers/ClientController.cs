@@ -577,7 +577,7 @@ public class ClientController : Controller
 
     [Authorize]
     [HttpPost]
-    public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string? bankDetails)
+    public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string? bankDetails, string? taxId)
     {
         var currentUser = await GetCurrentUserAsync();
         if (currentUser != null)
@@ -585,6 +585,11 @@ public class ClientController : Controller
             if (!string.IsNullOrWhiteSpace(bankDetails))
             {
                 currentUser.BankDetails = bankDetails.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(taxId))
+            {
+                currentUser.TaxId = taxId.Trim();
             }
 
             if (!string.IsNullOrWhiteSpace(newPassword))

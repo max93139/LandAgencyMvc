@@ -238,7 +238,9 @@ public class RealtorController : Controller
         decimal finalPriceUsd,
         string draftContractNumber,
         string notaryOffice,
-        DateTime notaryDate)
+        DateTime notaryDate,
+        string? buyerTaxId = null,
+        string? sellerBankIban = null)
     {
         var currentUser = await GetCurrentRealtorAsync();
         var plot = await _db.LandPlots
@@ -275,6 +277,20 @@ public class RealtorController : Controller
         {
             TempData["RealtorError"] = $"По ділянці {plot.CadastralNumber} вже відкрито інший активний або завершений договір купівлі-продажу.";
             return RedirectToAction(nameof(Deals));
+        }
+
+        if (!string.IsNullOrWhiteSpace(buyerTaxId) && string.IsNullOrWhiteSpace(buyer.TaxId))
+        {
+            buyer.TaxId = buyerTaxId.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(sellerBankIban))
+        {
+            plot.SellerBankIban = sellerBankIban.Trim();
+            if (plot.Seller != null && string.IsNullOrWhiteSpace(plot.Seller.BankDetails))
+            {
+                plot.Seller.BankDetails = sellerBankIban.Trim();
+            }
         }
 
         string contractNum = !string.IsNullOrWhiteSpace(draftContractNumber)

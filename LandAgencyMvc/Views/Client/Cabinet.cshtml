@@ -324,10 +324,18 @@
                 </div>
 
                 <div class="la-card">
-                    <h6>Налаштування профілю, IBAN та зміна пароля</h6>
+                    <h6>Налаштування профілю, РНОКПП (ІПН), IBAN та пароль</h6>
                     <form asp-controller="Client" asp-action="ChangePassword" method="post">
-                        <label class="la-label">Мій банківський рахунок IBAN</label>
-                        <input name="bankDetails" value="@Model.CurrentUser?.BankDetails" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+                        <div class="la-grid-2">
+                            <div>
+                                <label class="la-label">РНОКПП (ІПН) для угод</label>
+                                <input name="taxId" value="@Model.CurrentUser?.TaxId" class="la-input" placeholder="10 цифр" />
+                            </div>
+                            <div>
+                                <label class="la-label">Мій банківський рахунок IBAN</label>
+                                <input name="bankDetails" value="@Model.CurrentUser?.BankDetails" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+                            </div>
+                        </div>
                         <div class="la-grid-2">
                             <div>
                                 <label class="la-label">Поточний пароль</label>
@@ -338,7 +346,7 @@
                                 <input type="password" name="newPassword" class="la-input" placeholder="Новий пароль" />
                             </div>
                         </div>
-                        <button type="submit" class="la-btn la-btn-dark" style="padding:7px 14px; font-size:12px;">Зберегти зміни профілю</button>
+                        <button type="submit" class="la-btn la-btn-dark" style="padding:7px 14px; font-size:12px;">Зберегти дані профілю</button>
                     </form>
                 </div>
             </div>
