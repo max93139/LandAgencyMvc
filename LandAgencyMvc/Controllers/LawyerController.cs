@@ -1,4 +1,7 @@
+using System.Security.Claims;
 using LandAgencyMvc.Models;
+using LandAgencyMvc.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,49 +9,50 @@ namespace LandAgencyMvc.Controllers;
 
 /// <summary>
 /// Робоче місце штатного юриста агентства.
-/// Відповідає за правовий аудит земельних ділянок (ДЗК/ДРРП), формування висновків
-/// та юридичну експертизу проектів договорів купівлі-продажу для нотаріуса.
+/// Відповідає за правовий аудит земельних ділянок (КОАТУУ, ДЗК/ДРРП, цінові аномалії),
+/// формування юридичних висновків та правову експертизу проектів договорів для нотаріуса.
 /// </summary>
+[Authorize(Roles = nameof(UserRole.Lawyer))]
 public class LawyerController : Controller
 {
     private readonly LandAgencyContext _db;
+    private readonly ICadastralValidationService _cadastralService;
+    private readonly IAutoMatchingService _autoMatchingService;
 
-    public LawyerController(LandAgencyContext context)
+    public LawyerController(
+        LandAgencyContext context,
+        ICadastralValidationService cadastralService,
+        IAutoMatchingService autoMatchingService)
     {
         _db = context;
+        _cadastralService = cadastralService;
+        _autoMatchingService = autoMatchingService;
     }
 
-    private async Task<AppUser?> SetCurrentUserAsync(int userId)
+    private async Task<AppUser?> GetCurrentLawyerAsync()
     {
-        int resolvedId = userId;
-        if (resolvedId <= 0 &&
-            Request.Cookies.TryGetValue("LandAgencyUserId", out var cookieVal) &&
-            int.TryParse(cookieVal, out var parsedCookieId))
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(idClaim, out var lawyerId) && lawyerId > 0)
         {
-            resolvedId = parsedCookieId;
+            var lawyer = await _db.Users.FirstOrDefaultAsync(u => u.Id == lawyerId && u.Role == UserRole.Lawyer);
+            if (lawyer != null)
+            {
+                ViewBag.CurrentUser = lawyer;
+                ViewBag.CurrentUserId = lawyer.Id;
+                return lawyer;
+            }
         }
 
-        AppUser? user = null;
-        if (resolvedId > 0)
-        {
-            user = await _db.Users.FirstOrDefaultAsync(u => u.Id == resolvedId && u.Role == UserRole.Lawyer);
-        }
-
-        user ??= await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Lawyer);
-
-        ViewBag.CurrentUser = user;
-        ViewBag.CurrentUserId = user?.Id ?? 0;
-        return user;
+        return null;
     }
 
     /// <summary>
     /// Черга земельних ділянок для юридичного аудиту: очікують перевірки, верифіковані або відхилені.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Queue(int userId)
-
+    public async Task<IActionResult> Queue()
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentLawyerAsync();
         var plots = await _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.Documents)
@@ -65,12 +69,12 @@ public class LawyerController : Controller
     }
 
     /// <summary>
-    /// Детальний перегляд ділянки з автоматичним запитом до ДЗК/ДРРП для складання висновку.
+    /// Детальний перегляд ділянки з автоматичним запитом до ДЗК/ДРРП та аналізом ринкової ціни за сотку.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Conclusion(int id, int userId)
+    public async Task<IActionResult> Conclusion(int id)
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentLawyerAsync();
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.Documents)
@@ -90,10 +94,10 @@ public class LawyerController : Controller
 
         if (plot == null)
         {
-            return RedirectToAction(nameof(Queue), new { userId });
+            return RedirectToAction(nameof(Queue));
         }
 
-        var dzkExtract = DzkRegistrySimulator.QueryRegistries(plot);
+        var dzkExtract = await DzkRegistrySimulator.QueryRegistriesAsync(plot, _cadastralService);
         ViewBag.DzkExtract = dzkExtract;
         ViewBag.DefaultConclusionNumber = plot.LegalConclusion?.ConclusionNumber ?? $"ЮВ-{DateTime.Now:yyyy}-{plot.Id:D3}";
         ViewBag.DefaultConclusionText = plot.LegalConclusion?.ConclusionText ?? dzkExtract.SummaryReport;
@@ -103,10 +107,10 @@ public class LawyerController : Controller
 
     /// <summary>
     /// Фіксує юридичний висновок адвоката: погоджує ділянку для публікації або відхиляє з актом ризиків.
+    /// При успішному схваленні автоматично запускає автопідбір під активні запити клієнтів.
     /// </summary>
     [HttpPost]
     public async Task<IActionResult> SubmitLegalConclusion(
-        int userId,
         int landPlotId,
         string? conclusionNumber,
         string? riskLevel,
@@ -118,7 +122,7 @@ public class LawyerController : Controller
         string conclusionText,
         bool approve)
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentLawyerAsync();
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.Documents)
@@ -126,7 +130,7 @@ public class LawyerController : Controller
 
         if (plot != null)
         {
-            var dzkExtract = DzkRegistrySimulator.QueryRegistries(plot);
+            var dzkExtract = await DzkRegistrySimulator.QueryRegistriesAsync(plot, _cadastralService);
             plot.ChangeStatus(approve ? PlotStatus.VerifiedInCatalog : PlotStatus.RejectedByLawyer);
 
             foreach (var doc in plot.Documents)
@@ -140,7 +144,7 @@ public class LawyerController : Controller
 
             string resolvedRisk = !string.IsNullOrWhiteSpace(riskLevel)
                 ? riskLevel.Trim()
-                : (approve ? "Низький (Чисто)" : "Високий (Виявлено арешт / обтяження)");
+                : (approve ? "Низький (Чисто)" : "Високий (Виявлено обтяження / аномалію)");
 
             var existing = await _db.LegalConclusions.FirstOrDefaultAsync(c => c.LandPlotId == landPlotId);
             if (existing == null)
@@ -195,21 +199,28 @@ public class LawyerController : Controller
             }
 
             await _db.SaveChangesAsync();
-            TempData["LawyerMessage"] = approve
-                ? $"Юридичний висновок {resolvedConclusionNum} затверджено. Ділянку опубліковано в каталозі."
-                : $"Ділянку {plot.CadastralNumber} відхилено за результатами перевірки ДЗК/ДРРП. Сформовано акт ризиків.";
+
+            if (approve)
+            {
+                int autoMatchedCount = await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+                TempData["LawyerMessage"] = $"Юридичний висновок {resolvedConclusionNum} затверджено. Ділянку опубліковано в каталозі. Автоматично підібрано під {autoMatchedCount} активних заявок клієнтів.";
+            }
+            else
+            {
+                TempData["LawyerMessage"] = $"Ділянку {plot.CadastralNumber} відхилено за результатами юридичного аудиту. Сформовано акт ризиків.";
+            }
         }
 
-        return RedirectToAction(nameof(Queue), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Queue));
     }
 
     /// <summary>
     /// Реєстр договорів купівлі-продажу, що надійшли від рієлторів на правову експертизу перед нотаріусом.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Contracts(int userId)
+    public async Task<IActionResult> Contracts()
     {
-        await SetCurrentUserAsync(userId);
+        await GetCurrentLawyerAsync();
         var deals = await _db.SaleDeals
             .Include(d => d.LandPlot)
             .ThenInclude(p => p!.Seller)
@@ -217,6 +228,7 @@ public class LawyerController : Controller
             .ThenInclude(p => p!.LegalConclusion)
             .Include(d => d.Buyer)
             .Include(d => d.Realtor)
+            .Include(d => d.Payments)
             .OrderByDescending(d => d.Id)
             .ToListAsync();
         return View(deals);
@@ -226,10 +238,9 @@ public class LawyerController : Controller
     /// Правова віза юриста: погоджує передачу договору нотаріусу або повертає рієлтору на доопрацювання.
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> ApproveDealContract(int userId, int dealId, string? lawyerNotes, string decision = "approve")
-
+    public async Task<IActionResult> ApproveDealContract(int dealId, string? lawyerNotes, string decision = "approve")
     {
-        var currentUser = await SetCurrentUserAsync(userId);
+        var currentUser = await GetCurrentLawyerAsync();
         var deal = await _db.SaleDeals.FindAsync(dealId);
         if (deal != null)
         {
@@ -254,6 +265,6 @@ public class LawyerController : Controller
             await _db.SaveChangesAsync();
         }
 
-        return RedirectToAction(nameof(Contracts), new { userId = currentUser?.Id ?? userId });
+        return RedirectToAction(nameof(Contracts));
     }
 }

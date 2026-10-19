@@ -2,7 +2,6 @@
 @{
     ViewData["Title"] = $"Юридичний висновок по ділянці {Model.CadastralNumber} — Панель Юриста";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    int userId = ViewBag.CurrentUserId is int id ? id : 0;
     var dzk = ViewBag.DzkExtract as LandAgencyMvc.Models.DzkRegistryExtract;
     var existing = Model.LegalConclusion;
     string defaultConclusionNumber = ViewBag.DefaultConclusionNumber as string ?? string.Empty;
@@ -14,9 +13,9 @@
     <div class="la-topbar la-topbar-lawyer">
         <div class="la-nav-links">
             <span class="la-badge la-badge-indigo" style="margin-right:8px;">ЮРИСТ</span>
-            <a asp-controller="Lawyer" asp-action="Queue" asp-route-userId="@userId">Черга перевірки ДЗК</a>
-            <a class="active" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@Model.Id" asp-route-userId="@userId">Юридичний висновок</a>
-            <a asp-controller="Lawyer" asp-action="Contracts" asp-route-userId="@userId">Погодження договорів</a>
+            <a asp-controller="Lawyer" asp-action="Queue">Черга перевірки ДЗК</a>
+            <a class="active" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@Model.Id">Юридичний висновок</a>
+            <a asp-controller="Lawyer" asp-action="Contracts">Погодження договорів</a>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
             <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.CertificateNumber)</span>
@@ -32,42 +31,69 @@
             </div>
         }
         <div style="margin-bottom:14px;">
-            <a asp-controller="Lawyer" asp-action="Queue" asp-route-userId="@userId" style="color:#4f46e5; font-weight:700; text-decoration:none; font-size:14px;">← Повернутися до черги ДЗК</a>
+            <a asp-controller="Lawyer" asp-action="Queue" style="color:#4f46e5; font-weight:700; text-decoration:none; font-size:14px;">← Повернутися до черги ДЗК</a>
         </div>
 
-        <div class="la-card" style="max-width:860px; margin:0 auto;">
-            <h4 style="margin-bottom:4px;">Формування юридичного висновку по ділянці</h4>
+        <div class="la-card" style="max-width:880px; margin:0 auto;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                <h4 style="margin:0;">Правовий аудит та висновок по ділянці</h4>
+                <div style="display:flex; gap:8px;">
+                    @if (dzk != null)
+                    {
+                        <a href="@dzk.KadastrLiveUrl" target="_blank" class="la-btn" style="background:#e0e7ff; color:#3730a3; font-size:12px; padding:6px 12px; text-decoration:none;">🗺️ Публічна карта (kadastr.live) ↗</a>
+                        <a href="@dzk.OpenDataBotUrl" target="_blank" class="la-btn" style="background:#e0f2fe; color:#0369a1; font-size:12px; padding:6px 12px; text-decoration:none;">🔍 OpenDataBot ↗</a>
+                    }
+                </div>
+            </div>
             <p class="text-muted" style="font-size:14px; margin-bottom:16px;">
                 Ділянка: <strong>@Model.CadastralNumber</strong> (@Model.AreaHectares га, @Model.Title) • Власник: <strong>@Model.Seller?.FullName</strong> (РНОКПП: @Model.Seller?.TaxId)
             </p>
 
             @if (dzk != null)
             {
-                <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:14px; margin-bottom:18px; font-size:13px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <strong style="color:#312e81;">Автоматизована відповідь АС ДЗК та ДРРП (Витяг №@dzk.ExtractNumber)</strong>
-                        <span class="la-badge @(dzk.HasDrrpArrestsOrMortgages ? "la-badge-red" : "la-badge-green")">
-                            @(dzk.HasDrrpArrestsOrMortgages ? "Виявлено обтяження в реєстрі" : "Запит до ДЗК виконано успішно ✓")
+                <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:16px; margin-bottom:18px; font-size:13px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <strong style="color:#312e81; font-size:14px;">Електронний витяг ДЗК та ДРРП (№@dzk.ExtractNumber)</strong>
+                        <span class="la-badge @(dzk.IsCadastralFormatValid ? "la-badge-green" : "la-badge-red")">
+                            @(dzk.IsCadastralFormatValid ? "КОАТУУ підтверджено ✓" : "Помилка формату КОАТУУ ✗")
                         </span>
                     </div>
-                    <div class="la-grid-3">
-                        <div>Кадастровий формат: <strong>@(dzk.IsCadastralFormatValid ? "Коректний ✓" : "Потребує уточнення")</strong></div>
-                        <div>Код зони КОАТУУ: <strong>@dzk.CadastralZoneCode</strong></div>
+
+                    <div class="la-grid-3" style="margin-bottom:10px;">
+                        <div>Регіон КОАТУУ: <strong>@dzk.RegionName (@dzk.CadastralZoneCode)</strong></div>
                         <div>Нормативна оцінка (НГО): <strong>@dzk.NormativeMonetaryValuationUah.ToString("N0") грн</strong></div>
+                        <div>Ціна за сотку: <strong>$@dzk.PricePerSotkaUsd.ToString("N0")</strong> <span class="text-muted">(середня: $@dzk.RegionalAvgPricePerSotkaUsd.ToString("N0"))</span></div>
                     </div>
-                    <div style="margin-top:6px; color:#475569;">
-                        Документ у ДРРП: <strong>@dzk.OwnershipRecordNumber</strong>
+
+                    @if (dzk.IsPriceAnomalyDetected)
+                    {
+                        <div style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:8px; margin-bottom:10px; font-weight:600;">
+                            ⚠️ Ціновий комплаєнс: @dzk.PriceAnomalyReport
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:8px 12px; border-radius:8px; margin-bottom:10px;">
+                            ✓ Ринковий комплаєнс: @dzk.PriceAnomalyReport
+                        </div>
+                    }
+
+                    <div style="color:#475569;">
+                        Документ власності: <strong>@dzk.OwnershipRecordNumber</strong>
                         @if (Model.Documents.Any())
                         {
                             var doc = Model.Documents.First();
-                            <span> • Електронний підпис: <strong>@(doc.IsSignedByKep ? doc.KepSignatureHash : "Без КЕП")</strong></span>
+                            <div style="margin-top:4px; font-size:12px;">
+                                Файл: <a href="@doc.FileUrl" target="_blank" style="color:#2563eb; font-weight:700;">@doc.Title</a>
+                                • SHA-256: <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px; font-size:11px;">@(string.IsNullOrWhiteSpace(doc.FileHash) ? "Хеш розраховано" : doc.FileHash[..Math.Min(16, doc.FileHash.Length)] + "...")</code>
+                                • ЕЦП/КЕП: <strong style="color:#16a34a;">@(doc.IsSignedByKep ? doc.KepSignatureHash : "Без КЕП")</strong>
+                            </div>
                         }
                     </div>
                 </div>
             }
 
             <form asp-controller="Lawyer" asp-action="SubmitLegalConclusion" method="post">
-                <input type="hidden" name="userId" value="@userId" />
                 <input type="hidden" name="landPlotId" value="@Model.Id" />
 
                 <div class="la-grid-3">
@@ -83,13 +109,13 @@
                         <label class="la-label">Рівень правового ризику</label>
                         <select name="riskLevel" class="la-input">
                             <option value="Низький (Чисто)" selected="@(defaultRiskLevel.StartsWith("Низький"))">Низький (Чисто)</option>
-                            <option value="Середній (Наявний земельний сервітут)" selected="@(defaultRiskLevel.StartsWith("Середній"))">Середній (Наявний сервітут)</option>
-                            <option value="Високий (Виявлено арешт / обтяження)" selected="@(defaultRiskLevel.StartsWith("Високий"))">Високий (Виявлено арешт / обтяження)</option>
+                            <option value="Середній (Потребує уточнення оцінки)" selected="@(defaultRiskLevel.StartsWith("Середній"))">Середній (Потребує уточнення оцінки)</option>
+                            <option value="Високий (Виявлено обтяження / аномалію)" selected="@(defaultRiskLevel.StartsWith("Високий"))">Високий (Виявлено обтяження / аномалію)</option>
                         </select>
                     </div>
                 </div>
 
-                <label class="la-label" style="margin-bottom:8px;">Результати перевірки за державними реєстрами:</label>
+                <label class="la-label" style="margin-bottom:8px;">Результати перевірки за державними реєстрами та кадастром:</label>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
                     <label style="display:flex; align-items:center; gap:10px; background:#f0fdf4; border:1px solid #bbf7d0; padding:10px 14px; border-radius:8px; font-weight:600; font-size:13px; color:#166534; cursor:pointer;">
                         <input type="checkbox" name="noArrests" value="true" checked="@(existing?.NoArrestsOrMortgages ?? !(dzk?.HasDrrpArrestsOrMortgages ?? false))" />
@@ -117,7 +143,7 @@
                 <textarea name="conclusionText" rows="3" class="la-input" required>@defaultConclusionText</textarea>
 
                 <div style="display:flex; gap:14px; margin-top:8px;">
-                    <button type="submit" name="approve" value="true" class="la-btn la-btn-green" style="flex:1.3;">✓ Затвердити та опублікувати в каталог</button>
+                    <button type="submit" name="approve" value="true" class="la-btn la-btn-green" style="flex:1.3;">✓ Затвердити, опублікувати в каталог та запустити автопідбір</button>
                     <button type="submit" name="approve" value="false" class="la-btn" style="flex:1; background:#fee2e2; border:1px solid #fca5a5; color:#dc2626;">✕ Відхилити ділянку (Акт ризиків)</button>
                 </div>
             </form>

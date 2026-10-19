@@ -2,16 +2,15 @@
 @{
     ViewData["Title"] = "Погодження проєктів договорів — Панель Юриста";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    int userId = ViewBag.CurrentUserId is int id ? id : 0;
 }
 
 <div class="la-window">
     <div class="la-topbar la-topbar-lawyer">
         <div class="la-nav-links">
             <span class="la-badge la-badge-indigo" style="margin-right:8px;">ЮРИСТ</span>
-            <a asp-controller="Lawyer" asp-action="Queue" asp-route-userId="@userId">Черга перевірки ДЗК</a>
-            <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-userId="@userId">Юридичний висновок</a>
-            <a class="active" asp-controller="Lawyer" asp-action="Contracts" asp-route-userId="@userId">Погодження договорів</a>
+            <a asp-controller="Lawyer" asp-action="Queue">Черга перевірки ДЗК</a>
+            <a asp-controller="Lawyer" asp-action="Conclusion">Юридичний висновок</a>
+            <a class="active" asp-controller="Lawyer" asp-action="Contracts">Погодження договорів</a>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
             <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.CertificateNumber)</span>
@@ -62,7 +61,6 @@
                     </div>
 
                     <form asp-controller="Lawyer" asp-action="ApproveDealContract" method="post">
-                        <input type="hidden" name="userId" value="@userId" />
                         <input type="hidden" name="dealId" value="@d.Id" />
 
                         <label class="la-label">Примітка юриста для нотаріального посвідчення</label>
