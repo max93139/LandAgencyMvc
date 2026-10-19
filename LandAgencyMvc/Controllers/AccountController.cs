@@ -85,7 +85,7 @@ public class AccountController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> Register(string fullName, string email, string phone, string taxId, string? bankDetails, string password)
+    public async Task<IActionResult> Register(string fullName, string email, string phone, string password, string? taxId = null, string? bankDetails = null)
     {
         var cleanEmail = (email ?? string.Empty).Trim();
         var lowerEmail = cleanEmail.ToLower();
