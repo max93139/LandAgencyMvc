@@ -1,9 +1,17 @@
+using System.Security.Claims;
 using LandAgencyMvc.Models;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace LandAgencyMvc.Controllers;
 
+/// <summary>
+/// Контролер автентифікації та реєстрації користувачів.
+/// Забезпечує безпечний вхід на базі Claims-Cookie Authentication, реєстрацію клієнтів
+/// та захист від несанкціонованого отримання службових ролей.
+/// </summary>
 public class AccountController : Controller
 {
     private readonly LandAgencyContext _db;
@@ -14,13 +22,14 @@ public class AccountController : Controller
     }
 
     [HttpGet]
-    public IActionResult Login()
+    public IActionResult Login(string? returnUrl = null)
     {
+        ViewData["ReturnUrl"] = returnUrl;
         return View();
     }
 
     [HttpPost]
-    public async Task<IActionResult> Login(string email, string password)
+    public async Task<IActionResult> Login(string email, string password, string? returnUrl = null)
     {
         var normalizedEmail = (email ?? string.Empty).Trim().ToLower();
         var normalizedPassword = (password ?? string.Empty).Trim();
@@ -31,22 +40,41 @@ public class AccountController : Controller
         if (user == null || !user.Authenticate(normalizedPassword))
         {
             TempData["LoginError"] = "Невірна електронна пошта або пароль.";
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction(nameof(Login), new { returnUrl });
         }
 
-        Response.Cookies.Append("LandAgencyUserId", user.Id.ToString(), new CookieOptions
+        await _db.SaveChangesAsync();
+
+        var claims = new List<Claim>
         {
-            HttpOnly = true,
-            Path = "/",
-            SameSite = SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(7)
-        });
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.FullName),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Role, user.Role.ToString())
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
+            });
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
 
         return user.Role switch
         {
-            UserRole.Realtor => RedirectToAction("Requests", "Realtor", new { userId = user.Id }),
-            UserRole.Lawyer => RedirectToAction("Queue", "Lawyer", new { userId = user.Id }),
-            _ => RedirectToAction("Catalog", "Client", new { userId = user.Id })
+            UserRole.Realtor => RedirectToAction("Requests", "Realtor"),
+            UserRole.Lawyer => RedirectToAction("Queue", "Lawyer"),
+            _ => RedirectToAction("Cabinet", "Client")
         };
     }
 
@@ -75,16 +103,6 @@ public class AccountController : Controller
             return RedirectToAction(nameof(Register));
         }
 
-        var role = UserRole.Client;
-        if (lowerEmail.StartsWith("realtor@") || lowerEmail.Contains("@realtor."))
-        {
-            role = UserRole.Realtor;
-        }
-        else if (lowerEmail.StartsWith("lawyer@") || lowerEmail.Contains("@lawyer."))
-        {
-            role = UserRole.Lawyer;
-        }
-
         var user = new AppUser
         {
             FullName = (fullName ?? string.Empty).Trim(),
@@ -92,35 +110,49 @@ public class AccountController : Controller
             Phone = (phone ?? string.Empty).Trim(),
             TaxId = (taxId ?? string.Empty).Trim(),
             BankDetails = (bankDetails ?? string.Empty).Trim(),
-            Password = password.Trim(),
-            Role = role,
-            LicenseNumber = role == UserRole.Realtor ? "RL-402" : null,
-            CertificateNumber = role == UserRole.Lawyer ? "LW-881" : null
+            Role = UserRole.Client
         };
+        user.SetPassword(password);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
-        Response.Cookies.Append("LandAgencyUserId", user.Id.ToString(), new CookieOptions
+        var claims = new List<Claim>
         {
-            HttpOnly = true,
-            Path = "/",
-            SameSite = SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(7)
-        });
-
-        return user.Role switch
-        {
-            UserRole.Realtor => RedirectToAction("Requests", "Realtor", new { userId = user.Id }),
-            UserRole.Lawyer => RedirectToAction("Queue", "Lawyer", new { userId = user.Id }),
-            _ => RedirectToAction("Catalog", "Client", new { userId = user.Id })
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.FullName),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Role, user.Role.ToString())
         };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
+            });
+
+        TempData["CabinetMessage"] = "Обліковий запис клієнта успішно створено. Ласкаво просимо до LandAgency UA!";
+        return RedirectToAction("Cabinet", "Client");
     }
 
     [HttpGet]
-    public IActionResult Logout()
+    [HttpPost]
+    public async Task<IActionResult> Logout()
     {
-        Response.Cookies.Delete("LandAgencyUserId", new CookieOptions { Path = "/" });
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        Response.Cookies.Delete("LandAgencyUserId");
         return RedirectToAction(nameof(Login));
+    }
+
+    [HttpGet]
+    public IActionResult AccessDenied()
+    {
+        return View();
     }
 }

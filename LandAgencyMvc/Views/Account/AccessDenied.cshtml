@@ -1,0 +1,28 @@
+@{
+    ViewData["Title"] = "Доступ заборонено — LandAgency UA";
+}
+
+<div class="la-window">
+    <div class="la-topbar la-topbar-auth">
+        <strong style="font-size:18px;">LandAgency UA</strong>
+        <div class="la-nav-links">
+            <a asp-controller="Client" asp-action="Catalog">Каталог</a>
+            <a asp-controller="Client" asp-action="Cabinet">Мій кабінет</a>
+            <a asp-controller="Account" asp-action="Logout">Вийти</a>
+        </div>
+    </div>
+    <div class="la-body" style="display:flex; justify-content:center; align-items:center; min-height:60vh;">
+        <div class="la-card" style="width:500px; text-align:center; padding:32px 24px;">
+            <div style="font-size:48px; margin-bottom:12px;">🚫</div>
+            <h3 style="color:#dc2626; margin-bottom:8px;">Доступ заборонено (403)</h3>
+            <p class="text-muted" style="font-size:15px; margin-bottom:24px;">
+                Ваш поточний обліковий запис не має прав доступу до цієї службової секції агентства.
+                Цей розділ доступний виключно співробітникам відповідної ролі (рієлтор або юрист).
+            </p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <a asp-controller="Client" asp-action="Catalog" class="la-btn la-btn-green">До каталогу ділянок</a>
+                <a asp-controller="Account" asp-action="Login" class="la-btn la-btn-dark">Змінити акаунт</a>
+            </div>
+        </div>
+    </div>
+</div>

@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using LandAgencyMvc.Models;
+using LandAgencyMvc.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.WebEncoders;
@@ -18,6 +20,24 @@ builder.Services.Configure<WebEncoderOptions>(options =>
 });
 builder.Services.AddDbContext<LandAgencyContext>(options =>
     options.UseSqlite("Data Source=landagency.db"));
+
+builder.Services.AddScoped<ICadastralValidationService, CadastralValidationService>();
+builder.Services.AddScoped<IAutoMatchingService, AutoMatchingService>();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "LandAgency.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+        options.SlidingExpiration = true;
+    });
+
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -42,6 +62,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseAuthentication();
 app.UseAuthorization();
 app.UseStaticFiles();
 app.MapStaticAssets();
