@@ -111,8 +111,6 @@ public class ClientController : Controller
     /// </summary>
     [Authorize]
     [HttpPost]
-    [HttpPost("/Client/CreateSelectionRequest")]
-    [HttpPost("/Client/SubmitSelectionRequest")]
     public async Task<IActionResult> SubmitSelectionRequest(
         string desiredDistrict,
         double minAreaHa,
