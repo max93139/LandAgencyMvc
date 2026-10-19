@@ -94,7 +94,7 @@
                     </div>
                     <div>
                         <label class="la-label" style="color:#0f172a;">Рахунок IBAN Продавця для переказу коштів</label>
-                        <input name="sellerBankIban" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" style="background:#fff; margin-bottom:0;" />
+                        <input name="sellerBankIban" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN: UA та 27 цифр" style="background:#fff; margin-bottom:0; text-transform:uppercase;" />
                     </div>
                 </div>
                 <button type="submit" class="la-btn la-btn-amber">1. Сформувати проєкт угоди з рахунками та передати юристу</button>

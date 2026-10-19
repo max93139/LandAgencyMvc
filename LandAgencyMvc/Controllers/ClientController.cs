@@ -378,6 +378,14 @@ public class ClientController : Controller
             return View(model);
         }
 
+        var ibanClean = model.SellerBankIban.ToUpperInvariant();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(ibanClean, @"^UA\d{27}$"))
+        {
+            TempData["PlotError"] = "Невірний номер рахунку IBAN. Формат банківського рахунку України має складати рівно 29 символів (літери UA та 27 цифр).";
+            return View(model);
+        }
+        model.SellerBankIban = ibanClean;
+
         bool duplicateCadastral = await _db.LandPlots.AnyAsync(p =>
             p.CadastralNumber == model.CadastralNumber &&
             p.Status != PlotStatus.RejectedByLawyer);

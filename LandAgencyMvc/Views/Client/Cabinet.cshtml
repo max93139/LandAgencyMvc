@@ -275,7 +275,7 @@
                                             <form asp-controller="Client" asp-action="SubmitPayment" method="post" style="margin-top:6px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                                                 <input type="hidden" name="paymentId" value="@p.Id" />
                                                 <input type="text" name="paymentReference" class="la-input" placeholder="Код квитанції / референс (напр. TRX-12345)" style="margin:0; flex:1; min-width:160px; padding:4px 8px; font-size:11px;" required />
-                                                <input type="text" name="senderIban" class="la-input" placeholder="Ваш IBAN" value="@Model.CurrentUser?.BankDetails" style="margin:0; width:180px; padding:4px 8px; font-size:11px;" />
+                                                <input type="text" name="senderIban" class="la-input" placeholder="Ваш IBAN" value="@Model.CurrentUser?.BankDetails" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN: UA та 27 цифр" style="margin:0; width:195px; padding:4px 8px; font-size:11px; text-transform:uppercase;" />
                                                 <button type="submit" class="la-btn la-btn-green" style="padding:4px 10px; font-size:11px;">Повідомити про оплату</button>
                                             </form>
                                         }
@@ -333,7 +333,7 @@
                             </div>
                             <div>
                                 <label class="la-label">Мій банківський рахунок IBAN</label>
-                                <input name="bankDetails" value="@Model.CurrentUser?.BankDetails" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+                                <input name="bankDetails" value="@Model.CurrentUser?.BankDetails" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN України: UA та 27 цифр (рівно 29 символів)" style="text-transform:uppercase;" />
                             </div>
                         </div>
                         <div class="la-grid-2">

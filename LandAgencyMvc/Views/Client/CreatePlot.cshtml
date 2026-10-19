@@ -77,7 +77,7 @@
                     </div>
                     <div>
                         <label class="la-label">Банківський рахунок IBAN (для отримання коштів від покупця)</label>
-                        <input asp-for="SellerBankIban" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" required />
+                        <input asp-for="SellerBankIban" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN України: UA та 27 цифр (рівно 29 символів)" style="text-transform:uppercase;" required />
                     </div>
                 </div>
 
