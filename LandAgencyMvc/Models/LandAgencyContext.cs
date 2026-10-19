@@ -73,7 +73,7 @@ public class LandAgencyContext : DbContext
 
         if (!Users.Any(u => u.Role == UserRole.Realtor))
         {
-            Users.Add(new AppUser
+            var realtor = new AppUser
             {
                 FullName = "Бондар Ігор Олександрович",
                 Email = "realtor@landagency.ua",
@@ -81,29 +81,39 @@ public class LandAgencyContext : DbContext
                 WorkPhone = "+380 44 220 10 20",
                 TaxId = "2984512390",
                 BankDetails = "UA903052990000026000001002003",
-                Password = "realtor123",
                 Role = UserRole.Realtor,
                 LicenseNumber = "RL-402",
                 SpecializationOrLicense = "Сертифікований рієлтор АСНУ №RL-402",
                 CommissionRate = 3.0
-            });
+            };
+            realtor.SetPassword("realtor123");
+            Users.Add(realtor);
             changed = true;
         }
 
         if (!Users.Any(u => u.Role == UserRole.Lawyer))
         {
-            Users.Add(new AppUser
+            var lawyer = new AppUser
             {
                 FullName = "Коваленко Олена Вікторівна",
                 Email = "lawyer@landagency.ua",
                 Phone = "+380 50 777 88 99",
                 TaxId = "3051948271",
-                Password = "lawyer123",
                 Role = UserRole.Lawyer,
                 CertificateNumber = "LW-881",
                 Specialization = "Земельне право, ДЗК та ДРРП",
                 SpecializationOrLicense = "Свідоцтво про право на заняття адвокатською діяльністю №LW-881"
-            });
+            };
+            lawyer.SetPassword("lawyer123");
+            Users.Add(lawyer);
+            changed = true;
+        }
+
+        // Автоматичне безпечне перехешування незахешованих паролів існуючих користувачів
+        var legacyUsers = Users.Where(u => !string.IsNullOrEmpty(u.Password) && !u.Password.StartsWith("AQAAAA")).ToList();
+        foreach (var legacyUser in legacyUsers)
+        {
+            legacyUser.SetPassword(legacyUser.Password);
             changed = true;
         }
 
@@ -117,8 +127,8 @@ public class LandAgencyContext : DbContext
     {
         try
         {
-            _ = PlotDocuments.Any();
-            _ = Payments.Any();
+            _ = PlotDocuments.Select(d => d.FileHash).FirstOrDefault();
+            _ = Payments.Select(p => p.InvoiceNumber).FirstOrDefault();
             _ = LandPlots.Select(p => p.SellerBankIban).FirstOrDefault();
             _ = Users.Select(u => u.OwnershipDoc).FirstOrDefault();
         }

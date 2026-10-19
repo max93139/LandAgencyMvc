@@ -32,3 +32,11 @@ public enum DealStatus
     SignedAtNotary,
     CompletedAtNotary
 }
+
+public enum PaymentStatus
+{
+    PendingSubmission,
+    PendingVerification,
+    Confirmed,
+    Rejected
+}

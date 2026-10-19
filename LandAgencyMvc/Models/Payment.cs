@@ -1,7 +1,10 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace LandAgencyMvc.Models;
 
 /// <summary>
-/// Платіжна транзакція в межах угоди купівлі-продажу (оплата ділянки або комісія агентства).
+/// Платіжна транзакція в межах угоди купівлі-продажу:
+/// виставлення рахунку-фактури, внесення реквізитів платежу клієнтом та верифікація випискою банку.
 /// </summary>
 public class Payment
 {
@@ -15,6 +18,11 @@ public class Payment
     /// Номер фіскальної або внутрішньої квитанції про безготівковий розрахунок.
     /// </summary>
     public string ReceiptNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Номер рахунку-фактури (Invoice) для оплати.
+    /// </summary>
+    public string InvoiceNumber { get; set; } = string.Empty;
 
     public decimal AmountUsd { get; set; }
 
@@ -33,21 +41,87 @@ public class Payment
     public string RecipientIban { get; set; } = string.Empty;
 
     /// <summary>
-    /// Прапорець успішного проведення банківської транзакції.
+    /// Номер банківської платіжної інструкції або код квитанції, наданий клієнтом.
+    /// </summary>
+    public string PaymentReference { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Поточний статус обробки платежу в агентстві.
+    /// </summary>
+    public PaymentStatus Status { get; set; } = PaymentStatus.PendingSubmission;
+
+    /// <summary>
+    /// Прапорець успішного проведення та зарахування банківської транзакції.
     /// </summary>
     public bool IsPaid { get; set; }
 
-    /// <summary>
-    /// Формує унікальний номер платіжної квитанції у форматі КВ-РРРР-УГОДА-ІНДЕКС.
-    /// </summary>
+    public DateTime? SubmittedAt { get; set; }
+
+    public DateTime? VerifiedAt { get; set; }
+
+    public int? VerifiedByUserId { get; set; }
+
+    public AppUser? VerifiedByUser { get; set; }
+
+    public string VerificationNotes { get; set; } = string.Empty;
+
+    [NotMapped]
+    public string StatusDisplayName => Status switch
+    {
+        PaymentStatus.PendingSubmission => "Очікує оплати за рахунком",
+        PaymentStatus.PendingVerification => "На перевірці виписки банку ⏳",
+        PaymentStatus.Confirmed => "Зараховано та підтверджено ✓",
+        PaymentStatus.Rejected => "Відхилено (помилка реквізитів) ✗",
+        _ => Status.ToString()
+    };
+
+    [NotMapped]
+    public string StatusBadgeClass => Status switch
+    {
+        PaymentStatus.Confirmed => "la-badge-green",
+        PaymentStatus.PendingVerification => "la-badge-amber",
+        PaymentStatus.Rejected => "la-badge-red",
+        _ => "la-badge-indigo"
+    };
+
     public string GenerateReceiptNumber(int dealId, int index)
     {
         ReceiptNumber = $"КВ-{DateTime.Now:yyyy}-{dealId:D4}-{index}";
+        InvoiceNumber = $"INV-{DateTime.Now:yyyy}-{dealId:D4}-{index}";
         return ReceiptNumber;
     }
 
     /// <summary>
-    /// Фіксує виконання платежу: записує IBAN платника, статус оплати та поточну дату проведення.
+    /// Клієнт повідомляє про здійснену оплату за банківським рахунком IBAN.
+    /// </summary>
+    public void SubmitPayment(string paymentReference, string? senderIban = null)
+    {
+        PaymentReference = (paymentReference ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(senderIban))
+        {
+            SenderIban = senderIban.Trim();
+        }
+
+        Status = PaymentStatus.PendingVerification;
+        SubmittedAt = DateTime.Now;
+    }
+
+    /// <summary>
+    /// Рієлтор або бухгалтер агентства підтверджує зарахування коштів за банківською випискою.
+    /// </summary>
+    public void VerifyPayment(int verifierUserId, string? notes = null)
+    {
+        Status = PaymentStatus.Confirmed;
+        IsPaid = true;
+        VerifiedAt = DateTime.Now;
+        VerifiedByUserId = verifierUserId;
+        VerificationNotes = !string.IsNullOrWhiteSpace(notes)
+            ? notes.Trim()
+            : "Платіж підтверджено згідно з банківською випискою IBAN.";
+    }
+
+    /// <summary>
+    /// Виконання або пряме підтвердження для зворотної сумісності.
     /// </summary>
     public bool ExecuteTransaction(string? payerIban = null)
     {
@@ -56,9 +130,10 @@ public class Payment
             SenderIban = payerIban.Trim();
         }
 
+        Status = PaymentStatus.Confirmed;
         IsPaid = true;
         PaymentDate = DateTime.Now;
+        VerifiedAt = DateTime.Now;
         return true;
     }
 }
-

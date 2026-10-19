@@ -60,6 +60,15 @@ public class SaleDeal
     public bool IsFullyPaid => Payments.Any() && Payments.All(p => p.IsPaid);
 
     [NotMapped]
+    public bool HasPendingPayments => Payments.Any(p => p.Status == PaymentStatus.PendingVerification);
+
+    [NotMapped]
+    public Payment? AgencyPayment => Payments.FirstOrDefault(p => p.PaymentType.Contains("Комісійна") || p.PaymentType.Contains("комісійна"));
+
+    [NotMapped]
+    public bool IsAgencyFeePaid => AgencyPayment?.IsPaid ?? false;
+
+    [NotMapped]
     public decimal TotalAmountUsd => FinalPriceUsd + AgencyCommissionUsd;
 
     [NotMapped]
@@ -102,7 +111,7 @@ public class SaleDeal
     }
 
     /// <summary>
-    /// Генерує графік платежів угоди: оплату вартості продавцю за IBAN та комісію агентства.
+    /// Генерує графік платежів угоди: оплату вартості продавцю за IBAN та гарантійний депозит/комісію агентства.
     /// </summary>
     public List<Payment> CreateDefaultPayments(string? sellerIban, bool isPaid = false, string? senderIban = null, string? agencyIban = null)
     {
@@ -126,6 +135,7 @@ public class SaleDeal
             SenderIban = senderIban ?? string.Empty,
             RecipientIban = resolvedSellerIban,
             IsPaid = isPaid,
+            Status = isPaid ? PaymentStatus.Confirmed : PaymentStatus.PendingSubmission,
             PaymentDate = DateTime.Now
         };
         p1.GenerateReceiptNumber(Id, 1);
@@ -138,6 +148,7 @@ public class SaleDeal
             SenderIban = senderIban ?? string.Empty,
             RecipientIban = resolvedAgencyIban,
             IsPaid = isPaid,
+            Status = isPaid ? PaymentStatus.Confirmed : PaymentStatus.PendingSubmission,
             PaymentDate = DateTime.Now
         };
         p2.GenerateReceiptNumber(Id, 2);
