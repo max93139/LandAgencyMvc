@@ -65,6 +65,19 @@
                         <div>Ціна за сотку: <strong>$@dzk.PricePerSotkaUsd.ToString("N0")</strong> <span class="text-muted">(середня: $@dzk.RegionalAvgPricePerSotkaUsd.ToString("N0"))</span></div>
                     </div>
 
+                    @if (dzk.HasDrrpArrestsOrMortgages)
+                    {
+                        <div style="background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:10px 12px; border-radius:8px; margin-bottom:10px; font-weight:700;">
+                            ⛔ Реєстр обтяжень ДРРП: Виявлено активний арешт, іпотеку або судову заборону відчуження (@dzk.RecommendedRiskLevel)
+                        </div>
+                    }
+                    else if (dzk.HasDzkServitudesOrRestrictions)
+                    {
+                        <div style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:8px; margin-bottom:10px; font-weight:600;">
+                            ⚠️ Кадастрові обмеження ДЗК: Зареєстровано земельний сервітут або охоронну зону інженерних мереж
+                        </div>
+                    }
+
                     @if (dzk.IsPriceAnomalyDetected)
                     {
                         <div style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:8px; margin-bottom:10px; font-weight:600;">
