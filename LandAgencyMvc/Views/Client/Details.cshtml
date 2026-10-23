@@ -89,9 +89,9 @@
                                     {
                                         <span class="text-muted">SHA-256: <code class="la-code">@doc.ShortFileHash</code></span>
                                     }
-                                    @if (doc.IsSignedByKep)
+                                    @if (doc.IsVerified)
                                     {
-                                        <span class="la-badge la-badge-green ms-1">✓ @doc.KepSignatureHash</span>
+                                        <span class="la-badge la-badge-green ms-1">✓ Верифіковано в ДРРП</span>
                                     }
                                 </div>
                                 @if (!string.IsNullOrEmpty(doc.FileUrl))

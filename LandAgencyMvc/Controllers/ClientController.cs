@@ -341,7 +341,6 @@ public class ClientController : Controller
         string? docTitle,
         string? docType,
         DateTime? docIssueDate,
-        bool signWithKep = false,
         IFormFile? documentFile = null)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -437,11 +436,6 @@ public class ClientController : Controller
         };
         plotDoc.AttachFile(savedFileUrl, fileBytes, mimeType);
 
-        if (signWithKep)
-        {
-            plotDoc.ApplyKepSignature(currentUser.FullName, currentUser.TaxId, fileBytes);
-        }
-
         _db.PlotDocuments.Add(plotDoc);
         await _db.SaveChangesAsync();
 
@@ -500,7 +494,6 @@ public class ClientController : Controller
         string? docType,
         string? documentNumber,
         DateTime? issueDate,
-        bool signWithKep = false,
         IFormFile? documentFile = null)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -526,14 +519,9 @@ public class ClientController : Controller
             };
             doc.AttachFile(savedFileUrl, fileBytes, mimeType);
 
-            if (signWithKep)
-            {
-                doc.ApplyKepSignature(currentUser.FullName, currentUser.TaxId, fileBytes);
-            }
-
             _db.PlotDocuments.Add(doc);
             await _db.SaveChangesAsync();
-            TempData["CabinetMessage"] = $"Документ «{doc.Title}» {(signWithKep ? "підписано КЕП та " : "")}прикріплено до ділянки {plot.CadastralNumber}.";
+            TempData["CabinetMessage"] = $"Документ «{doc.Title}» успішно прикріплено до ділянки {plot.CadastralNumber}.";
         }
 
         return RedirectToAction(nameof(Cabinet));

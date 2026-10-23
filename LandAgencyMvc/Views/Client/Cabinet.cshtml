@@ -61,9 +61,9 @@
                                                         <span class="la-badge @(doc.IsVerified ? "la-badge-green" : "la-badge-indigo")">
                                                             📄 @doc.DocType №@doc.DocumentNumber
                                                         </span>
-                                                        @if (doc.IsSignedByKep)
+                                                        @if (doc.IsVerified)
                                                         {
-                                                            <span class="la-badge la-badge-green" title="Підписано: @doc.SignerFullName, РНОКПП: @doc.SignerTaxId">КЕП ✓ @doc.SignerFullName</span>
+                                                            <span class="la-badge la-badge-green">Верифіковано юристом ✓</span>
                                                         }
                                                     </div>
                                                     @if (!string.IsNullOrEmpty(doc.FileUrl))
@@ -104,12 +104,7 @@
                                             </div>
                                             <div class="la-row-between">
                                                 <input type="file" name="documentFile" class="la-input-inline" />
-                                                <div class="la-action-row">
-                                                    <label class="fw-bold text-success">
-                                                        <input type="checkbox" name="signWithKep" value="true" checked /> Накласти КЕП
-                                                    </label>
-                                                    <button type="submit" class="la-btn la-btn-green la-btn-xs">Завантажити</button>
-                                                </div>
+                                                <button type="submit" class="la-btn la-btn-green la-btn-xs">Завантажити файл</button>
                                             </div>
                                         </form>
                                     </details>

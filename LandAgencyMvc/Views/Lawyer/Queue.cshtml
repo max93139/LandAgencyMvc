@@ -69,7 +69,7 @@
                                     {
                                         <small class="text-muted">
                                             @(firstDoc != null ? $"{firstDoc.DocType} №{firstDoc.DocumentNumber}" : $"Документ №{p.OwnershipDocNumber}")
-                                            @(firstDoc?.IsSignedByKep == true ? "(КЕП ✓)" : "")
+                                            @(firstDoc != null ? "(Файл додано ✓)" : "")
                                         </small>
                                     }
                                 </td>

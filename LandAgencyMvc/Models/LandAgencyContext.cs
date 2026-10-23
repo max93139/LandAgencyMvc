@@ -261,7 +261,6 @@ public class LandAgencyContext : DbContext
             IsVerified = true
         };
         doc1.AttachFile(string.Empty, doc1Bytes, "application/pdf");
-        doc1.ApplyKepSignature(seller.FullName, seller.TaxId, doc1Bytes);
 
         var doc2Bytes = System.Text.Encoding.UTF8.GetBytes($"Витяг з ДРРП №{plot2.OwnershipDocNumber} Кадастровий номер {plot2.CadastralNumber}");
         var doc2 = new PlotDocument
@@ -274,7 +273,6 @@ public class LandAgencyContext : DbContext
             IsVerified = true
         };
         doc2.AttachFile(string.Empty, doc2Bytes, "application/pdf");
-        doc2.ApplyKepSignature(seller.FullName, seller.TaxId, doc2Bytes);
 
         var doc3Bytes = System.Text.Encoding.UTF8.GetBytes($"Державний акт №{plot3.OwnershipDocNumber} Кадастровий номер {plot3.CadastralNumber}");
         var doc3 = new PlotDocument
@@ -287,7 +285,6 @@ public class LandAgencyContext : DbContext
             IsVerified = false
         };
         doc3.AttachFile(string.Empty, doc3Bytes, "application/pdf");
-        doc3.ApplyKepSignature(seller.FullName, seller.TaxId, doc3Bytes);
 
         PlotDocuments.AddRange(doc1, doc2, doc3);
 
