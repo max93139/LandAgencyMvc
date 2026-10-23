@@ -12,7 +12,7 @@ public class CadastralValidationService : ICadastralValidationService
 {
     private readonly LandAgencyContext _db;
 
-    private static readonly Dictionary<string, string> UkrainianRegions = new()
+    public static readonly Dictionary<string, string> UkrainianRegions = new()
     {
         { "01", "Автономна Республіка Крим" },
         { "05", "Вінницька область" },

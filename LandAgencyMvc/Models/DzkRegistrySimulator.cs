@@ -35,19 +35,11 @@ public static class DzkRegistrySimulator
         decimal ngoUah = Math.Round((decimal)Math.Max(plot.AreaHectares, 0.01) * baseRatePerHaUah, 2);
 
         bool boundariesMatch = koatuu.IsValid;
-        string descLower = $"{plot.Title} {plot.Description}".ToLowerInvariant();
         bool hasArrest = !koatuu.IsValid ||
                          cadastral.EndsWith(":0000", StringComparison.Ordinal) ||
-                         cadastral.EndsWith(":9999", StringComparison.Ordinal) ||
-                         descLower.Contains("арешт") ||
-                         descLower.Contains("іпотек") ||
-                         descLower.Contains("спір") ||
-                         descLower.Contains("заборон");
+                         cadastral.EndsWith(":9999", StringComparison.Ordinal);
 
-        bool hasServitude = cadastral.EndsWith(":0009", StringComparison.Ordinal) ||
-                            descLower.Contains("сервітут") ||
-                            descLower.Contains("охоронна") ||
-                            descLower.Contains("обмеження");
+        bool hasServitude = cadastral.EndsWith(":0009", StringComparison.Ordinal);
 
         string riskLevel = !koatuu.IsValid
             ? "Високий (Невалідний кадастровий формат КОАТУУ)"
@@ -105,21 +97,15 @@ public static class DzkRegistrySimulator
     {
         var cadastral = (plot.CadastralNumber ?? string.Empty).Trim();
         bool validFormat = plot.ValidateCadastralFormat();
-        string zoneCode = cadastral.Length >= 10 ? cadastral[..10] : "3222486200";
-        string descLower = $"{plot.Title} {plot.Description}".ToLowerInvariant();
+        string zoneCode = cadastral.Length >= 10 ? cadastral[..10] : (validFormat ? $"{cadastral[..2]}00000000" : "3222486200");
+        string regionCode = cadastral.Length >= 2 ? cadastral[..2] : string.Empty;
+        string regionName = CadastralValidationService.UkrainianRegions.TryGetValue(regionCode, out var rName) ? rName : "Київська область";
 
         bool hasArrest = !validFormat ||
                          cadastral.EndsWith(":0000", StringComparison.Ordinal) ||
-                         cadastral.EndsWith(":9999", StringComparison.Ordinal) ||
-                         descLower.Contains("арешт") ||
-                         descLower.Contains("іпотек") ||
-                         descLower.Contains("спір") ||
-                         descLower.Contains("заборон");
+                         cadastral.EndsWith(":9999", StringComparison.Ordinal);
 
-        bool hasServitude = cadastral.EndsWith(":0009", StringComparison.Ordinal) ||
-                            descLower.Contains("сервітут") ||
-                            descLower.Contains("охоронна") ||
-                            descLower.Contains("обмеження");
+        bool hasServitude = cadastral.EndsWith(":0009", StringComparison.Ordinal);
 
         var sotkas = Math.Max(plot.AreaHectares * 100.0, 0.1);
         var pricePerSotka = Math.Round(plot.PriceUsd / (decimal)sotkas, 2);
@@ -136,7 +122,7 @@ public static class DzkRegistrySimulator
             CadastralNumber = cadastral,
             IsCadastralFormatValid = validFormat,
             CadastralZoneCode = zoneCode,
-            RegionName = "Київська область",
+            RegionName = regionName,
             RegisteredAreaHa = plot.AreaHectares,
             RegisteredPurpose = plot.Purpose,
             NormativeMonetaryValuationUah = ngoUah,

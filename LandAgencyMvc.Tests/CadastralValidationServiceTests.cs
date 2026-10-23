@@ -211,6 +211,54 @@ public class CadastralValidationServiceTests : IDisposable
         Assert.Contains("3221884000", extract.CadastralZoneCode);
     }
 
+    [Fact]
+    public async Task DzkRegistrySimulator_DoesNotTriggerArrest_WhenDescriptionMentionsNoArrests()
+    {
+        var cleanPlot = new LandPlot
+        {
+            Id = 5,
+            CadastralNumber = "3221884000:03:001:0125",
+            Title = "Чиста приватизована ділянка",
+            Description = "Терміновий чистий продаж без арештів, без іпотек, без судових спорів та без обмежень у користуванні.",
+            Purpose = "02.01 Для будівництва житлового будинку",
+            AreaHectares = 0.15,
+            PriceUsd = 28500m
+        };
+
+        var extract = await DzkRegistrySimulator.QueryRegistriesAsync(cleanPlot, _service);
+
+        Assert.False(extract.HasDrrpArrestsOrMortgages);
+        Assert.False(extract.HasDzkServitudesOrRestrictions);
+        Assert.True(extract.OwnerAbsentInDebtorsRegistry);
+        Assert.StartsWith("Низький", extract.RecommendedRiskLevel);
+
+        var syncExtract = DzkRegistrySimulator.QueryRegistries(cleanPlot);
+        Assert.False(syncExtract.HasDrrpArrestsOrMortgages);
+        Assert.False(syncExtract.HasDzkServitudesOrRestrictions);
+        Assert.Equal("Київська область", syncExtract.RegionName);
+    }
+
+    [Fact]
+    public void DzkRegistrySimulator_SyncQuery_ResolvesRegionDynamically()
+    {
+        var lvivPlot = new LandPlot
+        {
+            Id = 6,
+            CadastralNumber = "4623683300:01:002:0045",
+            Title = "Панорамна ділянка під котедж",
+            Description = "Зручний виїзд, комунікації.",
+            Purpose = "02.01 Для будівництва житлового будинку",
+            AreaHectares = 0.20,
+            PriceUsd = 34000m
+        };
+
+        var extract = DzkRegistrySimulator.QueryRegistries(lvivPlot);
+
+        Assert.Equal("Львівська область", extract.RegionName);
+        Assert.Equal("4623683300", extract.CadastralZoneCode);
+        Assert.False(extract.HasDrrpArrestsOrMortgages);
+    }
+
     public void Dispose()
     {
         _context.Dispose();
