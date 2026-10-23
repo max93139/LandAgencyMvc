@@ -70,6 +70,28 @@ public class LandPlot
     public ICollection<ViewingRequest> ViewingRequests { get; set; } = new List<ViewingRequest>();
 
     [NotMapped]
+    public double AreaSotky => Math.Round(AreaHectares * 100.0, 2);
+
+    [NotMapped]
+    public decimal PricePerSotkaUsd => AreaHectares > 0
+        ? Math.Round(PriceUsd / (decimal)(AreaHectares * 100.0), 0)
+        : 0m;
+
+    [NotMapped]
+    public string KadastrLiveUrl => $"https://kadastr.live/parcel/{Uri.EscapeDataString((CadastralNumber ?? string.Empty).Trim())}";
+
+    [NotMapped]
+    public string OpenDataBotUrl => $"https://opendatabot.ua/l/{Uri.EscapeDataString((CadastralNumber ?? string.Empty).Trim())}";
+
+    [NotMapped]
+    public string EffectiveSellerIban => !string.IsNullOrWhiteSpace(SellerBankIban)
+        ? SellerBankIban
+        : (!string.IsNullOrWhiteSpace(Seller?.BankDetails) ? Seller.BankDetails : "Не вказано");
+
+    [NotMapped]
+    public PlotDocument? PrimaryDocument => Documents.FirstOrDefault();
+
+    [NotMapped]
     public string StatusDisplayName => Status switch
     {
         PlotStatus.PendingLegalCheck => "На перевірці у юриста (ДЗК)",
@@ -86,6 +108,15 @@ public class LandPlot
         PlotStatus.Sold => "la-badge-green",
         PlotStatus.RejectedByLawyer => "la-badge-red",
         _ => "la-badge-amber"
+    };
+
+    public static IReadOnlyList<(string FullValue, string ShortLabel)> StandardPurposes { get; } = new List<(string, string)>
+    {
+        ("02.01 Для будівництва і обслуговування житлового будинку", "02.01 Житлова забудова"),
+        ("01.03 Для ведення особистого селянського господарства", "01.03 Особисте селянське господарство (ОСГ)"),
+        ("01.05 Для індивідуального садівництва", "01.05 Садівництво"),
+        ("03.07 Для будівництва та обслуговування будівель торгівлі", "03.07 Комерція та торгівля"),
+        ("11.02 Для розміщення промислових підприємств", "11.02 Промисловість та склади")
     };
 
     /// <summary>

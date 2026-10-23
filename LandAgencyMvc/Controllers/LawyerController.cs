@@ -60,12 +60,16 @@ public class LawyerController : Controller
             .OrderByDescending(p => p.Id)
             .ToListAsync();
 
-        ViewBag.TotalPlotsCount = plots.Count;
-        ViewBag.VerifiedPlotsCount = plots.Count(p => p.Status == PlotStatus.VerifiedInCatalog || p.Status == PlotStatus.Sold);
-        ViewBag.PendingPlotsCount = plots.Count(p => p.Status == PlotStatus.PendingLegalCheck);
-        ViewBag.RejectedPlotsCount = plots.Count(p => p.Status == PlotStatus.RejectedByLawyer);
+        var viewModel = new LawyerQueueViewModel
+        {
+            Plots = plots,
+            TotalPlotsCount = plots.Count,
+            VerifiedPlotsCount = plots.Count(p => p.Status == PlotStatus.VerifiedInCatalog || p.Status == PlotStatus.Sold),
+            PendingPlotsCount = plots.Count(p => p.Status == PlotStatus.PendingLegalCheck),
+            RejectedPlotsCount = plots.Count(p => p.Status == PlotStatus.RejectedByLawyer)
+        };
 
-        return View(plots);
+        return View(viewModel);
     }
 
     /// <summary>
@@ -98,11 +102,16 @@ public class LawyerController : Controller
         }
 
         var dzkExtract = await DzkRegistrySimulator.QueryRegistriesAsync(plot, _cadastralService);
-        ViewBag.DzkExtract = dzkExtract;
-        ViewBag.DefaultConclusionNumber = plot.LegalConclusion?.ConclusionNumber ?? $"ЮВ-{DateTime.Now:yyyy}-{plot.Id:D3}";
-        ViewBag.DefaultConclusionText = plot.LegalConclusion?.ConclusionText ?? dzkExtract.SummaryReport;
-        ViewBag.DefaultRiskLevel = plot.LegalConclusion?.RiskLevel ?? dzkExtract.RecommendedRiskLevel;
-        return View(plot);
+        var viewModel = new LawyerConclusionViewModel
+        {
+            Plot = plot,
+            DzkExtract = dzkExtract,
+            DefaultConclusionNumber = plot.LegalConclusion?.ConclusionNumber ?? $"ЮВ-{DateTime.Now:yyyy}-{plot.Id:D3}",
+            DefaultConclusionText = plot.LegalConclusion?.ConclusionText ?? dzkExtract.SummaryReport,
+            DefaultRiskLevel = plot.LegalConclusion?.RiskLevel ?? dzkExtract.RecommendedRiskLevel
+        };
+
+        return View(viewModel);
     }
 
     /// <summary>
@@ -131,6 +140,12 @@ public class LawyerController : Controller
 
         if (plot != null)
         {
+            if (plot.Status == PlotStatus.Sold)
+            {
+                TempData["LawyerError"] = $"Ділянку {plot.CadastralNumber} вже продано за нотаріальною угодою. Повторна зміна статусу юридичного аудиту неможлива.";
+                return RedirectToAction(nameof(Queue));
+            }
+
             var dzkExtract = await DzkRegistrySimulator.QueryRegistriesAsync(plot, _cadastralService);
             plot.ChangeStatus(approve ? PlotStatus.VerifiedInCatalog : PlotStatus.RejectedByLawyer);
 

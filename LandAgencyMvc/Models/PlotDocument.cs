@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -69,6 +70,14 @@ public class PlotDocument
     /// Статус юридичної верифікації документа адвокатом/юристом агентства.
     /// </summary>
     public bool IsVerified { get; set; }
+
+    [NotMapped]
+    public string ShortFileHash => string.IsNullOrWhiteSpace(FileHash)
+        ? "—"
+        : (FileHash.Length > 16 ? $"{FileHash[..16]}..." : FileHash);
+
+    [NotMapped]
+    public double FileSizeKb => Math.Round(FileSizeBytes / 1024.0, 1);
 
     /// <summary>
     /// Прив'язує URL-шлях збереженого файлу та записує параметри цілісності.

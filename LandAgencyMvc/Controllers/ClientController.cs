@@ -96,13 +96,16 @@ public class ClientController : Controller
 
         var plots = await query.OrderByDescending(p => p.Id).ToListAsync();
 
-        ViewBag.FilterPurpose = purpose;
-        ViewBag.FilterMaxBudget = maxBudget;
-        ViewBag.FilterMinArea = minArea;
-        ViewBag.FilterSearch = search;
-        ViewBag.TotalCount = plots.Count;
+        var viewModel = new CatalogViewModel
+        {
+            Plots = plots,
+            FilterPurpose = purpose,
+            FilterMaxBudget = maxBudget,
+            FilterMinArea = minArea,
+            FilterSearch = search
+        };
 
-        return View(plots);
+        return View(viewModel);
     }
 
     /// <summary>
@@ -184,9 +187,6 @@ public class ClientController : Controller
             TempData["CabinetError"] = "Обрана земельна ділянка ще проходить юридичну перевірку або вже знята з публікації.";
             return RedirectToAction(nameof(Catalog));
         }
-
-        ViewBag.KadastrLiveUrl = _cadastralService.GetKadastrLiveUrl(plot.CadastralNumber);
-        ViewBag.OpenDataBotUrl = _cadastralService.GetOpenDataBotUrl(plot.CadastralNumber);
 
         return View(plot);
     }

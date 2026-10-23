@@ -31,14 +31,7 @@ public class AutoMatchingService : IAutoMatchingService
             .Where(p => p.Status == PlotStatus.VerifiedInCatalog && p.SellerId != request.BuyerId)
             .ToListAsync();
 
-        var matches = FindMatchingPlots(request, candidatePlots);
-
-        request.MatchedPlotIds = string.Join(",", matches.Select(p => p.Id));
-        request.MatchedPlotsCount = matches.Count;
-        request.IsProcessedByRealtor = true;
-        request.RealtorNotes = string.IsNullOrWhiteSpace(request.RealtorNotes)
-            ? $"Автоматично підібрано системою (знайдено: {matches.Count} перевірених об'єктів)."
-            : request.RealtorNotes;
+        var matches = request.MatchPlots(candidatePlots, request.ProcessedByRealtorId, request.RealtorNotes);
 
         await _db.SaveChangesAsync();
         return matches.Count;
@@ -60,7 +53,7 @@ public class AutoMatchingService : IAutoMatchingService
 
         foreach (var req in activeRequests)
         {
-            if (IsPlotMatchingRequest(plot, req))
+            if (req.IsPlotMatching(plot))
             {
                 var currentIds = (req.MatchedPlotIds ?? string.Empty)
                     .Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -100,69 +93,5 @@ public class AutoMatchingService : IAutoMatchingService
         }
 
         return totalMatches;
-    }
-
-    private static List<LandPlot> FindMatchingPlots(SelectionRequest request, List<LandPlot> plots)
-    {
-        string purposeCode = string.Empty;
-        if (!string.IsNullOrWhiteSpace(request.Purpose))
-        {
-            var firstToken = request.Purpose.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
-            purposeCode = firstToken.Trim();
-        }
-
-        var strictMatches = plots.Where(p =>
-            (request.MaxBudgetUsd <= 0 || p.PriceUsd <= request.MaxBudgetUsd) &&
-            (request.MinAreaHa <= 0 || p.AreaHectares >= request.MinAreaHa) &&
-            (string.IsNullOrWhiteSpace(purposeCode) ||
-             p.Purpose.Contains(purposeCode, StringComparison.OrdinalIgnoreCase) ||
-             p.Purpose.Contains(request.Purpose.Trim(), StringComparison.OrdinalIgnoreCase)) &&
-            (string.IsNullOrWhiteSpace(request.DesiredDistrict) ||
-             p.Location.Contains(request.DesiredDistrict, StringComparison.OrdinalIgnoreCase) ||
-             p.Title.Contains(request.DesiredDistrict, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-
-        if (strictMatches.Any())
-        {
-            return strictMatches;
-        }
-
-        var flexibleMatches = plots.Where(p =>
-            (request.MaxBudgetUsd <= 0 || p.PriceUsd <= request.MaxBudgetUsd * 1.25m) &&
-            (request.MinAreaHa <= 0 || p.AreaHectares >= request.MinAreaHa * 0.80) &&
-            (string.IsNullOrWhiteSpace(purposeCode) ||
-             p.Purpose.Contains(purposeCode, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-
-        if (flexibleMatches.Any())
-        {
-            return flexibleMatches;
-        }
-
-        return plots
-            .Where(p => request.MaxBudgetUsd <= 0 || p.PriceUsd <= request.MaxBudgetUsd * 1.25m)
-            .Take(3)
-            .ToList();
-    }
-
-    private static bool IsPlotMatchingRequest(LandPlot plot, SelectionRequest request)
-    {
-        string purposeCode = string.Empty;
-        if (!string.IsNullOrWhiteSpace(request.Purpose))
-        {
-            var firstToken = request.Purpose.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
-            purposeCode = firstToken.Trim();
-        }
-
-        bool budgetMatch = request.MaxBudgetUsd <= 0 || plot.PriceUsd <= request.MaxBudgetUsd * 1.20m;
-        bool areaMatch = request.MinAreaHa <= 0 || plot.AreaHectares >= request.MinAreaHa * 0.80;
-        bool purposeMatch = string.IsNullOrWhiteSpace(purposeCode) ||
-                            plot.Purpose.Contains(purposeCode, StringComparison.OrdinalIgnoreCase) ||
-                            plot.Purpose.Contains(request.Purpose.Trim(), StringComparison.OrdinalIgnoreCase);
-        bool locationMatch = string.IsNullOrWhiteSpace(request.DesiredDistrict) ||
-                             plot.Location.Contains(request.DesiredDistrict, StringComparison.OrdinalIgnoreCase) ||
-                             plot.Title.Contains(request.DesiredDistrict, StringComparison.OrdinalIgnoreCase);
-
-        return budgetMatch && areaMatch && purposeMatch && locationMatch;
     }
 }

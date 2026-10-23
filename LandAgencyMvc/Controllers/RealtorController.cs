@@ -214,15 +214,9 @@ public class RealtorController : Controller
             .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
             .ToListAsync();
 
-        ViewBag.AvailablePlots = availablePlots;
-        ViewBag.Clients = await _db.Users
+        var clients = await _db.Users
             .Where(u => u.Role == UserRole.Client)
             .ToListAsync();
-        ViewBag.PreselectedPlotId = plotId;
-        ViewBag.PreselectedBuyerId = buyerId;
-        ViewBag.PreselectedPrice = plotId.HasValue
-            ? availablePlots.FirstOrDefault(p => p.Id == plotId.Value)?.PriceUsd
-            : null;
 
         var deals = await _db.SaleDeals
             .Include(d => d.LandPlot)
@@ -233,7 +227,20 @@ public class RealtorController : Controller
             .Include(d => d.Payments)
             .OrderByDescending(d => d.Id)
             .ToListAsync();
-        return View(deals);
+
+        var viewModel = new RealtorDealsViewModel
+        {
+            Deals = deals,
+            AvailablePlots = availablePlots,
+            Clients = clients,
+            PreselectedPlotId = plotId,
+            PreselectedBuyerId = buyerId,
+            PreselectedPrice = plotId.HasValue
+                ? availablePlots.FirstOrDefault(p => p.Id == plotId.Value)?.PriceUsd
+                : null
+        };
+
+        return View(viewModel);
     }
 
     /// <summary>
