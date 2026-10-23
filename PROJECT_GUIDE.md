@@ -6,7 +6,7 @@
 
 ## 1. Загальний огляд проєкту
 
-**LandAgencyMvc** — це інформаційна система автоматизації діяльності земельного агентства нерухомості, побудована на платформі **ASP.NET Core MVC** (.NET 9 / C#) з використанням **Entity Framework Core** та локальної реляційної бази даних **SQLite**.
+**LandAgencyMvc** — це інформаційна система автоматизації діяльності земельного агентства нерухомості, побудована на платформі **ASP.NET Core MVC** (.NET 10 / C#) з використанням **Entity Framework Core** та локальної реляційної бази даних **SQLite**.
 
 ### Ключові можливості системи:
 1. **Багаторольова модель доступу**:
@@ -16,7 +16,7 @@
 2. **Інтегрований симулятор ДЗК та ДРРП (`DzkRegistrySimulator`)**:
    - Автоматична перевірка коректності кадастрового номера згідно зі стандартом України (`^\d{10}:\d{2}:\d{3}:\d{4}$`).
    - Симуляція витягу з Державного земельного кадастру (ДЗК) та Державного реєстру речових прав на нерухоме майно (ДРРП).
-   - Автоматичний розрахунок нормативної грошової оцінки (НГО) за категоріями цільового призначення.
+   - Автоматичний розрахунок нормативної грошової оцінку (НГО) за категоріями цільового призначення.
    - Виявлення штучних факторів ризику (арешти, іпотеки, сервітути, накладки меж).
 3. **Фінансовий модуль та угоди (`SaleDeal`, `Payment`)**:
    - Повний життєвий цикл угоди: від чернетки рієлтора до погодження юристом, посвідчення нотаріусом та реєстрації права власності.
@@ -57,13 +57,13 @@
 ### Життєвий цикл запиту:
 1. **Вхідний запит**: Користувач звертається за певною URL-адресою (наприклад, `/Client/Catalog` або `/Realtor/Requests`).
 2. **Маршрутизація (`Program.cs`)**: Фреймворк ASP.NET Core зіставляє URL з відповідним Контролером та Action-методом.
-3. **Ідентифікація користувача**: Контролери використовують ідентифікатор користувача (`userId`), переданий у параметрах запиту або збережений у безпечній Cookie `LandAgencyUserId`.
+3. **Ідентифікація користувача**: Контролери використовують криптографічно захищену аутентифікаційну сесію ASP.NET Core Cookie Authentication (`LandAgency.Auth`) та отримують `ClaimTypes.NameIdentifier` і `ClaimTypes.Role` із `HttpContext.User`.
 4. **Обробка логіки (Controller)**:
-   - Контролер звертається до `LandAgencyContext` через LINQ-запити.
+   - Контролер звертається до `LandAgencyContext` та DI-сервісів (`ICadastralValidationService`, `IAutoMatchingService`).
    - Отримує або змінює дані в моделях (`LandPlot`, `SaleDeal`, `ViewingRequest` тощо).
    - Зберігає зміни через `await _db.SaveChangesAsync()`.
 5. **Генерація відповіді (View)**:
-   - Контролер передає підготовлені дані (Model або ViewModel) у файл представлення Razor (`.cshtml`).
+   - Контролер передає підготовлені дані через суворо типізовану модель або ViewModel (без використання `ViewBag`) у файл представлення Razor (`.cshtml`).
    - Razor генерує фінальний HTML, який повертається браузеру клієнта.
 
 ---
@@ -73,16 +73,16 @@
 ```
 LandAgencyMvc/
 ├── LandAgencyMvc.sln                 # Файл рішення для Visual Studio / Rider
-├── LandAgencyMvc.Tests/              # Проєкт модульних тестів (xUnit, 45 тестів)
+├── LandAgencyMvc.Tests/              # Проєкт модульних тестів (xUnit, 52 тести)
 └── LandAgencyMvc/                    # Основний проєкт застосунку
     ├── Program.cs                    # Точка входу, конфігурація DI, middleware, ініціалізація БД
     ├── LandAgencyMvc.csproj          # Файл конфігурації проєкту .NET та NuGet-пакетів
     ├── appsettings.json              # Загальні налаштування застосунку
     ├── appsettings.Development.json  # Налаштування для середовища розробки
-    ├── land_agency.db                # Файл бази даних SQLite
+    ├── landagency.db                 # Файл бази даних SQLite
     │
     ├── Models/                       # Доменні сутності, моделі БД та ViewModels
-    │   ├── Enums.cs                  # Переліки: UserRole, PlotStatus, ViewingStatus, DealStatus
+    │   ├── Enums.cs                  # Переліки: UserRole, PlotStatus, ViewingStatus, DealStatus, PaymentStatus
     │   ├── AppUser.cs                # Сутність користувача (Клієнт, Рієлтор, Юрист)
     │   ├── LandPlot.cs               # Земельна ділянка (кадастровий номер, площа, ціна, статус, URL-посилання, StandardPurposes)
     │   ├── PlotDocument.cs           # Документи ділянки (SHA-256 хеш, КЕП/ЕЦП, розмір)
@@ -108,7 +108,7 @@ LandAgencyMvc/
     │   ├── LawyerController.cs       # Черга експертизи ділянок, висновки ДЗК, погодження угод
     │   └── HomeController.cs         # Головна сторінка, редиректи, обробка помилок
     │
-    ├── Views/                        # Чисті Razor-представлення (суворо без бізнес-логіки та inline-стилів)
+    ├── Views/                        # Чисті Razor-представлення (суворо без бізнес-логіки, без ViewBag та без inline-стилів)
     │   ├── Account/                  # Сторінки авторизації та реєстрації (Login, Register, AccessDenied)
     │   ├── Client/                   # Інтерфейс клієнта (Catalog, Cabinet, CreatePlot, Details, Receipt)
     │   ├── Realtor/                  # Інтерфейс рієлтора (Requests, Viewings, Deals, PrintContract)
@@ -150,7 +150,7 @@ LandAgencyMvc/
 ### 2. `LandPlot.cs` — Земельна ділянка:
 Містить кадастровий номер (`CadastralNumber`), назву, локацію, площу в гектарах (`AreaHectares`), цільове призначення (`Purpose`), ціну в USD (`PriceUsd`), номер документа про право власності, банківський IBAN продавця (`SellerBankIban`) та прив'язку до продавця (`SellerId`).
 - Обчислювані властивості (`[NotMapped]`): `AreaSotky`, `PricePerSotkaUsd`, `KadastrLiveUrl`, `OpenDataBotUrl`, `EffectiveSellerIban`, `PrimaryDocument`, `StatusDisplayName`, `StatusBadgeClass`.
-- Статичний довідник `StandardPurposes` — централізований перелік цільових призначень за УКЦВЗ для всіх форм і фільтрів.
+- Статичний довідник `StandardPurposes` — централізований перелік цільових призначень за УКЦВЗ (`Code`, `FullValue`, `ShortLabel`) для всіх форм і фільтрів.
 - Метод `ValidateCadastralFormat()` перевіряє регулярним виразом формат кадастрового номера: `^\d{10}:\d{2}:\d{3}:\d{4}$`.
 
 ### 3. `SaleDeal.cs` та `Payment.cs` — Угода та розрахунки:
@@ -174,7 +174,7 @@ LandAgencyMvc/
 | Контролер | Основні дії (Actions) | Призначення |
 | :--- | :--- | :--- |
 | **`AccountController`** | `Login`, `Register`, `Logout`, `AccessDenied` | Безпечна автентифікація на базі ASP.NET Core Cookie Authentication (`LandAgency.Auth`) та криптографічного хешування паролів PBKDF2 (`PasswordHasher<AppUser>`). Реєстрація клієнтів суворо призначає роль `Client`. |
-| **`ClientController`** | `Catalog`, `Details`, `CreatePlot`, `Cabinet`, `CreateViewing`, `RequestPurchase`, `SubmitSelectionRequest`, `SubmitPayment`, `DownloadReceipt`, `ChangePassword` | Перегляд публічного каталогу, пошук та фільтрація, подача ділянки на продаж із КЕП та SHA-256 хешуванням документів, автоматичний підбір (`AutoMatchingService`), запис на огляд, подача заявки на купівлю після проведеного огляду, повідомлення про оплату за IBAN. |
+| **`ClientController`** | `Catalog`, `Details`, `CreatePlot`, `Cabinet`, `CreateViewing`, `RequestPurchaseFromViewing`, `SubmitSelectionRequest`, `SubmitPayment`, `DownloadReceipt`, `ChangePassword` | Перегляд публічного каталогу, пошук та фільтрація, подача ділянки на продаж із КЕП та SHA-256 хешуванням документів, автоматичний підбір (`AutoMatchingService`), запис на огляд, подача заявки на купівлю після проведеного огляду, повідомлення про оплату за IBAN. |
 | **`RealtorController`** | `Requests`, `MatchPlotsForRequest`, `Viewings`, `UpdateViewingStatus`, `Deals`, `CreateDeal`, `VerifyClientPayment`, `RejectClientPayment`, `SignDealAtNotary`, `CompleteNotaryDeal`, `CancelDeal`, `PrintContract` | Робота рієлтора: автоматизований підбір ділянок, узгодження виїзних оглядів, створення проєктів угод з виставленням рахунків-фактур, верифікація банківських виписок, супровід у нотаріуса та реєстрація в ДРРП. |
 | **`LawyerController`** | `Queue`, `Conclusion`, `SubmitLegalConclusion`, `Contracts`, `ApproveDealContract` | Робота юриста: черга ділянок на аудит у ДЗК/ДРРП (`CadastralValidationService` + `DzkRegistrySimulator`), затвердження або відхилення ділянки з актом ризиків, правова віза договорів перед нотаріусом. |
 
@@ -189,7 +189,7 @@ LandAgencyMvc/
   - **Юрист**: `lawyer@landagency.ua` / пароль: `lawyer123`
   - **Клієнт (Продавець)**: `seller@landagency.ua` / пароль: `client123`
   - **Клієнт (Покупець)**: `buyer@landagency.ua` / пароль: `client123`
-- Файл бази даних зберігається локально: `LandAgencyMvc/land_agency.db`.
+- Файл бази даних зберігається локально: `LandAgencyMvc/landagency.db`.
 
 ---
 

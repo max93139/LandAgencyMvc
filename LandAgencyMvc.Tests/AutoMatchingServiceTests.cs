@@ -162,6 +162,52 @@ public class AutoMatchingServiceTests : IDisposable
         Assert.Equal(0, result);
     }
 
+    [Fact]
+    public async Task MatchNewOrUpdatedPlotAsync_RemovesPlotFromMatches_WhenPriceIncreasesAboveBudgetOrStatusRejected()
+    {
+        var buyer = new AppUser { FullName = "Покупець 4", Email = "buyer4@test.ua", Role = UserRole.Client };
+        var seller = new AppUser { FullName = "Продавець 4", Email = "seller4@test.ua", Role = UserRole.Client };
+        _context.Users.AddRange(buyer, seller);
+        await _context.SaveChangesAsync();
+
+        var plot = new LandPlot
+        {
+            CadastralNumber = "3221884000:03:001:0555",
+            Title = "Ділянка для динамічного тесту",
+            Location = "Київська область, Вишгородський",
+            Purpose = "02.01 Для будівництва і обслуговування житлового будинку",
+            AreaHectares = 0.15,
+            PriceUsd = 20000m,
+            Status = PlotStatus.VerifiedInCatalog,
+            SellerId = seller.Id
+        };
+        _context.LandPlots.Add(plot);
+
+        var request = new SelectionRequest
+        {
+            BuyerId = buyer.Id,
+            DesiredDistrict = "Київська область",
+            Purpose = "02.01 Для будівництва і обслуговування житлового будинку",
+            MinAreaHa = 0.10,
+            MaxBudgetUsd = 25000m
+        };
+        _context.SelectionRequests.Add(request);
+        await _context.SaveChangesAsync();
+
+        await _service.MatchRequestAsync(request.Id);
+        Assert.Equal(1, request.MatchedPlotsCount);
+        Assert.Contains(plot.Id, request.GetMatchedPlotIds());
+
+        plot.UpdatePrice(40000m);
+        await _context.SaveChangesAsync();
+
+        int countAfterPriceIncrease = await _service.MatchNewOrUpdatedPlotAsync(plot.Id);
+        Assert.Equal(0, countAfterPriceIncrease);
+        Assert.Equal(0, request.MatchedPlotsCount);
+        Assert.Empty(request.GetMatchedPlotIds());
+        Assert.False(request.IsProcessedByRealtor);
+    }
+
     public void Dispose()
     {
         _context.Dispose();
