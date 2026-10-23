@@ -1,0 +1,35 @@
+@{
+    var activeNav = (ViewData["ActiveNav"] as string) ?? "";
+    var isDetails = activeNav == "Details" || ViewData["NavBackToCatalog"] is true;
+    var currentUser = (ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser) 
+        ?? (Model as LandAgencyMvc.Models.CabinetViewModel)?.CurrentUser;
+    var displayName = currentUser?.FullName ?? (User.Identity?.IsAuthenticated == true ? User.Identity.Name : null);
+    var isAuthenticated = User.Identity?.IsAuthenticated == true || currentUser != null;
+}
+
+<div class="la-topbar la-topbar-client">
+    <div class="la-nav-links">
+        <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
+        @if (isDetails)
+        {
+            <a class="active" asp-controller="Client" asp-action="Catalog">← Назад до каталогу</a>
+        }
+        else
+        {
+            <a class="@(activeNav == "Catalog" ? "active" : "")" asp-controller="Client" asp-action="Catalog">Каталог ділянок</a>
+        }
+        <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+        <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
+        @if (isAuthenticated && !string.IsNullOrEmpty(displayName))
+        {
+            <span style="font-size:13px; opacity:0.9;">@displayName</span>
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
+        }
+        else
+        {
+            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Login">Увійти</a>
+        }
+    </div>
+</div>

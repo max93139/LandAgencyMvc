@@ -1,39 +1,15 @@
 @model LandAgencyMvc.Models.LandPlot
 @{
     ViewData["Title"] = $"{Model.Title} — LandAgency UA";
+    ViewData["ActiveNav"] = "Details";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    string kadastrUrl = ViewBag.KadastrLiveUrl as string ?? $"https://kadastr.live/parcel/{Model.CadastralNumber}";
-    string openDataUrl = ViewBag.OpenDataBotUrl as string ?? $"https://opendatabot.ua/c/{Model.CadastralNumber}";
 }
 
 <div class="la-window">
-    <div class="la-topbar la-topbar-client">
-        <div class="la-nav-links">
-            <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
-            <a class="active" asp-controller="Client" asp-action="Catalog">← Назад до каталогу</a>
-            <a asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
-            @if (currentUser != null)
-            {
-                <span style="font-size:13px; opacity:0.9;">@currentUser.FullName</span>
-                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
-            }
-            else
-            {
-                <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Login">Увійти</a>
-            }
-        </div>
-    </div>
+    <partial name="_ClientNavbar" />
 
     <div class="la-body">
-        @if (TempData["DetailsError"] != null)
-        {
-            <div class="la-alert la-alert-error">
-                @TempData["DetailsError"]
-            </div>
-        }
+        <partial name="_AlertMessages" />
         <div class="la-grid-2">
             <div class="la-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -44,10 +20,7 @@
                 <h4 style="margin-top:12px; margin-bottom:4px;">@Model.Title (@Model.AreaHectares га)</h4>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                     <span class="text-muted" style="font-size:13px;">Кадастровий №: <strong>@Model.CadastralNumber</strong></span>
-                    <div style="display:flex; gap:6px;">
-                        <a href="@kadastrUrl" target="_blank" class="la-btn" style="background:#e0e7ff; color:#3730a3; font-size:11px; padding:4px 8px; text-decoration:none;">🗺️ Кадастрова карта ↗</a>
-                        <a href="@openDataUrl" target="_blank" class="la-btn" style="background:#e0f2fe; color:#0369a1; font-size:11px; padding:4px 8px; text-decoration:none;">🔍 OpenDataBot ↗</a>
-                    </div>
+                    <partial name="_DzkLinks" model="Model.CadastralNumber" />
                 </div>
 
                 <table class="la-table" style="margin-bottom:14px;">

@@ -1,0 +1,32 @@
+@{
+    var errorMessage = TempData["Error"] 
+        ?? TempData["CabinetError"] 
+        ?? TempData["PlotError"] 
+        ?? TempData["DetailsError"] 
+        ?? TempData["RealtorError"] 
+        ?? TempData["LawyerError"] 
+        ?? TempData["LoginError"] 
+        ?? TempData["RegisterError"]
+        ?? ViewData["ErrorMessage"];
+
+    var successMessage = TempData["Success"] 
+        ?? TempData["CabinetMessage"] 
+        ?? TempData["RealtorMessage"] 
+        ?? TempData["LawyerMessage"] 
+        ?? TempData["Message"]
+        ?? ViewData["SuccessMessage"];
+}
+
+@if (errorMessage != null)
+{
+    <div class="la-alert la-alert-error">
+        @errorMessage
+    </div>
+}
+
+@if (successMessage != null)
+{
+    <div class="la-alert la-alert-success">
+        @successMessage
+    </div>
+}

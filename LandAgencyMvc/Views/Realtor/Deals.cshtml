@@ -1,6 +1,7 @@
 @model IEnumerable<LandAgencyMvc.Models.SaleDeal>
 @{
     ViewData["Title"] = "Супровід угод та Нотаріат — Панель Рієлтора";
+    ViewData["ActiveNav"] = "Deals";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
     var availablePlots = ViewBag.AvailablePlots as List<LandAgencyMvc.Models.LandPlot> ?? new();
     var clients = ViewBag.Clients as List<LandAgencyMvc.Models.AppUser> ?? new();
@@ -10,32 +11,10 @@
 }
 
 <div class="la-window">
-    <div class="la-topbar la-topbar-realtor">
-        <div class="la-nav-links">
-            <span class="la-badge la-badge-amber" style="margin-right:8px;">РІЄЛТОР</span>
-            <a asp-controller="Realtor" asp-action="Requests">Запити на підбір</a>
-            <a asp-controller="Realtor" asp-action="Viewings">Черга оглядів</a>
-            <a class="active" asp-controller="Realtor" asp-action="Deals">Угоди та нотаріат</a>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.LicenseNumber)</span>
-            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
-        </div>
-    </div>
+    <partial name="_RealtorNavbar" />
 
     <div class="la-body">
-        @if (TempData["RealtorMessage"] != null)
-        {
-            <div class="la-alert la-alert-success">
-                @TempData["RealtorMessage"]
-            </div>
-        }
-        @if (TempData["RealtorError"] != null)
-        {
-            <div class="la-alert la-alert-error">
-                @TempData["RealtorError"]
-            </div>
-        }
+        <partial name="_AlertMessages" />
 
         <div class="la-card">
             <h5>Підготувати новий проєкт договору купівлі-продажу</h5>

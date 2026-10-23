@@ -1,35 +1,14 @@
 @model LandAgencyMvc.Models.CabinetViewModel
 @{
     ViewData["Title"] = "Мій кабінет — LandAgency UA";
+    ViewData["ActiveNav"] = "Cabinet";
 }
 
 <div class="la-window">
-    <div class="la-topbar la-topbar-client">
-        <div class="la-nav-links">
-            <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
-            <a asp-controller="Client" asp-action="Catalog">Каталог ділянок</a>
-            <a class="active" asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
-            <span style="font-size:13px; opacity:0.9;">@Model.CurrentUser?.FullName</span>
-            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
-        </div>
-    </div>
+    <partial name="_ClientNavbar" />
 
     <div class="la-body">
-        @if (TempData["CabinetMessage"] != null)
-        {
-            <div class="la-alert la-alert-success">
-                @TempData["CabinetMessage"]
-            </div>
-        }
-        @if (TempData["CabinetError"] != null)
-        {
-            <div class="la-alert la-alert-error">
-                @TempData["CabinetError"]
-            </div>
-        }
+        <partial name="_AlertMessages" />
 
         <div class="la-grid-2">
             <div>

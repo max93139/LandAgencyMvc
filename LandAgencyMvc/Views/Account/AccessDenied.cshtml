@@ -3,14 +3,7 @@
 }
 
 <div class="la-window">
-    <div class="la-topbar la-topbar-auth">
-        <strong style="font-size:18px;">LandAgency UA</strong>
-        <div class="la-nav-links">
-            <a asp-controller="Client" asp-action="Catalog">Каталог</a>
-            <a asp-controller="Client" asp-action="Cabinet">Мій кабінет</a>
-            <a asp-controller="Account" asp-action="Logout">Вийти</a>
-        </div>
-    </div>
+    <partial name="_AuthNavbar" />
     <div class="la-body" style="display:flex; justify-content:center; align-items:center; min-height:60vh;">
         <div class="la-card" style="width:500px; text-align:center; padding:32px 24px;">
             <div style="font-size:48px; margin-bottom:12px;">🚫</div>

@@ -1,36 +1,15 @@
 @model IEnumerable<LandAgencyMvc.Models.SaleDeal>
 @{
     ViewData["Title"] = "Погодження проєктів договорів — Панель Юриста";
+    ViewData["ActiveNav"] = "Contracts";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
 }
 
 <div class="la-window">
-    <div class="la-topbar la-topbar-lawyer">
-        <div class="la-nav-links">
-            <span class="la-badge la-badge-indigo" style="margin-right:8px;">ЮРИСТ</span>
-            <a asp-controller="Lawyer" asp-action="Queue">Черга перевірки ДЗК</a>
-            <a asp-controller="Lawyer" asp-action="Conclusion">Юридичний висновок</a>
-            <a class="active" asp-controller="Lawyer" asp-action="Contracts">Погодження договорів</a>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.CertificateNumber)</span>
-            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
-        </div>
-    </div>
+    <partial name="_LawyerNavbar" />
 
     <div class="la-body">
-        @if (TempData["LawyerMessage"] != null)
-        {
-            <div class="la-alert la-alert-success">
-                @TempData["LawyerMessage"]
-            </div>
-        }
-        @if (TempData["LawyerError"] != null)
-        {
-            <div class="la-alert la-alert-error">
-                @TempData["LawyerError"]
-            </div>
-        }
+        <partial name="_AlertMessages" />
 
         <h4 style="margin-bottom:16px;">Погодження проєктів договорів купівлі-продажу перед передачею нотаріусу</h4>
 

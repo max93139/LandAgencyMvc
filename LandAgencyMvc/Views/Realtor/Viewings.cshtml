@@ -1,36 +1,15 @@
 @model IEnumerable<LandAgencyMvc.Models.ViewingRequest>
 @{
     ViewData["Title"] = "Черга заявок на виїзний огляд — Панель Рієлтора";
+    ViewData["ActiveNav"] = "Viewings";
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
 }
 
 <div class="la-window">
-    <div class="la-topbar la-topbar-realtor">
-        <div class="la-nav-links">
-            <span class="la-badge la-badge-amber" style="margin-right:8px;">РІЄЛТОР</span>
-            <a asp-controller="Realtor" asp-action="Requests">Запити на підбір</a>
-            <a class="active" asp-controller="Realtor" asp-action="Viewings">Черга оглядів</a>
-            <a asp-controller="Realtor" asp-action="Deals">Угоди та нотаріат</a>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <span style="font-size:13px;">@currentUser?.FullName (@currentUser?.LicenseNumber)</span>
-            <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
-        </div>
-    </div>
+    <partial name="_RealtorNavbar" />
 
     <div class="la-body">
-        @if (TempData["RealtorMessage"] != null)
-        {
-            <div class="la-alert la-alert-success">
-                @TempData["RealtorMessage"]
-            </div>
-        }
-        @if (TempData["RealtorError"] != null)
-        {
-            <div class="la-alert la-alert-error">
-                @TempData["RealtorError"]
-            </div>
-        }
+        <partial name="_AlertMessages" />
 
         <h4 style="margin-bottom:16px;">Черга заявок на виїзний огляд земельних ділянок</h4>
 

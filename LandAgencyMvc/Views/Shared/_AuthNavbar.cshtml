@@ -1,0 +1,21 @@
+@{
+    var activeNav = (ViewData["ActiveNav"] as string) ?? "";
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+}
+
+<div class="la-topbar la-topbar-auth">
+    <strong style="font-size:18px;">LandAgency UA</strong>
+    <div class="la-nav-links">
+        @if (isAuthenticated)
+        {
+            <a class="@(activeNav == "Catalog" ? "active" : "")" asp-controller="Client" asp-action="Catalog">Каталог</a>
+            <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет</a>
+            <a asp-controller="Account" asp-action="Logout">Вийти</a>
+        }
+        else
+        {
+            <a class="@(activeNav == "Login" ? "active" : "")" asp-controller="Account" asp-action="Login">Увійти</a>
+            <a class="@(activeNav == "Register" ? "active" : "")" asp-controller="Account" asp-action="Register">Реєстрація</a>
+        }
+    </div>
+</div>
