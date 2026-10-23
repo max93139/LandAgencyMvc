@@ -13,6 +13,7 @@
             <partial name="_AlertMessages" />
 
             <form asp-controller="Account" asp-action="Login" method="post">
+                <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
                 <label class="la-label">Електронна пошта (Логін)</label>
                 <input name="email" type="email" class="la-input" placeholder="name@example.com" required />
 

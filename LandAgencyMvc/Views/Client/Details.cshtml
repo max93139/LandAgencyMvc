@@ -2,7 +2,6 @@
 @{
     ViewData["Title"] = $"{Model.Title} — LandAgency UA";
     ViewData["ActiveNav"] = "Details";
-    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
 }
 
 <div class="la-window">
@@ -13,7 +12,7 @@
         <div class="la-grid-2">
             <div class="la-card">
                 <div class="la-row-between">
-                    <span class="la-badge la-badge-green">✓ Перевірено ДЗК</span>
+                    <span class="la-badge @Model.StatusBadgeClass">@Model.StatusDisplayName</span>
                     <strong class="la-price-xl">$@Model.PriceUsd.ToString("N0")</strong>
                 </div>
 
@@ -46,13 +45,13 @@
                             <td>
                                 @if (Model.LegalConclusion != null)
                                 {
-                                    <span class="fw-bold text-success">
+                                    <span class="fw-bold @(Model.LegalConclusion.IsApproved ? "text-success" : "text-danger")">
                                         №@Model.LegalConclusion.ConclusionNumber (@Model.LegalConclusion.RiskLevel)
                                     </span>
                                 }
                                 else
                                 {
-                                    <span>Пройдено первинний контроль ДЗК</span>
+                                    <span>Очікує правової експертизи ДЗК</span>
                                 }
                             </td>
                         </tr>
@@ -107,10 +106,16 @@
 
             <div class="la-card">
                 <h5>Записатися на виїзний огляд</h5>
-                @if (currentUser != null && Model.SellerId == currentUser.Id)
+                @if (Model.IsOwnedBy(User))
                 {
                     <div class="la-subcard la-text-sm">
                         Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" class="fw-bold">Мій кабінет</a>.
+                    </div>
+                }
+                else if (Model.Status != LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)
+                {
+                    <div class="la-subcard la-text-sm">
+                        Запис на виїзний огляд наразі недоступний: ділянка перебуває у статусі <strong>«@Model.StatusDisplayName»</strong>.
                     </div>
                 }
                 else

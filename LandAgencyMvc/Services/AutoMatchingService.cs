@@ -40,7 +40,7 @@ public class AutoMatchingService : IAutoMatchingService
     public async Task<int> MatchNewOrUpdatedPlotAsync(int plotId)
     {
         var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId);
-        if (plot == null || plot.Status != PlotStatus.VerifiedInCatalog)
+        if (plot == null)
         {
             return 0;
         }
@@ -50,29 +50,22 @@ public class AutoMatchingService : IAutoMatchingService
             .ToListAsync();
 
         int matchedRequestsCount = 0;
+        bool anyModified = false;
 
         foreach (var req in activeRequests)
         {
-            if (req.IsPlotMatching(plot))
+            bool wasChanged = req.SyncPlotMatch(plot);
+            if (wasChanged)
             {
-                var currentIds = (req.MatchedPlotIds ?? string.Empty)
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => int.TryParse(s, out var id) ? id : 0)
-                    .Where(id => id > 0)
-                    .ToHashSet();
-
-                if (currentIds.Add(plot.Id))
+                anyModified = true;
+                if (plot.Status == PlotStatus.VerifiedInCatalog && req.GetMatchedPlotIds().Contains(plot.Id))
                 {
-                    req.MatchedPlotIds = string.Join(",", currentIds);
-                    req.MatchedPlotsCount = currentIds.Count;
-                    req.IsProcessedByRealtor = true;
-                    req.RealtorNotes = $"Автоматично оновлено: додано новий схвалений юристом об'єкт {plot.CadastralNumber}.";
                     matchedRequestsCount++;
                 }
             }
         }
 
-        if (matchedRequestsCount > 0)
+        if (anyModified)
         {
             await _db.SaveChangesAsync();
         }

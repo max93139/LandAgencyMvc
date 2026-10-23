@@ -34,13 +34,7 @@ public class LawyerController : Controller
         var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (int.TryParse(idClaim, out var lawyerId) && lawyerId > 0)
         {
-            var lawyer = await _db.Users.FirstOrDefaultAsync(u => u.Id == lawyerId && u.Role == UserRole.Lawyer);
-            if (lawyer != null)
-            {
-                ViewBag.CurrentUser = lawyer;
-                ViewBag.CurrentUserId = lawyer.Id;
-                return lawyer;
-            }
+            return await _db.Users.FirstOrDefaultAsync(u => u.Id == lawyerId && u.Role == UserRole.Lawyer);
         }
 
         return null;
@@ -52,7 +46,7 @@ public class LawyerController : Controller
     [HttpGet]
     public async Task<IActionResult> Queue()
     {
-        await GetCurrentLawyerAsync();
+        var currentUser = await GetCurrentLawyerAsync();
         var plots = await _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.Documents)
@@ -62,6 +56,7 @@ public class LawyerController : Controller
 
         var viewModel = new LawyerQueueViewModel
         {
+            CurrentUser = currentUser,
             Plots = plots,
             TotalPlotsCount = plots.Count,
             VerifiedPlotsCount = plots.Count(p => p.Status == PlotStatus.VerifiedInCatalog || p.Status == PlotStatus.Sold),
@@ -78,7 +73,7 @@ public class LawyerController : Controller
     [HttpGet]
     public async Task<IActionResult> Conclusion(int id)
     {
-        await GetCurrentLawyerAsync();
+        var currentUser = await GetCurrentLawyerAsync();
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.Documents)
@@ -104,6 +99,7 @@ public class LawyerController : Controller
         var dzkExtract = await DzkRegistrySimulator.QueryRegistriesAsync(plot, _cadastralService);
         var viewModel = new LawyerConclusionViewModel
         {
+            CurrentUser = currentUser,
             Plot = plot,
             DzkExtract = dzkExtract,
             DefaultConclusionNumber = plot.LegalConclusion?.ConclusionNumber ?? $"ЮВ-{DateTime.Now:yyyy}-{plot.Id:D3}",
@@ -214,11 +210,26 @@ public class LawyerController : Controller
                 }
             }
 
+            if (!approve)
+            {
+                var pendingViewings = await _db.ViewingRequests
+                    .Where(v => v.LandPlotId == plot.Id &&
+                                v.Status != ViewingStatus.Completed &&
+                                v.Status != ViewingStatus.Cancelled &&
+                                v.Status != ViewingStatus.PlotRejectedByBuyer)
+                    .ToListAsync();
+                foreach (var v in pendingViewings)
+                {
+                    v.CancelViewing("Ділянку знято з публікації за результатами повторного юридичного аудиту.");
+                }
+            }
+
             await _db.SaveChangesAsync();
+
+            int autoMatchedCount = await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
 
             if (approve)
             {
-                int autoMatchedCount = await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
                 TempData["LawyerMessage"] = $"Юридичний висновок {resolvedConclusionNum} затверджено. Ділянку опубліковано в каталозі. Автоматично підібрано під {autoMatchedCount} активних заявок клієнтів.";
             }
             else
@@ -236,7 +247,6 @@ public class LawyerController : Controller
     [HttpGet]
     public async Task<IActionResult> Contracts()
     {
-        await GetCurrentLawyerAsync();
         var deals = await _db.SaleDeals
             .Include(d => d.LandPlot)
             .ThenInclude(p => p!.Seller)

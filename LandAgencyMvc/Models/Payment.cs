@@ -84,6 +84,12 @@ public class Payment
         _ => "la-badge-indigo"
     };
 
+    [NotMapped]
+    public bool CanSubmitByClient => !IsPaid &&
+                                     (Status == PaymentStatus.PendingSubmission || Status == PaymentStatus.Rejected) &&
+                                     SaleDeal?.Status != DealStatus.Cancelled &&
+                                     SaleDeal?.Status != DealStatus.CompletedAtNotary;
+
     public string GenerateReceiptNumber(int dealId, int index)
     {
         ReceiptNumber = $"КВ-{DateTime.Now:yyyy}-{dealId:D4}-{index}";
@@ -96,6 +102,11 @@ public class Payment
     /// </summary>
     public void SubmitPayment(string paymentReference, string? senderIban = null)
     {
+        if (IsPaid || Status == PaymentStatus.Confirmed || SaleDeal?.Status == DealStatus.Cancelled)
+        {
+            return;
+        }
+
         PaymentReference = (paymentReference ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(senderIban))
         {
@@ -111,6 +122,11 @@ public class Payment
     /// </summary>
     public void VerifyPayment(int verifierUserId, string? notes = null)
     {
+        if (SaleDeal?.Status == DealStatus.Cancelled)
+        {
+            return;
+        }
+
         Status = PaymentStatus.Confirmed;
         IsPaid = true;
         VerifiedAt = DateTime.Now;
@@ -126,6 +142,11 @@ public class Payment
     /// </summary>
     public void RejectPayment(int verifierUserId, string? reason = null)
     {
+        if (SaleDeal?.Status == DealStatus.CompletedAtNotary)
+        {
+            return;
+        }
+
         Status = PaymentStatus.Rejected;
         IsPaid = false;
         VerifiedAt = DateTime.Now;

@@ -1,11 +1,14 @@
 @{
     var activeNav = (ViewData["ActiveNav"] as string) ?? "";
-    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
+    var currentUser = (Model as LandAgencyMvc.Models.LawyerQueueViewModel)?.CurrentUser
+        ?? (Model as LandAgencyMvc.Models.LawyerConclusionViewModel)?.CurrentUser;
     var fullName = currentUser?.FullName ?? (User.Identity?.IsAuthenticated == true ? User.Identity.Name : "Юрист");
-    var cert = !string.IsNullOrEmpty(currentUser?.CertificateNumber) ? $" ({currentUser.CertificateNumber})" : "";
+    var rawCert = !string.IsNullOrEmpty(currentUser?.CertificateNumber)
+        ? currentUser.CertificateNumber
+        : User.FindFirst("StaffCredential")?.Value;
+    var cert = !string.IsNullOrEmpty(rawCert) ? $" ({rawCert})" : "";
     var plotId = (Model as LandAgencyMvc.Models.LawyerConclusionViewModel)?.Plot?.Id
-        ?? (Model as LandAgencyMvc.Models.LandPlot)?.Id
-        ?? (ViewBag.CurrentPlotId as int?);
+        ?? (Model as LandAgencyMvc.Models.LandPlot)?.Id;
 }
 
 <div class="la-topbar la-topbar-lawyer">

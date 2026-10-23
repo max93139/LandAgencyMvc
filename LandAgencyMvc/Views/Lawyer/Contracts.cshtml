@@ -43,9 +43,7 @@
                         </div>
                     </div>
 
-                    @if (d.Status == LandAgencyMvc.Models.DealStatus.SignedAtNotary ||
-                         d.Status == LandAgencyMvc.Models.DealStatus.CompletedAtNotary ||
-                         d.Status == LandAgencyMvc.Models.DealStatus.Cancelled)
+                    @if (!d.IsActive)
                     {
                         <div class="la-text-sm">
                             <strong>Примітка юриста:</strong> @(string.IsNullOrWhiteSpace(d.LawyerApprovalNotes) ? "Договір опрацьовано" : d.LawyerApprovalNotes)

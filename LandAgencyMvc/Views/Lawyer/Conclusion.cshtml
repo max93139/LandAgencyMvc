@@ -72,7 +72,14 @@
                         @if (doc != null)
                         {
                             <div class="la-text-xs">
-                                Файл: <a href="@doc.FileUrl" target="_blank" rel="noopener"><strong>@doc.Title</strong></a>
+                                @if (!string.IsNullOrWhiteSpace(doc.FileUrl))
+                                {
+                                    <span>Файл: <a href="@doc.FileUrl" target="_blank" rel="noopener"><strong>@doc.Title</strong></a></span>
+                                }
+                                else
+                                {
+                                    <span>Файл: <strong>@doc.Title</strong></span>
+                                }
                                 • SHA-256: <code class="la-code">@doc.ShortFileHash</code>
                                 • ЕЦП/КЕП: <strong class="text-success">@(doc.IsSignedByKep ? doc.KepSignatureHash : "Без КЕП")</strong>
                             </div>

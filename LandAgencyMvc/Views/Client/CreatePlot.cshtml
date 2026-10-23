@@ -21,11 +21,11 @@
                     </div>
                     <div>
                         <label class="la-label">Площа (га)</label>
-                        <input asp-for="AreaHectares" type="number" step="0.01" value="" class="la-input" placeholder="0.00" required />
+                        <input asp-for="AreaHectares" type="number" step="0.01" value="@(Model.AreaHectares > 0 ? Model.AreaHectares : "")" class="la-input" placeholder="0.00" required />
                     </div>
                     <div>
                         <label class="la-label">Ціна продажу ($)</label>
-                        <input asp-for="PriceUsd" type="number" value="" class="la-input" placeholder="0" required />
+                        <input asp-for="PriceUsd" type="number" value="@(Model.PriceUsd > 0 ? Model.PriceUsd : "")" class="la-input" placeholder="0" required />
                     </div>
                 </div>
 

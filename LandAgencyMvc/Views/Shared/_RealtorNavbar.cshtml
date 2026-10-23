@@ -1,9 +1,12 @@
 @{
     var activeNav = (ViewData["ActiveNav"] as string) ?? "";
-    var currentUser = (ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser) 
-        ?? (Model as LandAgencyMvc.Models.RealtorRequestsViewModel)?.CurrentUser;
+    var currentUser = (Model as LandAgencyMvc.Models.RealtorRequestsViewModel)?.CurrentUser
+        ?? (Model as LandAgencyMvc.Models.RealtorDealsViewModel)?.CurrentUser;
     var fullName = currentUser?.FullName ?? (User.Identity?.IsAuthenticated == true ? User.Identity.Name : "Рієлтор");
-    var license = !string.IsNullOrEmpty(currentUser?.LicenseNumber) ? $" ({currentUser.LicenseNumber})" : "";
+    var rawLicense = !string.IsNullOrEmpty(currentUser?.LicenseNumber)
+        ? currentUser.LicenseNumber
+        : User.FindFirst("StaffCredential")?.Value;
+    var license = !string.IsNullOrEmpty(rawLicense) ? $" ({rawLicense})" : "";
 }
 
 <div class="la-topbar la-topbar-realtor">

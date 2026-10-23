@@ -17,8 +17,7 @@
                         <option value="">Усі цільові призначення</option>
                         @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
                         {
-                            var code = item.FullValue.Split(' ')[0];
-                            <option value="@code" selected="@(Model.FilterPurpose == code || Model.FilterPurpose == item.FullValue)">@item.ShortLabel</option>
+                            <option value="@item.Code" selected="@(Model.FilterPurpose == item.Code || Model.FilterPurpose == item.FullValue)">@item.ShortLabel</option>
                         }
                     </select>
                 </div>

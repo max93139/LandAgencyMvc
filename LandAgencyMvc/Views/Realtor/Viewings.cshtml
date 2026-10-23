@@ -83,9 +83,13 @@
                                 <button type="submit" class="la-btn la-btn-red la-btn-sm">✕ Скасувати</button>
                             </form>
                         }
-                        else if (v.Status == LandAgencyMvc.Models.ViewingStatus.Completed)
+                        else if (v.CanCreateDeal)
                         {
                             <a class="la-btn la-btn-blue la-btn-sm" asp-controller="Realtor" asp-action="Deals" asp-route-plotId="@v.LandPlotId" asp-route-buyerId="@v.BuyerId">Створити проєкт угоди продажу →</a>
+                        }
+                        else if (v.Status == LandAgencyMvc.Models.ViewingStatus.Completed && v.LandPlot?.Status == LandAgencyMvc.Models.PlotStatus.Sold)
+                        {
+                            <span class="la-badge la-badge-green">Ділянку продано ✓</span>
                         }
                     </div>
                 </div>

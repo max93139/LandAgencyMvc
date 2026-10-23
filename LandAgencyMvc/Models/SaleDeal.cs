@@ -93,6 +93,26 @@ public class SaleDeal
         _ => "la-badge-indigo"
     };
 
+    [NotMapped]
+    public string SubcardClass => Status is DealStatus.Cancelled or DealStatus.ReturnedForRevision
+        ? "la-subcard-red"
+        : "la-subcard-green";
+
+    [NotMapped]
+    public bool IsActive => Status != DealStatus.CompletedAtNotary && Status != DealStatus.Cancelled;
+
+    [NotMapped]
+    public bool CanSendToLawyer => Status is DealStatus.DraftPreparedByRealtor or DealStatus.ReturnedForRevision;
+
+    [NotMapped]
+    public bool CanSignAtNotary => Status == DealStatus.ApprovedByLawyerForNotary;
+
+    [NotMapped]
+    public bool CanCompleteAtNotary => Status == DealStatus.SignedAtNotary;
+
+    [NotMapped]
+    public bool CanCancel => Status != DealStatus.CompletedAtNotary && Status != DealStatus.Cancelled;
+
     /// <summary>
     /// Ініціалізує чернетку договору купівлі-продажу та розраховує комісію агентства.
     /// </summary>

@@ -51,6 +51,13 @@ public class ViewingRequest
         _ => "la-badge-amber"
     };
 
+    [NotMapped]
+    public bool CanCreateDeal => Status == ViewingStatus.Completed &&
+                                 (LandPlot == null || LandPlot.Status == PlotStatus.VerifiedInCatalog);
+
+    [NotMapped]
+    public bool CanCancelByClient => Status is ViewingStatus.NewRequest or ViewingStatus.Scheduled;
+
     public void ConfirmViewing(int? realtorId)
     {
         RealtorId = realtorId;

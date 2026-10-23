@@ -48,6 +48,8 @@ public class CatalogViewModel
 
 public class RealtorDealsViewModel
 {
+    public AppUser? CurrentUser { get; set; }
+
     public List<SaleDeal> Deals { get; set; } = new();
 
     public List<LandPlot> AvailablePlots { get; set; } = new();
@@ -63,6 +65,8 @@ public class RealtorDealsViewModel
 
 public class LawyerQueueViewModel
 {
+    public AppUser? CurrentUser { get; set; }
+
     public List<LandPlot> Plots { get; set; } = new();
 
     public int TotalPlotsCount { get; set; }
@@ -76,6 +80,8 @@ public class LawyerQueueViewModel
 
 public class LawyerConclusionViewModel
 {
+    public AppUser? CurrentUser { get; set; }
+
     public LandPlot Plot { get; set; } = null!;
 
     public DzkRegistryExtract? DzkExtract { get; set; }

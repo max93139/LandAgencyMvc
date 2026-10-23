@@ -36,17 +36,9 @@ public class ClientController : Controller
         var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (int.TryParse(idClaim, out var userId) && userId > 0)
         {
-            var user = await _db.Users.FindAsync(userId);
-            if (user != null)
-            {
-                ViewBag.CurrentUser = user;
-                ViewBag.CurrentUserId = user.Id;
-                return user;
-            }
+            return await _db.Users.FindAsync(userId);
         }
 
-        ViewBag.CurrentUser = null;
-        ViewBag.CurrentUserId = 0;
         return null;
     }
 
@@ -58,8 +50,6 @@ public class ClientController : Controller
     [HttpGet("/Client/Catalog")]
     public async Task<IActionResult> Catalog(string? purpose, decimal? maxBudget, double? minArea, string? search)
     {
-        await GetCurrentUserAsync();
-
         var query = _db.LandPlots
             .Include(p => p.Seller)
             .Include(p => p.AssignedRealtor)
@@ -467,15 +457,33 @@ public class ClientController : Controller
         var currentUser = await GetCurrentUserAsync();
         int currentUserId = currentUser?.Id ?? 0;
         var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId && p.SellerId == currentUserId);
-        if (plot != null && newPriceUsd > 0)
+        if (plot != null)
         {
+            if (newPriceUsd <= 0)
+            {
+                TempData["CabinetError"] = "Вкажіть коректну ціну ділянки (> $0).";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
+            if (plot.Status == PlotStatus.Sold)
+            {
+                TempData["CabinetError"] = "Неможливо змінити ціну вже проданої земельної ділянки.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
+            bool hasSignedDeal = await _db.SaleDeals.AnyAsync(d =>
+                d.LandPlotId == plot.Id &&
+                (d.Status == DealStatus.SignedAtNotary || d.Status == DealStatus.CompletedAtNotary));
+            if (hasSignedDeal)
+            {
+                TempData["CabinetError"] = $"По ділянці {plot.CadastralNumber} договір вже підписано у нотаріуса. Зміна ціни неможлива.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
             plot.UpdatePrice(newPriceUsd);
             await _db.SaveChangesAsync();
 
-            if (plot.Status == PlotStatus.VerifiedInCatalog)
-            {
-                await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
-            }
+            await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
 
             TempData["CabinetMessage"] = $"Ціну ділянки {plot.CadastralNumber} оновлено до ${newPriceUsd:N0}.";
         }
@@ -488,9 +496,9 @@ public class ClientController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddPlotDocument(
         int plotId,
-        string title,
-        string docType,
-        string documentNumber,
+        string? title,
+        string? docType,
+        string? documentNumber,
         DateTime? issueDate,
         bool signWithKep = false,
         IFormFile? documentFile = null)
@@ -500,13 +508,19 @@ public class ClientController : Controller
         var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId && p.SellerId == currentUserId);
         if (plot != null && currentUser != null)
         {
-            var (savedFileUrl, fileBytes, mimeType) = await SaveUploadedDocumentAsync(documentFile, plot.Id, documentNumber);
+            string cleanDocType = !string.IsNullOrWhiteSpace(docType) ? docType.Trim() : "Витяг з ДЗК";
+            string cleanDocNum = (documentNumber ?? string.Empty).Trim();
+            string cleanTitle = !string.IsNullOrWhiteSpace(title)
+                ? title.Trim()
+                : (!string.IsNullOrWhiteSpace(cleanDocNum) ? $"{cleanDocType} ({cleanDocNum})" : cleanDocType);
+
+            var (savedFileUrl, fileBytes, mimeType) = await SaveUploadedDocumentAsync(documentFile, plot.Id, cleanDocNum);
             var doc = new PlotDocument
             {
                 LandPlotId = plot.Id,
-                Title = !string.IsNullOrWhiteSpace(title) ? title.Trim() : "Документ земельної ділянки",
-                DocType = !string.IsNullOrWhiteSpace(docType) ? docType.Trim() : "Витяг з ДЗК",
-                DocumentNumber = (documentNumber ?? string.Empty).Trim(),
+                Title = cleanTitle,
+                DocType = cleanDocType,
+                DocumentNumber = cleanDocNum,
                 IssueDate = issueDate ?? DateTime.Today,
                 IsVerified = plot.Status == PlotStatus.VerifiedInCatalog
             };
@@ -542,6 +556,18 @@ public class ClientController : Controller
 
         if (payment != null && payment.SaleDeal != null && payment.SaleDeal.BuyerId == currentUserId)
         {
+            if (payment.SaleDeal.Status == DealStatus.Cancelled)
+            {
+                TempData["CabinetError"] = "Угоду скасовано. Подання реквізитів оплати за скасованою угодою неможливе.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
+            if (payment.IsPaid)
+            {
+                TempData["CabinetError"] = $"Рахунок {payment.InvoiceNumber} вже підтверджено агентством.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
             if (string.IsNullOrWhiteSpace(paymentReference))
             {
                 TempData["CabinetError"] = "Вкажіть номер платіжної інструкції або код квитанції банку.";
@@ -578,13 +604,13 @@ public class ClientController : Controller
             .Include(d => d.Payments)
             .FirstOrDefaultAsync(d => d.Id == dealId && d.BuyerId == currentUserId);
 
-        if (deal != null)
+        if (deal != null && deal.Status != DealStatus.Cancelled)
         {
             string reference = !string.IsNullOrWhiteSpace(paymentReference)
                 ? paymentReference.Trim()
                 : $"TRX-{DateTime.Now:yyyyMMdd}-{deal.Id:D4}";
 
-            var pendingPayment = deal.Payments.FirstOrDefault(p => !p.IsPaid) ?? deal.Payments.FirstOrDefault();
+            var pendingPayment = deal.Payments.FirstOrDefault(p => !p.IsPaid);
             if (pendingPayment != null)
             {
                 pendingPayment.SubmitPayment(reference, payerIban ?? currentUser?.BankDetails);
@@ -690,15 +716,14 @@ public class ClientController : Controller
             .ToListAsync();
 
         var matchedIds = mySelectionRequests
-            .Where(r => !string.IsNullOrWhiteSpace(r.MatchedPlotIds))
-            .SelectMany(r => r.MatchedPlotIds.Split(',', StringSplitOptions.RemoveEmptyEntries))
-            .Select(s => int.TryParse(s, out var parsed) ? parsed : 0)
-            .Where(id => id > 0)
+            .SelectMany(r => r.GetMatchedPlotIds())
             .Distinct()
             .ToList();
 
         var matchedPlots = matchedIds.Any()
-            ? await _db.LandPlots.Where(p => matchedIds.Contains(p.Id)).ToListAsync()
+            ? await _db.LandPlots
+                .Where(p => matchedIds.Contains(p.Id) && p.Status == PlotStatus.VerifiedInCatalog)
+                .ToListAsync()
             : new List<LandPlot>();
 
         var viewModel = new CabinetViewModel

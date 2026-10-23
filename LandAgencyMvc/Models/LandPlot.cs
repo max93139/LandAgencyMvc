@@ -110,13 +110,13 @@ public class LandPlot
         _ => "la-badge-amber"
     };
 
-    public static IReadOnlyList<(string FullValue, string ShortLabel)> StandardPurposes { get; } = new List<(string, string)>
+    public static IReadOnlyList<(string Code, string FullValue, string ShortLabel)> StandardPurposes { get; } = new List<(string, string, string)>
     {
-        ("02.01 Для будівництва і обслуговування житлового будинку", "02.01 Житлова забудова"),
-        ("01.03 Для ведення особистого селянського господарства", "01.03 Особисте селянське господарство (ОСГ)"),
-        ("01.05 Для індивідуального садівництва", "01.05 Садівництво"),
-        ("03.07 Для будівництва та обслуговування будівель торгівлі", "03.07 Комерція та торгівля"),
-        ("11.02 Для розміщення промислових підприємств", "11.02 Промисловість та склади")
+        ("02.01", "02.01 Для будівництва і обслуговування житлового будинку", "02.01 Житлова забудова"),
+        ("01.03", "01.03 Для ведення особистого селянського господарства", "01.03 Особисте селянське господарство (ОСГ)"),
+        ("01.05", "01.05 Для індивідуального садівництва", "01.05 Садівництво"),
+        ("03.07", "03.07 Для будівництва та обслуговування будівель торгівлі", "03.07 Комерція та торгівля"),
+        ("11.02", "11.02 Для розміщення промислових підприємств", "11.02 Промисловість та склади")
     };
 
     /// <summary>
@@ -152,6 +152,12 @@ public class LandPlot
         }
 
         return Regex.IsMatch(CadastralNumber.Trim(), @"^\d{10}:\d{2}:\d{3}:\d{4}$");
+    }
+
+    public bool IsOwnedBy(System.Security.Claims.ClaimsPrincipal? user)
+    {
+        var idClaim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(idClaim, out var userId) && userId > 0 && SellerId == userId;
     }
 }
 

@@ -45,26 +45,7 @@ public class AccountController : Controller
         }
 
         await _db.SaveChangesAsync();
-
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.FullName),
-            new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role.ToString())
-        };
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            principal,
-            new AuthenticationProperties
-            {
-                IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
-            });
+        await SignInUserAsync(user);
 
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
         {
@@ -89,12 +70,13 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(string fullName, string email, string phone, string password, string? taxId = null, string? bankDetails = null)
     {
+        var cleanFullName = (fullName ?? string.Empty).Trim();
         var cleanEmail = (email ?? string.Empty).Trim();
         var lowerEmail = cleanEmail.ToLower();
 
-        if (string.IsNullOrWhiteSpace(cleanEmail) || string.IsNullOrWhiteSpace(password))
+        if (string.IsNullOrWhiteSpace(cleanFullName) || string.IsNullOrWhiteSpace(cleanEmail) || string.IsNullOrWhiteSpace(password))
         {
-            TempData["RegisterError"] = "Заповніть обов'язкові поля електронної пошти та пароля.";
+            TempData["RegisterError"] = "Заповніть обов'язкові поля ПІБ, електронної пошти та пароля.";
             return RedirectToAction(nameof(Register));
         }
 
@@ -107,7 +89,7 @@ public class AccountController : Controller
 
         var user = new AppUser
         {
-            FullName = (fullName ?? string.Empty).Trim(),
+            FullName = cleanFullName,
             Email = cleanEmail,
             Phone = (phone ?? string.Empty).Trim(),
             TaxId = (taxId ?? string.Empty).Trim(),
@@ -119,12 +101,22 @@ public class AccountController : Controller
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
+        await SignInUserAsync(user);
+
+        TempData["CabinetMessage"] = "Обліковий запис клієнта успішно створено. Ласкаво просимо до LandAgency UA!";
+        return RedirectToAction("Cabinet", "Client");
+    }
+
+    private async Task SignInUserAsync(AppUser user)
+    {
+        var credential = user.LicenseNumber ?? user.CertificateNumber ?? string.Empty;
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.FullName),
             new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role.ToString())
+            new(ClaimTypes.Role, user.Role.ToString()),
+            new("StaffCredential", credential)
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -138,9 +130,6 @@ public class AccountController : Controller
                 IsPersistent = true,
                 ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
             });
-
-        TempData["CabinetMessage"] = "Обліковий запис клієнта успішно створено. Ласкаво просимо до LandAgency UA!";
-        return RedirectToAction("Cabinet", "Client");
     }
 
     [HttpGet]

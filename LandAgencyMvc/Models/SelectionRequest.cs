@@ -36,6 +36,9 @@ public class SelectionRequest
     public double MinAreaSotky => Math.Round(MinAreaHa * 100.0, 2);
 
     [NotMapped]
+    public int EffectiveMatchedCount => MatchedPlotsCount > 0 ? MatchedPlotsCount : GetMatchedPlotIds().Count;
+
+    [NotMapped]
     public string PurposeCode
     {
         get
@@ -47,6 +50,21 @@ public class SelectionRequest
 
             return Purpose.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? string.Empty;
         }
+    }
+
+    public IReadOnlyList<int> GetMatchedPlotIds()
+    {
+        if (string.IsNullOrWhiteSpace(MatchedPlotIds))
+        {
+            return Array.Empty<int>();
+        }
+
+        return MatchedPlotIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => int.TryParse(s.Trim(), out var id) ? id : 0)
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
     }
 
     public List<LandPlot> MatchPlots(IReadOnlyList<LandPlot> verifiedPlots, int? realtorId = null, string? notes = null)
@@ -124,9 +142,49 @@ public class SelectionRequest
                             plot.Purpose.Contains(purposeCode, StringComparison.OrdinalIgnoreCase) ||
                             plot.Purpose.Contains(Purpose.Trim(), StringComparison.OrdinalIgnoreCase);
         bool locationMatch = string.IsNullOrWhiteSpace(DesiredDistrict) ||
-                             plot.Location.Contains(DesiredDistrict, StringComparison.OrdinalIgnoreCase) ||
-                             plot.Title.Contains(DesiredDistrict, StringComparison.OrdinalIgnoreCase);
+                              plot.Location.Contains(DesiredDistrict, StringComparison.OrdinalIgnoreCase) ||
+                              plot.Title.Contains(DesiredDistrict, StringComparison.OrdinalIgnoreCase);
 
         return budgetMatch && areaMatch && purposeMatch && locationMatch;
+    }
+
+    public bool SyncPlotMatch(LandPlot plot)
+    {
+        var currentIds = GetMatchedPlotIds().ToList();
+        bool isEligible = plot.Status == PlotStatus.VerifiedInCatalog && IsPlotMatching(plot);
+
+        if (isEligible)
+        {
+            if (!currentIds.Contains(plot.Id))
+            {
+                currentIds.Add(plot.Id);
+                MatchedPlotIds = string.Join(",", currentIds);
+                MatchedPlotsCount = currentIds.Count;
+                IsProcessedByRealtor = true;
+                RealtorNotes = $"Автоматично оновлено: додано схвалений юристом об'єкт {plot.CadastralNumber}.";
+                return true;
+            }
+
+            if (MatchedPlotsCount != currentIds.Count)
+            {
+                MatchedPlotsCount = currentIds.Count;
+                return true;
+            }
+
+            return false;
+        }
+
+        if (currentIds.Remove(plot.Id))
+        {
+            MatchedPlotIds = string.Join(",", currentIds);
+            MatchedPlotsCount = currentIds.Count;
+            if (currentIds.Count == 0)
+            {
+                IsProcessedByRealtor = false;
+            }
+            return true;
+        }
+
+        return false;
     }
 }

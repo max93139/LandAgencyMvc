@@ -30,13 +30,7 @@ public class RealtorController : Controller
         var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (int.TryParse(idClaim, out var realtorId) && realtorId > 0)
         {
-            var realtor = await _db.Users.FirstOrDefaultAsync(u => u.Id == realtorId && u.Role == UserRole.Realtor);
-            if (realtor != null)
-            {
-                ViewBag.CurrentUser = realtor;
-                ViewBag.CurrentUserId = realtor.Id;
-                return realtor;
-            }
+            return await _db.Users.FirstOrDefaultAsync(u => u.Id == realtorId && u.Role == UserRole.Realtor);
         }
 
         return null;
@@ -64,13 +58,9 @@ public class RealtorController : Controller
         if (matchedRequestId.HasValue)
         {
             var selectedReq = requests.FirstOrDefault(r => r.Id == matchedRequestId.Value);
-            if (selectedReq != null && !string.IsNullOrWhiteSpace(selectedReq.MatchedPlotIds))
+            if (selectedReq != null)
             {
-                var ids = selectedReq.MatchedPlotIds
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => int.TryParse(s, out var id) ? id : 0)
-                    .Where(id => id > 0)
-                    .ToList();
+                var ids = selectedReq.GetMatchedPlotIds();
                 matchedPreview = allPlots.Where(p => ids.Contains(p.Id)).ToList();
             }
         }
@@ -122,6 +112,12 @@ public class RealtorController : Controller
         var plot = await _db.LandPlots.FindAsync(plotId);
         if (plot != null)
         {
+            if (plot.Status == PlotStatus.Sold)
+            {
+                TempData["RealtorError"] = $"Ділянку {plot.CadastralNumber} вже продано. Редагування комерційного опису заблоковано.";
+                return RedirectToAction(nameof(Requests));
+            }
+
             plot.Description = (description ?? string.Empty).Trim();
             plot.AssignedRealtorId = currentUser?.Id;
             await _db.SaveChangesAsync();
@@ -138,7 +134,6 @@ public class RealtorController : Controller
     [HttpGet]
     public async Task<IActionResult> Viewings()
     {
-        await GetCurrentRealtorAsync();
         var viewings = await _db.ViewingRequests
             .Include(v => v.LandPlot)
             .ThenInclude(p => p!.Seller)
@@ -208,7 +203,7 @@ public class RealtorController : Controller
     [HttpGet]
     public async Task<IActionResult> Deals(int? plotId, int? buyerId)
     {
-        await GetCurrentRealtorAsync();
+        var currentUser = await GetCurrentRealtorAsync();
         var availablePlots = await _db.LandPlots
             .Include(p => p.Seller)
             .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
@@ -230,6 +225,7 @@ public class RealtorController : Controller
 
         var viewModel = new RealtorDealsViewModel
         {
+            CurrentUser = currentUser,
             Deals = deals,
             AvailablePlots = availablePlots,
             Clients = clients,
@@ -391,6 +387,12 @@ public class RealtorController : Controller
 
         if (payment != null && currentUser != null)
         {
+            if (payment.SaleDeal?.Status == DealStatus.Cancelled)
+            {
+                TempData["RealtorError"] = "Неможливо підтвердити платіж за скасованою угодою.";
+                return RedirectToAction(nameof(Deals));
+            }
+
             payment.VerifyPayment(currentUser.Id, verificationNotes);
             await _db.SaveChangesAsync();
             TempData["RealtorMessage"] = $"Банківське зарахування за рахунком {payment.InvoiceNumber} (код операції: {payment.PaymentReference}) успішно підтверджено.";
@@ -414,6 +416,12 @@ public class RealtorController : Controller
 
         if (payment != null && currentUser != null)
         {
+            if (payment.SaleDeal?.Status == DealStatus.CompletedAtNotary)
+            {
+                TempData["RealtorError"] = $"Неможливо відхилити платіж за угодою {payment.SaleDeal.DraftContractNumber}, за якою вже зареєстровано право власності в ДРРП.";
+                return RedirectToAction(nameof(Deals));
+            }
+
             payment.RejectPayment(currentUser.Id, rejectionNotes);
             await _db.SaveChangesAsync();
             TempData["RealtorError"] = $"Квитанцію за рахунком {payment.InvoiceNumber} відхилено. Клієнт може повторно надіслати коректний код транзакції.";
@@ -583,8 +591,6 @@ public class RealtorController : Controller
         {
             return RedirectToAction("Login", "Account");
         }
-
-        ViewBag.CurrentUser = currentUser;
 
         var deal = await _db.SaleDeals
             .Include(d => d.LandPlot)

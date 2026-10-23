@@ -117,6 +117,15 @@ public class LandAgencyContext : DbContext
             changed = true;
         }
 
+        var unsyncedRequests = SelectionRequests
+            .Where(r => r.MatchedPlotsCount == 0 && !string.IsNullOrEmpty(r.MatchedPlotIds))
+            .ToList();
+        foreach (var req in unsyncedRequests)
+        {
+            req.MatchedPlotsCount = req.GetMatchedPlotIds().Count;
+            changed = true;
+        }
+
         if (changed)
         {
             SaveChanges();
@@ -326,6 +335,7 @@ public class LandAgencyContext : DbContext
             IsProcessedByRealtor = true,
             ProcessedByRealtorId = realtor?.Id,
             MatchedPlotIds = plot1.Id.ToString(),
+            MatchedPlotsCount = 1,
             RealtorNotes = "Підібрано перевірену земельну ділянку в Обухівському районі (с. Лісники), що повністю відповідає критеріям площі та бюджету.",
             CreatedAt = DateTime.Now.AddDays(-2)
         };

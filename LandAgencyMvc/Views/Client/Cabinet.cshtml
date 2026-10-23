@@ -189,7 +189,7 @@
                                     {
                                         <span class="la-badge la-badge-indigo">Угоду сформовано ✓</span>
                                     }
-                                    @if (v.Status == LandAgencyMvc.Models.ViewingStatus.NewRequest || v.Status == LandAgencyMvc.Models.ViewingStatus.Scheduled)
+                                    @if (v.CanCancelByClient)
                                     {
                                         <form asp-controller="Client" asp-action="CancelViewingByClient" method="post">
                                             <input type="hidden" name="viewingId" value="@v.Id" />
@@ -203,7 +203,7 @@
 
                     @foreach (var d in Model.MyDeals)
                     {
-                        <div class="la-subcard-green mt-3">
+                        <div class="@d.SubcardClass mt-3">
                             <div class="la-row-between">
                                 <strong>Угода купівлі №@d.DraftContractNumber (Ділянка @d.LandPlot?.CadastralNumber, @d.LandPlot?.Title)</strong>
                                 <span class="la-badge @d.StatusBadgeClass">@d.StatusDisplayName</span>
@@ -241,7 +241,7 @@
                                             </div>
                                         </div>
 
-                                        @if (p.Status == LandAgencyMvc.Models.PaymentStatus.PendingSubmission || p.Status == LandAgencyMvc.Models.PaymentStatus.Rejected)
+                                        @if (p.CanSubmitByClient)
                                         {
                                             <form asp-controller="Client" asp-action="SubmitPayment" method="post" class="la-inline-form mt-2">
                                                 <input type="hidden" name="paymentId" value="@p.Id" />

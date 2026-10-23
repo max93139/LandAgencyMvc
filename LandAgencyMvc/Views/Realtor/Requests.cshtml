@@ -41,9 +41,9 @@
                                 <td><strong>до $@r.MaxBudgetUsd.ToString("N0")</strong></td>
                                 <td>
                                     <div class="la-action-row">
-                                        @if (r.MatchedPlotsCount > 0)
+                                        @if (r.EffectiveMatchedCount > 0)
                                         {
-                                            <span class="la-badge la-badge-green">Підібрано автоматично ✓ (@r.MatchedPlotsCount)</span>
+                                            <span class="la-badge la-badge-green">Підібрано автоматично ✓ (@r.EffectiveMatchedCount)</span>
                                             <a asp-controller="Realtor" asp-action="Requests" asp-route-matchedRequestId="@r.Id" class="la-btn la-btn-warning la-btn-xs">Показати</a>
                                         }
                                         else

@@ -1,8 +1,7 @@
 @{
     var activeNav = (ViewData["ActiveNav"] as string) ?? "";
     var isDetails = activeNav == "Details" || ViewData["NavBackToCatalog"] is true;
-    var currentUser = (ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser) 
-        ?? (Model as LandAgencyMvc.Models.CabinetViewModel)?.CurrentUser;
+    var currentUser = (Model as LandAgencyMvc.Models.CabinetViewModel)?.CurrentUser;
     var displayName = currentUser?.FullName ?? (User.Identity?.IsAuthenticated == true ? User.Identity.Name : null);
     var isAuthenticated = User.Identity?.IsAuthenticated == true || currentUser != null;
 }
