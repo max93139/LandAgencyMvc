@@ -43,7 +43,7 @@
                     <button type="submit" class="la-btn la-btn-dark">Знайти</button>
                     @if (!string.IsNullOrEmpty(filterPurpose) || filterMaxBudget.HasValue || filterMinArea.HasValue || !string.IsNullOrEmpty(filterSearch))
                     {
-                        <a class="la-btn" style="background:#e2e8f0; color:#334155;" asp-controller="Client" asp-action="Catalog">Скинути</a>
+                        <a class="la-btn la-btn-gray" asp-controller="Client" asp-action="Catalog">Скинути</a>
                     }
                 </div>
             </form>

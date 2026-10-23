@@ -21,7 +21,7 @@
         <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
     </div>
     <div style="display:flex; align-items:center; gap:12px;">
-        <a class="la-btn la-btn-green" style="padding:7px 14px; font-size:13px;" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
+        <a class="la-btn la-btn-green la-btn-sm" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
         @if (isAuthenticated && !string.IsNullOrEmpty(displayName))
         {
             <span style="font-size:13px; opacity:0.9;">@displayName</span>

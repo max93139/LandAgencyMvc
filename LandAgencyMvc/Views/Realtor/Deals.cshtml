@@ -126,12 +126,12 @@
                                             <form asp-controller="Realtor" asp-action="VerifyClientPayment" method="post" style="display:inline-flex; gap:6px;">
                                                 <input type="hidden" name="paymentId" value="@p.Id" />
                                                 <input name="verificationNotes" class="la-input" style="width:150px; font-size:11px; margin:0; padding:4px 8px;" placeholder="№ банківської виписки" />
-                                                <button type="submit" class="la-btn la-btn-green" style="padding:4px 10px; font-size:11px;">✓ Підтвердити зарахування</button>
+                                                <button type="submit" class="la-btn la-btn-green la-btn-xs">✓ Підтвердити зарахування</button>
                                             </form>
                                             <form asp-controller="Realtor" asp-action="RejectClientPayment" method="post" style="display:inline-flex; gap:6px;">
                                                 <input type="hidden" name="paymentId" value="@p.Id" />
                                                 <input type="hidden" name="rejectionNotes" value="Не знайдено у банківській виписці за вказаним референсом" />
-                                                <button type="submit" class="la-btn" style="padding:4px 10px; font-size:11px; background:#fee2e2; color:#dc2626;">✕ Відхилити</button>
+                                                <button type="submit" class="la-btn la-btn-red la-btn-xs">✕ Відхилити</button>
                                             </form>
                                         }
                                         else if (p.Status == LandAgencyMvc.Models.PaymentStatus.Confirmed)
@@ -152,25 +152,25 @@
                         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                             <form asp-controller="Realtor" asp-action="SendDealToLawyer" method="post" style="display:inline;">
                                 <input type="hidden" name="dealId" value="@d.Id" />
-                                <button type="submit" class="la-btn la-btn-indigo" style="padding:7px 14px; font-size:12px;">1. Направити юристу на візу</button>
+                                <button type="submit" class="la-btn la-btn-indigo la-btn-sm">1. Направити юристу на візу</button>
                             </form>
 
                             <form asp-controller="Realtor" asp-action="SignDealAtNotary" method="post" style="display:inline-flex; gap:6px; align-items:center;">
                                 <input type="hidden" name="dealId" value="@d.Id" />
                                 <input name="notarialRegistryNumber" value="@d.NotarialRegistryNumber" class="la-input" style="margin:0; padding:6px 10px; font-size:12px; width:170px;" placeholder="Реєстровий № нотаріуса" />
-                                <button type="submit" class="la-btn la-btn-blue" style="padding:7px 14px; font-size:12px;" title="@(!d.IsAgencyFeePaid ? "Потрібно підтвердити зарахування коштів за квитанцією" : "")">2. Підтвердити підпис у нотаріуса</button>
+                                <button type="submit" class="la-btn la-btn-blue la-btn-sm" title="@(!d.IsAgencyFeePaid ? "Потрібно підтвердити зарахування коштів за квитанцією" : "")">2. Підтвердити підпис у нотаріуса</button>
                             </form>
 
                             <form asp-controller="Realtor" asp-action="CompleteNotaryDeal" method="post" style="display:inline;">
                                 <input type="hidden" name="dealId" value="@d.Id" />
                                 <input type="hidden" name="notarialRegistryNumber" value="@d.NotarialRegistryNumber" />
-                                <button type="submit" class="la-btn la-btn-green" style="padding:7px 14px; font-size:12px;" title="@(!d.IsFullyPaid ? "Потрібно підтвердити всі банківські розрахунки за угодою" : "")">3. Зареєструвати право в ДРРП</button>
+                                <button type="submit" class="la-btn la-btn-green la-btn-sm" title="@(!d.IsFullyPaid ? "Потрібно підтвердити всі банківські розрахунки за угодою" : "")">3. Зареєструвати право в ДРРП</button>
                             </form>
 
                             <form asp-controller="Realtor" asp-action="CancelDeal" method="post" style="display:inline;">
                                 <input type="hidden" name="dealId" value="@d.Id" />
                                 <input type="hidden" name="reason" value="Скасовано за погодженням сторін до моменту реєстрації в ДРРП" />
-                                <button type="submit" class="la-btn" style="padding:7px 14px; font-size:12px; background:#fee2e2; color:#dc2626;">✕ Скасувати угоду</button>
+                                <button type="submit" class="la-btn la-btn-red la-btn-sm">✕ Скасувати угоду</button>
                             </form>
                         </div>
                     </div>

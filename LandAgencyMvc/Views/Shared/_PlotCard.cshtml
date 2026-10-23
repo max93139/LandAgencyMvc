@@ -16,5 +16,5 @@
     <p class="text-muted" style="margin-bottom:4px; font-size:13px;">Призначення: @Model.Purpose</p>
     <p style="margin-bottom:8px; font-size:14px;">📍 @Model.Location • Власник: <strong>@Model.Seller?.FullName</strong></p>
     <p style="font-size:13px; color:#475569; margin-bottom:14px;">@Model.Description</p>
-    <a class="la-btn la-btn-dark" style="width:100%; text-align:center;" asp-controller="Client" asp-action="Details" asp-route-id="@Model.Id">Детальніше та запис на огляд →</a>
+    <a class="la-btn la-btn-dark la-btn-full" asp-controller="Client" asp-action="Details" asp-route-id="@Model.Id">Детальніше та запис на огляд →</a>
 </div>

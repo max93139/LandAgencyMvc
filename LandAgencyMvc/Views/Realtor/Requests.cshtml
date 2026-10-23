@@ -52,7 +52,7 @@
                                         }
                                         <form asp-controller="Realtor" asp-action="MatchPlotsForRequest" method="post" style="display:inline-flex; gap:4px;">
                                             <input type="hidden" name="requestId" value="@r.Id" />
-                                            <button type="submit" class="la-btn" style="padding:4px 8px; font-size:11px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155;">Перерахувати збіги</button>
+                                            <button type="submit" class="la-btn la-btn-gray la-btn-xs">Перерахувати збіги</button>
                                         </form>
                                     </div>
                                     @if (!string.IsNullOrWhiteSpace(r.RealtorNotes))

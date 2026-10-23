@@ -124,18 +124,49 @@ html, body {
     cursor: pointer;
     text-decoration: none;
     transition: 0.15s;
+    line-height: 1.4;
+    text-align: center;
+    box-sizing: border-box;
 }
+
+.la-btn:hover {
+    text-decoration: none;
+}
+
+.la-btn-sm { padding: 6px 14px; font-size: 12px; }
+.la-btn-xs { padding: 4px 10px; font-size: 11px; }
+.la-btn-full { width: 100%; display: block; }
 
 .la-btn-green { background: #16a34a; color: #fff; }
 .la-btn-green:hover { background: #15803d; color: #fff; }
 .la-btn-amber { background: #d97706; color: #fff; }
 .la-btn-amber:hover { background: #b45309; color: #fff; }
+.la-btn-warning { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
+.la-btn-warning:hover { background: #fde68a; color: #78350f; }
 .la-btn-indigo { background: #6366f1; color: #fff; }
 .la-btn-indigo:hover { background: #4f46e5; color: #fff; }
 .la-btn-blue { background: #0284c7; color: #fff; }
 .la-btn-blue:hover { background: #0369a1; color: #fff; }
 .la-btn-dark { background: #0f172a; color: #fff; }
 .la-btn-dark:hover { background: #1e293b; color: #fff; }
+
+.la-btn-red { background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; }
+.la-btn-red:hover { background: #fecaca; color: #b91c1c; }
+
+.la-btn-gray { background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; }
+.la-btn-gray:hover { background: #e2e8f0; color: #0f172a; }
+
+.la-btn-white { background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; }
+.la-btn-white:hover { background: #f8fafc; color: #0f172a; }
+
+.la-btn-link { background: #ffffff; border: 1px solid #cbd5e1; color: #1d4ed8; }
+.la-btn-link:hover { background: #f8fafc; color: #1e40af; }
+
+.la-btn-kadastr { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+.la-btn-kadastr:hover { background: #c7d2fe; color: #312e81; }
+
+.la-btn-opendata { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+.la-btn-opendata:hover { background: #bae6fd; color: #075985; }
 
 .la-btn-outline {
     background: transparent;

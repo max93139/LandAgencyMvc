@@ -33,7 +33,7 @@
                                         <form asp-controller="Client" asp-action="UpdatePlotPrice" method="post" style="display:flex; gap:6px; align-items:center;">
                                             <input type="hidden" name="plotId" value="@myPlot.Id" />
                                             <input type="number" name="newPriceUsd" value="@myPlot.PriceUsd" class="la-input" style="margin:0; width:110px; padding:6px 10px;" required />
-                                            <button type="submit" class="la-btn la-btn-blue" style="padding:6px 12px; font-size:12px;">Оновити ціну</button>
+                                            <button type="submit" class="la-btn la-btn-blue la-btn-sm">Оновити ціну</button>
                                         </form>
                                     }
                                     else
@@ -110,7 +110,7 @@
                                                     <label style="display:flex; align-items:center; gap:4px; font-weight:600; color:#166534; cursor:pointer;">
                                                         <input type="checkbox" name="signWithKep" value="true" checked /> Накласти КЕП
                                                     </label>
-                                                    <button type="submit" class="la-btn la-btn-green" style="padding:5px 10px; font-size:11px;">Завантажити</button>
+                                                    <button type="submit" class="la-btn la-btn-green la-btn-xs">Завантажити</button>
                                                 </div>
                                             </div>
                                         </form>
@@ -184,14 +184,14 @@
                                     {
                                         <form asp-controller="Client" asp-action="RequestPurchaseFromViewing" method="post" style="display:inline;">
                                             <input type="hidden" name="viewingId" value="@v.Id" />
-                                            <button type="submit" class="la-btn la-btn-green" style="padding:5px 12px; font-size:12px;">Подати заявку на купівлю ділянки</button>
+                                            <button type="submit" class="la-btn la-btn-green la-btn-sm">Подати заявку на купівлю ділянки</button>
                                         </form>
                                     }
                                     @if (v.Status == LandAgencyMvc.Models.ViewingStatus.NewRequest || v.Status == LandAgencyMvc.Models.ViewingStatus.Scheduled)
                                     {
                                         <form asp-controller="Client" asp-action="CancelViewingByClient" method="post" style="display:inline;">
                                             <input type="hidden" name="viewingId" value="@v.Id" />
-                                            <button type="submit" class="la-btn" style="padding:5px 10px; font-size:12px; background:#fee2e2; color:#dc2626;">Скасувати огляд</button>
+                                            <button type="submit" class="la-btn la-btn-red la-btn-sm">Скасувати огляд</button>
                                         </form>
                                     }
                                 </div>
@@ -255,7 +255,7 @@
                                                 <input type="hidden" name="paymentId" value="@p.Id" />
                                                 <input type="text" name="paymentReference" class="la-input" placeholder="Код квитанції / референс (напр. TRX-12345)" style="margin:0; flex:1; min-width:160px; padding:4px 8px; font-size:11px;" required />
                                                 <input type="text" name="senderIban" class="la-input" placeholder="Ваш IBAN" value="@Model.CurrentUser?.BankDetails" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN: UA та 27 цифр" style="margin:0; width:195px; padding:4px 8px; font-size:11px; text-transform:uppercase;" />
-                                                <button type="submit" class="la-btn la-btn-green" style="padding:4px 10px; font-size:11px;">Повідомити про оплату</button>
+                                                <button type="submit" class="la-btn la-btn-green la-btn-xs">Повідомити про оплату</button>
                                             </form>
                                         }
                                     </div>
@@ -263,8 +263,8 @@
                             </div>
 
                             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                                <a class="la-btn" style="background:#fff; border:1px solid #cbd5e1; color:#0f172a; padding:7px 14px; font-size:12px;" asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" target="_blank">Квитанція та рахунки</a>
-                                <a class="la-btn" style="background:#fff; border:1px solid #cbd5e1; color:#1d4ed8; padding:7px 14px; font-size:12px;" asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank">Текст договору</a>
+                                <a class="la-btn la-btn-white la-btn-sm" asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" target="_blank">Квитанція та рахунки</a>
+                                <a class="la-btn la-btn-link la-btn-sm" asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank">Текст договору</a>
                             </div>
                         </div>
                     }
@@ -298,8 +298,8 @@
                                     </div>
                                 }
                                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px;">
-                                    <a class="la-btn" style="background:#fff; border:1px solid #cbd5e1; color:#0f172a; padding:5px 10px; font-size:11px;" asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@sd.Id" target="_blank">Квитанція та рахунки</a>
-                                    <a class="la-btn" style="background:#fff; border:1px solid #cbd5e1; color:#1d4ed8; padding:5px 10px; font-size:11px;" asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@sd.Id" target="_blank">Текст договору</a>
+                                    <a class="la-btn la-btn-white la-btn-xs" asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@sd.Id" target="_blank">Квитанція та рахунки</a>
+                                    <a class="la-btn la-btn-link la-btn-xs" asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@sd.Id" target="_blank">Текст договору</a>
                                 </div>
                             </div>
                         }
@@ -329,7 +329,7 @@
                                 <input type="password" name="newPassword" class="la-input" placeholder="Новий пароль" />
                             </div>
                         </div>
-                        <button type="submit" class="la-btn la-btn-dark" style="padding:7px 14px; font-size:12px;">Зберегти дані профілю</button>
+                        <button type="submit" class="la-btn la-btn-dark la-btn-sm">Зберегти дані профілю</button>
                     </form>
                 </div>
             </div>

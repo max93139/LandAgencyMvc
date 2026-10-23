@@ -85,11 +85,11 @@
                                 <td>
                                     @if (p.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)
                                     {
-                                        <a class="la-btn la-btn-indigo" style="padding:7px 14px; font-size:12px;" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@p.Id">Скласти висновок →</a>
+                                        <a class="la-btn la-btn-indigo la-btn-sm" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@p.Id">Скласти висновок →</a>
                                     }
                                     else
                                     {
-                                        <a class="la-btn" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; padding:7px 14px; font-size:12px;" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@p.Id">Переглянути акт</a>
+                                        <a class="la-btn la-btn-gray la-btn-sm" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@p.Id">Переглянути акт</a>
                                     }
                                 </td>
                             </tr>
