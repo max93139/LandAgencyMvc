@@ -3,12 +3,14 @@
     var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
     var fullName = currentUser?.FullName ?? (User.Identity?.IsAuthenticated == true ? User.Identity.Name : "Юрист");
     var cert = !string.IsNullOrEmpty(currentUser?.CertificateNumber) ? $" ({currentUser.CertificateNumber})" : "";
-    var plotId = (Model as LandAgencyMvc.Models.LandPlot)?.Id ?? (ViewBag.CurrentPlotId as int?);
+    var plotId = (Model as LandAgencyMvc.Models.LawyerConclusionViewModel)?.Plot?.Id
+        ?? (Model as LandAgencyMvc.Models.LandPlot)?.Id
+        ?? (ViewBag.CurrentPlotId as int?);
 }
 
 <div class="la-topbar la-topbar-lawyer">
     <div class="la-nav-links">
-        <span class="la-badge la-badge-indigo" style="margin-right:8px;">ЮРИСТ</span>
+        <span class="la-badge la-badge-indigo me-2">ЮРИСТ</span>
         <a class="@(activeNav == "Queue" ? "active" : "")" asp-controller="Lawyer" asp-action="Queue">Черга перевірки ДЗК</a>
         @if (plotId.HasValue && plotId.Value > 0)
         {
@@ -20,8 +22,8 @@
         }
         <a class="@(activeNav == "Contracts" ? "active" : "")" asp-controller="Lawyer" asp-action="Contracts">Погодження договорів</a>
     </div>
-    <div style="display:flex; align-items:center; gap:12px;">
-        <span style="font-size:13px;">@fullName@cert</span>
+    <div class="la-topbar-user">
+        <span>@fullName@cert</span>
         <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
     </div>
 </div>

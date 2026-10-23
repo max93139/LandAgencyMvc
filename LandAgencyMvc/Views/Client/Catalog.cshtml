@@ -1,12 +1,7 @@
-@model IEnumerable<LandAgencyMvc.Models.LandPlot>
+@model LandAgencyMvc.Models.CatalogViewModel
 @{
     ViewData["Title"] = "Каталог земельних ділянок — LandAgency UA";
     ViewData["ActiveNav"] = "Catalog";
-    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    string filterPurpose = ViewBag.FilterPurpose as string ?? string.Empty;
-    decimal? filterMaxBudget = ViewBag.FilterMaxBudget as decimal?;
-    double? filterMinArea = ViewBag.FilterMinArea as double?;
-    string filterSearch = ViewBag.FilterSearch as string ?? string.Empty;
 }
 
 <div class="la-window">
@@ -14,68 +9,68 @@
 
     <div class="la-body">
         <partial name="_AlertMessages" />
-        <div class="la-card" style="padding:16px 20px; margin-bottom:20px;">
-            <form asp-controller="Client" asp-action="Catalog" method="get" style="display:grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr auto; gap:12px; align-items:end;">
+        <div class="la-card">
+            <form asp-controller="Client" asp-action="Catalog" method="get" class="la-grid-4">
                 <div>
                     <label class="la-label">Цільове призначення</label>
-                    <select name="purpose" class="la-input" style="margin-bottom:0;">
+                    <select name="purpose" class="la-input mb-0">
                         <option value="">Усі цільові призначення</option>
-                        <option value="02.01" selected="@(filterPurpose == "02.01")">02.01 Житлова та громадська забудова</option>
-                        <option value="01.01" selected="@(filterPurpose == "01.01")">01.01 Товарне сільське господарство</option>
-                        <option value="01.03" selected="@(filterPurpose == "01.03")">01.03 Особисте селянське господарство</option>
-                        <option value="03.07" selected="@(filterPurpose == "03.07")">03.07 Комерційне призначення / Торгівля</option>
-                        <option value="01.05" selected="@(filterPurpose == "01.05")">01.05 Індивідуальне садівництво</option>
+                        @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
+                        {
+                            var code = item.FullValue.Split(' ')[0];
+                            <option value="@code" selected="@(Model.FilterPurpose == code || Model.FilterPurpose == item.FullValue)">@item.ShortLabel</option>
+                        }
                     </select>
                 </div>
                 <div>
                     <label class="la-label">Макс. бюджет ($)</label>
-                    <input name="maxBudget" type="number" value="@filterMaxBudget" class="la-input" style="margin-bottom:0;" placeholder="Без обмежень" />
+                    <input name="maxBudget" type="number" value="@Model.FilterMaxBudget" class="la-input mb-0" placeholder="Без обмежень" />
                 </div>
                 <div>
                     <label class="la-label">Мін. площа (га)</label>
-                    <input name="minArea" type="number" step="0.01" value="@filterMinArea" class="la-input" style="margin-bottom:0;" placeholder="Від 0.01" />
+                    <input name="minArea" type="number" step="0.01" value="@Model.FilterMinArea" class="la-input mb-0" placeholder="Від 0.01" />
                 </div>
                 <div>
                     <label class="la-label">Пошук за локацією / кадастром</label>
-                    <input name="search" value="@filterSearch" class="la-input" style="margin-bottom:0;" placeholder="Населений пункт або кадастр" />
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button type="submit" class="la-btn la-btn-dark">Знайти</button>
-                    @if (!string.IsNullOrEmpty(filterPurpose) || filterMaxBudget.HasValue || filterMinArea.HasValue || !string.IsNullOrEmpty(filterSearch))
-                    {
-                        <a class="la-btn la-btn-gray" asp-controller="Client" asp-action="Catalog">Скинути</a>
-                    }
+                    <div class="la-action-row">
+                        <input name="search" value="@Model.FilterSearch" class="la-input mb-0" placeholder="Населений пункт або кадастр" />
+                        <button type="submit" class="la-btn la-btn-dark">Знайти</button>
+                        @if (Model.HasActiveFilters)
+                        {
+                            <a class="la-btn la-btn-gray" asp-controller="Client" asp-action="Catalog">Скинути</a>
+                        }
+                    </div>
                 </div>
             </form>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <div class="la-row-between mb-3">
             <div>
-                <h4 style="margin:0;">Каталог перевірених земельних ділянок</h4>
-                <span class="text-muted" style="font-size:14px;">Усі ділянки в каталозі пройшли юридичний аудит КОАТУУ у ДЗК та ДРРП</span>
+                <h4 class="mb-0">Каталог перевірених земельних ділянок</h4>
+                <span class="la-meta">Усі ділянки в каталозі пройшли юридичний аудит КОАТУУ у ДЗК та ДРРП</span>
             </div>
-            <span class="la-badge la-badge-green">Знайдено пропозицій: @Model.Count()</span>
+            <span class="la-badge la-badge-green">Знайдено пропозицій: @Model.TotalCount</span>
         </div>
 
-        @if (!Model.Any())
+        @if (!Model.Plots.Any())
         {
             <div class="la-card">
-                <p class="text-muted" style="margin:0;">За вибраними критеріями перевірених ділянок у каталозі наразі немає. Ви можете виставити власну ділянку або залишити запит на індивідуальний підбір для рієлтора нижче.</p>
+                <p class="la-meta mb-0">За вибраними критеріями перевірених ділянок у каталозі наразі немає. Ви можете виставити власну ділянку або залишити запит на індивідуальний підбір для рієлтора нижче.</p>
             </div>
         }
         else
         {
             <div class="la-grid-2">
-                @foreach (var plot in Model)
+                @foreach (var plot in Model.Plots)
                 {
                     <partial name="_PlotCard" model="plot" />
                 }
             </div>
         }
 
-        <div class="la-card" style="margin-top:20px;">
+        <div class="la-card mt-3">
             <h5>Замовити індивідуальний підбір ділянки (Автоматичний пошук)</h5>
-            <p class="text-muted" style="font-size:13px; margin-bottom:12px;">Вкажіть бажані параметри земельної ділянки — інтелектуальний двигун AutoMatching миттєво підбере найкращі перевірені варіанти</p>
+            <p class="la-meta mb-3">Вкажіть бажані параметри земельної ділянки — інтелектуальний двигун AutoMatching миттєво підбере найкращі перевірені варіанти</p>
             <form asp-controller="Client" asp-action="SubmitSelectionRequest" method="post">
                 <div class="la-grid-3">
                     <div>
@@ -93,11 +88,10 @@
                 </div>
                 <label class="la-label">Цільове призначення</label>
                 <select name="purpose" class="la-input" required>
-                    <option value="02.01 Житлова забудова">02.01 Для будівництва і обслуговування житлового будинку</option>
-                    <option value="01.01 Товарне сільське господарство">01.01 Для ведення товарного сільськогосподарського виробництва</option>
-                    <option value="01.03 Особисте селянське господарство">01.03 Для ведення особистого селянського господарства</option>
-                    <option value="03.07 Комерційне призначення">03.07 Для будівництва та обслуговування об'єктів торгівлі</option>
-                    <option value="01.05 Індивідуальне садівництво">01.05 Для індивідуального садівництва</option>
+                    @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
+                    {
+                        <option value="@item.FullValue">@item.FullValue</option>
+                    }
                 </select>
                 <button type="submit" class="la-btn la-btn-green">Подати запит на автопідбір ділянок</button>
             </form>

@@ -2,7 +2,6 @@
 @{
     ViewData["Title"] = "Черга заявок на виїзний огляд — Панель Рієлтора";
     ViewData["ActiveNav"] = "Viewings";
-    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
 }
 
 <div class="la-window">
@@ -11,31 +10,31 @@
     <div class="la-body">
         <partial name="_AlertMessages" />
 
-        <h4 style="margin-bottom:16px;">Черга заявок на виїзний огляд земельних ділянок</h4>
+        <h4 class="mb-3">Черга заявок на виїзний огляд земельних ділянок</h4>
 
         @if (!Model.Any())
         {
             <div class="la-card">
-                <p class="text-muted" style="margin:0;">Заявок на виїзний огляд ділянок наразі немає.</p>
+                <p class="la-meta mb-0">Заявок на виїзний огляд ділянок наразі немає.</p>
             </div>
         }
         else
         {
             @foreach (var v in Model)
             {
-                <div class="la-card" style="@(v.Status == LandAgencyMvc.Models.ViewingStatus.NewRequest ? "border:1.5px solid #f59e0b;" : "")">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h5 style="margin:0;">Заявка на огляд №@v.Id — Ділянка @v.LandPlot?.CadastralNumber (@v.LandPlot?.Title)</h5>
+                <div class="la-card">
+                    <div class="la-row-between">
+                        <h5 class="mb-0">Заявка на огляд №@v.Id — Ділянка @v.LandPlot?.CadastralNumber (@v.LandPlot?.Title)</h5>
                         <span class="la-badge @v.StatusBadgeClass">@v.StatusDisplayName</span>
                     </div>
 
-                    <p style="font-size:13px; color:#334155; margin:8px 0 4px 0;">
+                    <p class="la-text-sm my-2">
                         <strong>Покупець:</strong> @v.Buyer?.FullName (@v.Buyer?.Phone) •
                         <strong>Продавець:</strong> @v.LandPlot?.Seller?.FullName •
                         <strong>Ціна ділянки:</strong> $@v.LandPlot?.PriceUsd.ToString("N0")
                     </p>
-                    <p style="font-size:13px; color:#475569; margin:0 0 8px 0;">
-                        <strong>Дата та час виїзду:</strong> <code style="background:#f1f5f9; padding:3px 8px; border-radius:6px; color:#0f172a;">@v.PreferredDate.ToString("dd.MM.yyyy") @v.TimeSlot</code>
+                    <p class="la-text-sm mb-2">
+                        <strong>Дата та час виїзду:</strong> <code class="la-code">@v.PreferredDate.ToString("dd.MM.yyyy") @v.TimeSlot</code>
                         @if (!string.IsNullOrEmpty(v.Comment))
                         {
                             <span> • Коментар покупця: «@v.Comment»</span>
@@ -43,23 +42,23 @@
                     </p>
                     @if (!string.IsNullOrEmpty(v.ResultNotes))
                     {
-                        <p style="font-size:12px; color:#15803d; margin:0 0 10px 0; font-weight:600;">Результат огляду: @v.ResultNotes</p>
+                        <p class="la-text-xs fw-bold text-success mb-2">Результат огляду: @v.ResultNotes</p>
                     }
 
-                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+                    <div class="la-action-row mt-2">
                         @if (v.Status == LandAgencyMvc.Models.ViewingStatus.NewRequest)
                         {
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Scheduled" />
                                 <button type="submit" class="la-btn la-btn-green la-btn-sm">✓ Підтвердити огляд</button>
                             </form>
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Completed" />
                                 <button type="submit" class="la-btn la-btn-amber la-btn-sm">Огляд проведено (Клієнт купує)</button>
                             </form>
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Cancelled" />
                                 <button type="submit" class="la-btn la-btn-red la-btn-sm">✕ Скасувати</button>
@@ -67,18 +66,18 @@
                         }
                         else if (v.Status == LandAgencyMvc.Models.ViewingStatus.Scheduled)
                         {
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Completed" />
                                 <button type="submit" class="la-btn la-btn-green la-btn-sm">✓ Провести огляд (Ділянка підходить)</button>
                             </form>
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline-flex; gap:6px; align-items:center;">
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" class="la-inline-form">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="PlotRejectedByBuyer" />
-                                <input name="resultNotes" class="la-input" style="margin:0; padding:6px 10px; font-size:12px; width:210px;" placeholder="Зауваження покупця" />
+                                <input name="resultNotes" class="la-input-inline" placeholder="Зауваження покупця" />
                                 <button type="submit" class="la-btn la-btn-warning la-btn-sm">Не підійшла (Зафіксувати зауваження)</button>
                             </form>
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" style="display:inline;">
+                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Cancelled" />
                                 <button type="submit" class="la-btn la-btn-red la-btn-sm">✕ Скасувати</button>

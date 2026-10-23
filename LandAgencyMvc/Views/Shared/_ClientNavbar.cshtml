@@ -9,7 +9,7 @@
 
 <div class="la-topbar la-topbar-client">
     <div class="la-nav-links">
-        <strong style="font-size:17px; margin-right:16px; color:#fff;">LandAgency UA</strong>
+        <strong class="la-brand">LandAgency UA</strong>
         @if (isDetails)
         {
             <a class="active" asp-controller="Client" asp-action="Catalog">← Назад до каталогу</a>
@@ -20,11 +20,11 @@
         }
         <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
     </div>
-    <div style="display:flex; align-items:center; gap:12px;">
+    <div class="la-topbar-user">
         <a class="la-btn la-btn-green la-btn-sm" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
         @if (isAuthenticated && !string.IsNullOrEmpty(displayName))
         {
-            <span style="font-size:13px; opacity:0.9;">@displayName</span>
+            <span>@displayName</span>
             <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
         }
         else

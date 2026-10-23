@@ -11,13 +11,13 @@
         <partial name="_AlertMessages" />
 
         <div class="la-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <h5 style="margin:0;">Клієнтські запити на підбір (Автоматичний двигун AutoMatching)</h5>
+            <div class="la-row-between mb-2">
+                <h5 class="mb-0">Клієнтські запити на підбір (Автоматичний двигун AutoMatching)</h5>
                 <span class="la-badge la-badge-green">AI/AutoMatching Активний ✓</span>
             </div>
             @if (!Model.SelectionRequests.Any())
             {
-                <p class="text-muted" style="margin:0; font-size:13px;">Нових запитів на індивідуальний підбір ділянки наразі немає.</p>
+                <p class="la-meta mb-0">Нових запитів на індивідуальний підбір ділянки наразі немає.</p>
             }
             else
             {
@@ -40,24 +40,24 @@
                                 <td>@r.Purpose</td>
                                 <td><strong>до $@r.MaxBudgetUsd.ToString("N0")</strong></td>
                                 <td>
-                                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                    <div class="la-action-row">
                                         @if (r.MatchedPlotsCount > 0)
                                         {
                                             <span class="la-badge la-badge-green">Підібрано автоматично ✓ (@r.MatchedPlotsCount)</span>
-                                            <a asp-controller="Realtor" asp-action="Requests" asp-route-matchedRequestId="@r.Id" style="font-size:12px; color:#b45309; font-weight:700; text-decoration:none;">Показати</a>
+                                            <a asp-controller="Realtor" asp-action="Requests" asp-route-matchedRequestId="@r.Id" class="la-btn la-btn-warning la-btn-xs">Показати</a>
                                         }
                                         else
                                         {
                                             <span class="la-badge la-badge-amber">В обробці (0 збігів)</span>
                                         }
-                                        <form asp-controller="Realtor" asp-action="MatchPlotsForRequest" method="post" style="display:inline-flex; gap:4px;">
+                                        <form asp-controller="Realtor" asp-action="MatchPlotsForRequest" method="post" class="la-inline-form">
                                             <input type="hidden" name="requestId" value="@r.Id" />
                                             <button type="submit" class="la-btn la-btn-gray la-btn-xs">Перерахувати збіги</button>
                                         </form>
                                     </div>
                                     @if (!string.IsNullOrWhiteSpace(r.RealtorNotes))
                                     {
-                                        <div style="font-size:11px; color:#64748b; margin-top:4px;">@r.RealtorNotes</div>
+                                        <div class="la-text-xs mt-1">@r.RealtorNotes</div>
                                     }
                                 </td>
                             </tr>
@@ -68,14 +68,14 @@
 
             @if (Model.MatchedPlotsPreview.Any())
             {
-                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px; margin-top:14px;">
-                    <strong style="font-size:13px; color:#92400e;">Підібрані земельні ділянки для запиту #@Model.SelectedRequestId:</strong>
-                    <ul style="margin:6px 0 0 0; font-size:13px;">
+                <div class="la-subcard-amber mt-3 mb-0">
+                    <strong class="la-text-sm">Підібрані земельні ділянки для запиту #@Model.SelectedRequestId:</strong>
+                    <ul class="mt-2 mb-0 la-text-sm">
                         @foreach (var mp in Model.MatchedPlotsPreview)
                         {
-                            <li style="margin-bottom:4px;">
+                            <li class="mb-1">
                                 <strong>@mp.CadastralNumber</strong> — @mp.Title (@mp.AreaHectares га, @mp.Location) — <strong>$@mp.PriceUsd.ToString("N0")</strong>
-                                <a href="https://kadastr.live/parcel/@mp.CadastralNumber" target="_blank" style="margin-left:8px; color:#2563eb; text-decoration:none;">(Карта ↗)</a>
+                                <a href="@mp.KadastrLiveUrl" target="_blank" class="la-btn la-btn-kadastr la-btn-xs ms-2">Карта ↗</a>
                             </li>
                         }
                     </ul>
@@ -87,7 +87,7 @@
             <h5>Редагування комерційного опису ділянки для каталогу</h5>
             @if (!Model.AllPlots.Any())
             {
-                <p class="text-muted" style="margin:0; font-size:13px;">У базі ще немає зареєстрованих ділянок.</p>
+                <p class="la-meta mb-0">У базі ще немає зареєстрованих ділянок.</p>
             }
             else
             {

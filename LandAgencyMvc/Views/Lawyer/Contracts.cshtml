@@ -2,7 +2,6 @@
 @{
     ViewData["Title"] = "Погодження проєктів договорів — Панель Юриста";
     ViewData["ActiveNav"] = "Contracts";
-    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
 }
 
 <div class="la-window">
@@ -11,12 +10,12 @@
     <div class="la-body">
         <partial name="_AlertMessages" />
 
-        <h4 style="margin-bottom:16px;">Погодження проєктів договорів купівлі-продажу перед передачею нотаріусу</h4>
+        <h4>Погодження проєктів договорів купівлі-продажу перед передачею нотаріусу</h4>
 
         @if (!Model.Any())
         {
             <div class="la-card">
-                <p class="text-muted" style="margin:0;">Проєктів договорів на погодження наразі немає.</p>
+                <p class="text-muted">Проєктів договорів на погодження наразі немає.</p>
             </div>
         }
         else
@@ -24,37 +23,48 @@
             @foreach (var d in Model)
             {
                 <div class="la-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h5 style="margin:0;">Правова експертиза проєкту договору №@d.DraftContractNumber</h5>
+                    <div class="la-row-between">
+                        <h5>Правова експертиза проєкту договору №@d.DraftContractNumber</h5>
                         <span class="la-badge @d.StatusBadgeClass">@d.StatusDisplayName</span>
                     </div>
 
-                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:14px; margin-bottom:14px; font-size:13px;">
-                        <p style="margin:0 0 6px 0;"><strong>Предмет договору:</strong> Земельна ділянка @d.LandPlot?.CadastralNumber (@d.LandPlot?.AreaHectares га, @d.LandPlot?.Title, @d.LandPlot?.Location)</p>
-                        <p style="margin:0 0 6px 0;"><strong>Продавець:</strong> @d.LandPlot?.Seller?.FullName (РНОКПП @d.LandPlot?.Seller?.TaxId, Документ №@d.LandPlot?.OwnershipDocNumber)</p>
-                        <p style="margin:0 0 6px 0;"><strong>Покупець:</strong> @d.Buyer?.FullName (РНОКПП @d.Buyer?.TaxId, Тел. @d.Buyer?.Phone)</p>
-                        <p style="margin:0 0 6px 0;"><strong>Ціна договору:</strong> $@d.FinalPriceUsd.ToString("N0") • <strong>Комісія агентства (3%):</strong> $@d.AgencyCommissionUsd.ToString("N0") • <strong>Нотаріус:</strong> @d.NotaryOffice</p>
-                        <p style="margin:0 0 6px 0;">
-                            <span style="color:#15803d; font-weight:700;">
+                    <div class="la-subcard">
+                        <div class="la-text-sm"><strong>Предмет договору:</strong> Земельна ділянка @d.LandPlot?.CadastralNumber (@d.LandPlot?.AreaHectares га, @d.LandPlot?.Title, @d.LandPlot?.Location)</div>
+                        <div class="la-text-sm"><strong>Продавець:</strong> @d.LandPlot?.Seller?.FullName (РНОКПП @d.LandPlot?.Seller?.TaxId, Документ №@d.LandPlot?.OwnershipDocNumber)</div>
+                        <div class="la-text-sm"><strong>Покупець:</strong> @d.Buyer?.FullName (РНОКПП @d.Buyer?.TaxId, Тел. @d.Buyer?.Phone)</div>
+                        <div class="la-text-sm"><strong>Ціна договору:</strong> $@d.FinalPriceUsd.ToString("N0") • <strong>Комісія агентства (3%):</strong> $@d.AgencyCommissionUsd.ToString("N0") • <strong>Нотаріус:</strong> @d.NotaryOffice</div>
+                        <div class="la-text-sm">
+                            <strong class="text-success">
                                 ✓ Юридичний висновок №@(d.LandPlot?.LegalConclusion?.ConclusionNumber ?? "ДЗК-Перевірено") дійсний, обтяжень на день угоди немає
-                            </span>
-                        </p>
-                        <div style="margin-top:8px;">
-                            <a asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank" style="color:#1d4ed8; font-weight:700; text-decoration:none; font-size:12px;">📄 Відкрити повний текст проєкту договору ↗</a>
+                            </strong>
+                        </div>
+                        <div class="la-action-row">
+                            <a asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank" rel="noopener" class="la-btn la-btn-gray la-btn-sm">📄 Відкрити повний текст проєкту договору ↗</a>
                         </div>
                     </div>
 
-                    <form asp-controller="Lawyer" asp-action="ApproveDealContract" method="post">
-                        <input type="hidden" name="dealId" value="@d.Id" />
-
-                        <label class="la-label">Примітка юриста для нотаріального посвідчення</label>
-                        <input name="lawyerNotes" value="@d.LawyerApprovalNotes" class="la-input" placeholder="Вкажіть висновок щодо відповідності проєкту договору вимогам Земельного кодексу України" />
-
-                        <div style="display:flex; gap:14px;">
-                            <button type="submit" name="decision" value="approve" class="la-btn la-btn-indigo" style="flex:1.2;">✓ Погодити договір до нотаріуса</button>
-                            <button type="submit" name="decision" value="return" class="la-btn la-btn-red" style="flex:1;">Повернути на доопрацювання</button>
+                    @if (d.Status == LandAgencyMvc.Models.DealStatus.SignedAtNotary ||
+                         d.Status == LandAgencyMvc.Models.DealStatus.CompletedAtNotary ||
+                         d.Status == LandAgencyMvc.Models.DealStatus.Cancelled)
+                    {
+                        <div class="la-text-sm">
+                            <strong>Примітка юриста:</strong> @(string.IsNullOrWhiteSpace(d.LawyerApprovalNotes) ? "Договір опрацьовано" : d.LawyerApprovalNotes)
                         </div>
-                    </form>
+                    }
+                    else
+                    {
+                        <form asp-controller="Lawyer" asp-action="ApproveDealContract" method="post">
+                            <input type="hidden" name="dealId" value="@d.Id" />
+
+                            <label class="la-label">Примітка юриста для нотаріального посвідчення</label>
+                            <input name="lawyerNotes" value="@d.LawyerApprovalNotes" class="la-input" placeholder="Вкажіть висновок щодо відповідності проєкту договору вимогам Земельного кодексу України" />
+
+                            <div class="la-action-row">
+                                <button type="submit" name="decision" value="approve" class="la-btn la-btn-indigo">✓ Погодити договір до нотаріуса</button>
+                                <button type="submit" name="decision" value="return" class="la-btn la-btn-red">Повернути на доопрацювання</button>
+                            </div>
+                        </form>
+                    }
                 </div>
             }
         }

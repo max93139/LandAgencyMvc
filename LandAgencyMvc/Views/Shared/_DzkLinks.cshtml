@@ -1,13 +1,9 @@
-@model string
+@model LandAgencyMvc.Models.LandPlot
 
-@if (!string.IsNullOrWhiteSpace(Model))
+@if (Model != null && !string.IsNullOrWhiteSpace(Model.CadastralNumber))
 {
-    var cleanNumber = Uri.EscapeDataString(Model.Trim());
-    var kadastrUrl = $"https://kadastr.live/parcel/{cleanNumber}";
-    var openDataUrl = $"https://opendatabot.ua/c/{cleanNumber}";
-
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <a href="@kadastrUrl" target="_blank" class="la-btn la-btn-kadastr la-btn-sm">🗺️ Публічна карта (kadastr.live) ↗</a>
-        <a href="@openDataUrl" target="_blank" class="la-btn la-btn-opendata la-btn-sm">🔍 OpenDataBot ↗</a>
+    <div class="la-action-row">
+        <a href="@Model.KadastrLiveUrl" target="_blank" class="la-btn la-btn-kadastr la-btn-sm">🗺️ Публічна карта (kadastr.live) ↗</a>
+        <a href="@Model.OpenDataBotUrl" target="_blank" class="la-btn la-btn-opendata la-btn-sm">🔍 OpenDataBot ↗</a>
     </div>
 }

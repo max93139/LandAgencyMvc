@@ -8,13 +8,13 @@
 
 <div class="la-topbar la-topbar-realtor">
     <div class="la-nav-links">
-        <span class="la-badge la-badge-amber" style="margin-right:8px;">РІЄЛТОР</span>
+        <span class="la-badge la-badge-amber me-2">РІЄЛТОР</span>
         <a class="@(activeNav == "Requests" ? "active" : "")" asp-controller="Realtor" asp-action="Requests">Запити на підбір</a>
         <a class="@(activeNav == "Viewings" ? "active" : "")" asp-controller="Realtor" asp-action="Viewings">Черга оглядів</a>
         <a class="@(activeNav == "Deals" ? "active" : "")" asp-controller="Realtor" asp-action="Deals">Угоди та нотаріат</a>
     </div>
-    <div style="display:flex; align-items:center; gap:12px;">
-        <span style="font-size:13px;">@fullName@license</span>
+    <div class="la-topbar-user">
+        <span>@fullName@license</span>
         <a class="la-btn la-btn-outline" asp-controller="Account" asp-action="Logout">Вийти</a>
     </div>
 </div>

@@ -4,15 +4,15 @@
 
 <div class="la-window">
     <partial name="_AuthNavbar" />
-    <div class="la-body" style="display:flex; justify-content:center; align-items:center; min-height:60vh;">
-        <div class="la-card" style="width:500px; text-align:center; padding:32px 24px;">
-            <div style="font-size:48px; margin-bottom:12px;">🚫</div>
-            <h3 style="color:#dc2626; margin-bottom:8px;">Доступ заборонено (403)</h3>
-            <p class="text-muted" style="font-size:15px; margin-bottom:24px;">
+    <div class="la-body la-auth-page">
+        <div class="la-card la-auth-card-wide text-center p-4">
+            <h1 class="mb-2">🚫</h1>
+            <h3 class="text-danger mb-2">Доступ заборонено (403)</h3>
+            <p class="la-text-sm mb-4">
                 Ваш поточний обліковий запис не має прав доступу до цієї службової секції агентства.
                 Цей розділ доступний виключно співробітникам відповідної ролі (рієлтор або юрист).
             </p>
-            <div style="display:flex; gap:10px; justify-content:center;">
+            <div class="la-action-row justify-content-center">
                 <a asp-controller="Client" asp-action="Catalog" class="la-btn la-btn-green">До каталогу ділянок</a>
                 <a asp-controller="Account" asp-action="Login" class="la-btn la-btn-dark">Змінити акаунт</a>
             </div>

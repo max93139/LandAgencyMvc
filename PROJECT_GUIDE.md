@@ -73,49 +73,52 @@
 ```
 LandAgencyMvc/
 ├── LandAgencyMvc.sln                 # Файл рішення для Visual Studio / Rider
+├── LandAgencyMvc.Tests/              # Проєкт модульних тестів (xUnit, 45 тестів)
 └── LandAgencyMvc/                    # Основний проєкт застосунку
     ├── Program.cs                    # Точка входу, конфігурація DI, middleware, ініціалізація БД
     ├── LandAgencyMvc.csproj          # Файл конфігурації проєкту .NET та NuGet-пакетів
     ├── appsettings.json              # Загальні налаштування застосунку
     ├── appsettings.Development.json  # Налаштування для середовища розробки
-    ├── landagency.db                 # Файл бази даних SQLite
+    ├── land_agency.db                # Файл бази даних SQLite
     │
-    ├── Models/                       # Доменні сутності, моделі БД та бізнес-сервіси
+    ├── Models/                       # Доменні сутності, моделі БД та ViewModels
     │   ├── Enums.cs                  # Переліки: UserRole, PlotStatus, ViewingStatus, DealStatus
     │   ├── AppUser.cs                # Сутність користувача (Клієнт, Рієлтор, Юрист)
-    │   ├── LandPlot.cs               # Земельна ділянка (кадастровий номер, площа, ціна, статус)
-    │   ├── PlotDocument.cs           # Документи, прикріплені до ділянки
-    │   ├── SelectionRequest.cs       # Заявка клієнта на підбір земельної ділянки
+    │   ├── LandPlot.cs               # Земельна ділянка (кадастровий номер, площа, ціна, статус, URL-посилання, StandardPurposes)
+    │   ├── PlotDocument.cs           # Документи ділянки (SHA-256 хеш, КЕП/ЕЦП, розмір)
+    │   ├── SelectionRequest.cs       # Заявка клієнта на підбір земельної ділянки та доменні правила підбору
     │   ├── ViewingRequest.cs         # Заявка на виїзд та перегляд ділянки
     │   ├── LegalConclusion.cs        # Юридичний висновок / акт ризиків юриста
     │   ├── SaleDeal.cs               # Угода купівлі-продажу, статус, комісія, нотаріус
     │   ├── Payment.cs                # Платіж (вартість ділянки, комісія агентства, IBAN)
-    │   ├── DzkRegistrySimulator.cs   # Симулятор перевірки в реєстрах ДЗК та ДРРП
-    │   ├── DzkRegistryExtract.cs     # Модель витягу з ДЗК/ДРРП
+    │   ├── DzkRegistrySimulator.cs   # Симулятор перевірки в реєстрах ДЗК та ДРРП (включає DzkRegistryExtract)
     │   ├── LandAgencyContext.cs      # Контекст Entity Framework Core (DbContext)
-    │   ├── CabinetViewModel.cs       # Модель даних для відображення особистого кабінету клієнта
+    │   ├── CabinetViewModel.cs       # Типізовані ViewModels (CabinetViewModel, CatalogViewModel, RealtorDealsViewModel, LawyerQueueViewModel, LawyerConclusionViewModel)
     │   ├── RealtorRequestsViewModel.cs # Модель даних для сторінки заявок рієлтора
     │   └── ErrorViewModel.cs         # Модель для відображення системних помилок
     │
+    ├── Services/                     # Прикладні сервіси бізнес-логіки (Dependency Injection)
+    │   ├── AutoMatchingService.cs    # Автоматичний підбір ділянок під критерії клієнтів
+    │   └── CadastralValidationService.cs # Перевірка КОАТУУ, НГО, ДЗК/ДРРП та цінових аномалій
+    │
     ├── Controllers/                  # Контролери обробки HTTP-запитів
     │   ├── AccountController.cs      # Вхід (Login), реєстрація (Register), вихід (Logout)
-    │   ├── ClientController.cs       # Каталог, кабінет, додавання ділянки, перегляди, оплата
+    │   ├── ClientController.cs       # Каталог, кабінет, додавання ділянки, перегляди, заявка на купівлю, оплата
     │   ├── RealtorController.cs      # Заявки на підбір, перегляди, оформлення угод, нотаріус
     │   ├── LawyerController.cs       # Черга експертизи ділянок, висновки ДЗК, погодження угод
     │   └── HomeController.cs         # Головна сторінка, редиректи, обробка помилок
     │
-    ├── Views/                        # Razor-представлення (HTML + C# шаблони)
-    │   ├── Account/                  # Сторінки авторизації та реєстрації (Login, Register)
+    ├── Views/                        # Чисті Razor-представлення (суворо без бізнес-логіки та inline-стилів)
+    │   ├── Account/                  # Сторінки авторизації та реєстрації (Login, Register, AccessDenied)
     │   ├── Client/                   # Інтерфейс клієнта (Catalog, Cabinet, CreatePlot, Details, Receipt)
     │   ├── Realtor/                  # Інтерфейс рієлтора (Requests, Viewings, Deals, PrintContract)
     │   ├── Lawyer/                   # Інтерфейс юриста (Queue, Conclusion, Contracts)
-    │   ├── Home/                     # Загальні сторінки (Index)
-    │   ├── Shared/                   # Спільні шаблони (_Layout.cshtml, Error.cshtml, тощо)
+    │   ├── Shared/                   # Спільні компоненти (_Layout, _PlotCard, _DzkLinks, _AlertMessages, рольові навбари)
     │   ├── _ViewImports.cshtml       # Глобальні using-директиви для Razor
     │   └── _ViewStart.cshtml         # Налаштування базового шаблону за замовчуванням
     │
     └── wwwroot/                      # Статичні ресурси клієнтської частини
-        ├── css/                      # Стилі (site.css, власні стилі системи)
+        ├── css/                      # Єдина таблиця стилів (site.css) з атомарними UI-класами
         ├── js/                       # Клієнтські JavaScript-скрипти
         └── lib/                      # Бібліотеки (Bootstrap, jQuery)
 ```
@@ -142,9 +145,12 @@ LandAgencyMvc/
   - `ApprovedByLawyerForNotary` (Юрист погодив договір до нотаріуса).
   - `SignedAtNotary` (Посвідчено нотаріусом).
   - `CompletedAtNotary` (Договір зареєстровано в ДРРП, угоду закрито).
+  - `Cancelled` (Угоду скасовано).
 
 ### 2. `LandPlot.cs` — Земельна ділянка:
-Містить кадастровий номер (`CadastralNumber`), назву, локацію, площу в гектарах (`AreaHectares`), цільове призначення (`Purpose`), ціну в USD (`PriceUsd`), номер документа про право власності, банківський IBAN продавця та прив'язку до продавця (`SellerId`).
+Містить кадастровий номер (`CadastralNumber`), назву, локацію, площу в гектарах (`AreaHectares`), цільове призначення (`Purpose`), ціну в USD (`PriceUsd`), номер документа про право власності, банківський IBAN продавця (`SellerBankIban`) та прив'язку до продавця (`SellerId`).
+- Обчислювані властивості (`[NotMapped]`): `AreaSotky`, `PricePerSotkaUsd`, `KadastrLiveUrl`, `OpenDataBotUrl`, `EffectiveSellerIban`, `PrimaryDocument`, `StatusDisplayName`, `StatusBadgeClass`.
+- Статичний довідник `StandardPurposes` — централізований перелік цільових призначень за УКЦВЗ для всіх форм і фільтрів.
 - Метод `ValidateCadastralFormat()` перевіряє регулярним виразом формат кадастрового номера: `^\d{10}:\d{2}:\d{3}:\d{4}$`.
 
 ### 3. `SaleDeal.cs` та `Payment.cs` — Угода та розрахунки:
@@ -168,7 +174,7 @@ LandAgencyMvc/
 | Контролер | Основні дії (Actions) | Призначення |
 | :--- | :--- | :--- |
 | **`AccountController`** | `Login`, `Register`, `Logout`, `AccessDenied` | Безпечна автентифікація на базі ASP.NET Core Cookie Authentication (`LandAgency.Auth`) та криптографічного хешування паролів PBKDF2 (`PasswordHasher<AppUser>`). Реєстрація клієнтів суворо призначає роль `Client`. |
-| **`ClientController`** | `Catalog`, `Details`, `CreatePlot`, `Cabinet`, `CreateViewing`, `SubmitSelectionRequest`, `SubmitPayment`, `DownloadReceipt`, `ChangePassword` | Перегляд публічного каталогу, пошук та фільтрація, подача ділянки на продаж із КЕП та SHA-256 хешуванням документів, автоматичний підбір (`AutoMatchingService`), запис на огляд, повідомлення про оплату за IBAN. |
+| **`ClientController`** | `Catalog`, `Details`, `CreatePlot`, `Cabinet`, `CreateViewing`, `RequestPurchase`, `SubmitSelectionRequest`, `SubmitPayment`, `DownloadReceipt`, `ChangePassword` | Перегляд публічного каталогу, пошук та фільтрація, подача ділянки на продаж із КЕП та SHA-256 хешуванням документів, автоматичний підбір (`AutoMatchingService`), запис на огляд, подача заявки на купівлю після проведеного огляду, повідомлення про оплату за IBAN. |
 | **`RealtorController`** | `Requests`, `MatchPlotsForRequest`, `Viewings`, `UpdateViewingStatus`, `Deals`, `CreateDeal`, `VerifyClientPayment`, `RejectClientPayment`, `SignDealAtNotary`, `CompleteNotaryDeal`, `CancelDeal`, `PrintContract` | Робота рієлтора: автоматизований підбір ділянок, узгодження виїзних оглядів, створення проєктів угод з виставленням рахунків-фактур, верифікація банківських виписок, супровід у нотаріуса та реєстрація в ДРРП. |
 | **`LawyerController`** | `Queue`, `Conclusion`, `SubmitLegalConclusion`, `Contracts`, `ApproveDealContract` | Робота юриста: черга ділянок на аудит у ДЗК/ДРРП (`CadastralValidationService` + `DzkRegistrySimulator`), затвердження або відхилення ділянки з актом ризиків, правова віза договорів перед нотаріусом. |
 

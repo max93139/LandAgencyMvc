@@ -4,19 +4,19 @@
 }
 
 <div class="la-window">
-    <div class="la-body" style="max-width:820px; margin:0 auto;">
-        <div class="la-card" style="border:2px solid #0f172a; padding:32px;">
-            <div style="display:flex; justify-content:space-between; align-items:start; border-bottom:2px solid #e2e8f0; padding-bottom:16px; margin-bottom:20px;">
+    <div class="la-body">
+        <div class="la-card p-4">
+            <div class="la-row-start border-bottom pb-3 mb-3">
                 <div>
-                    <h4 style="margin:0;">БАНКІВСЬКА КВИТАНЦІЯ ЗА ДОГОВОРОМ КУПІВЛІ-ПРОДАЖУ</h4>
-                    <p class="text-muted" style="margin:4px 0 0 0; font-size:13px;">Договір № @Model.DraftContractNumber від @Model.NotaryDate.ToString("dd.MM.yyyy") • LandAgency UA</p>
+                    <h4 class="mb-0">БАНКІВСЬКА КВИТАНЦІЯ ЗА ДОГОВОРОМ КУПІВЛІ-ПРОДАЖУ</h4>
+                    <p class="la-meta mt-1 mb-0">Договір № @Model.DraftContractNumber від @Model.NotaryDate.ToString("dd.MM.yyyy") • LandAgency UA</p>
                 </div>
-                <span class="la-badge @(Model.IsFullyPaid ? "la-badge-green" : "la-badge-amber")" style="font-size:14px; padding:6px 14px;">
+                <span class="la-badge @(Model.IsFullyPaid ? "la-badge-green" : "la-badge-amber")">
                     @(Model.IsFullyPaid ? "✓ ОПЛАЧЕНО" : "РАХУНОК ДО СПЛАТИ")
                 </span>
             </div>
 
-            <div class="la-grid-2" style="margin-bottom:20px; font-size:14px;">
+            <div class="la-grid-2 mb-3">
                 <div>
                     <strong>Платник (Покупець):</strong><br />
                     ПІБ: @Model.Buyer?.FullName<br />
@@ -27,15 +27,15 @@
                     <strong>Одержувач (Продавець ділянки):</strong><br />
                     ПІБ: @Model.LandPlot?.Seller?.FullName<br />
                     РНОКПП (ІПН): @Model.LandPlot?.Seller?.TaxId<br />
-                    IBAN: @(string.IsNullOrEmpty(Model.LandPlot?.SellerBankIban) ? (Model.LandPlot?.Seller?.BankDetails ?? "Не вказано") : Model.LandPlot.SellerBankIban)
+                    IBAN: @Model.LandPlot?.EffectiveSellerIban
                 </div>
             </div>
 
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:14px; margin-bottom:20px; font-size:14px;">
+            <div class="la-subcard mb-3">
                 <strong>Призначення платежу:</strong> Оплата за земельну ділянку з кадастровим номером <strong>@Model.LandPlot?.CadastralNumber</strong> (площа @Model.LandPlot?.AreaHectares га, @Model.LandPlot?.Location) згідно з договором купівлі-продажу №@Model.DraftContractNumber.
             </div>
 
-            <table class="la-table" style="margin-bottom:20px;">
+            <table class="la-table mb-3">
                 <thead>
                     <tr>
                         <th>№ Рахунку / Квитанції</th>
@@ -53,32 +53,18 @@
                                 <strong>@(string.IsNullOrEmpty(p.InvoiceNumber) ? p.ReceiptNumber : p.InvoiceNumber)</strong>
                                 @if (!string.IsNullOrEmpty(p.PaymentReference))
                                 {
-                                    <div style="font-size:11px; color:#64748b;">Ref: <code>@p.PaymentReference</code></div>
+                                    <div class="la-text-xs">Ref: <code>@p.PaymentReference</code></div>
                                 }
                             </td>
                             <td>@p.PaymentType</td>
                             <td><code>@p.RecipientIban</code></td>
                             <td><strong>$@p.AmountUsd.ToString("N2")</strong></td>
                             <td>
-                                @switch (p.Status)
-                                {
-                                    case LandAgencyMvc.Models.PaymentStatus.Confirmed:
-                                        <span class="la-badge la-badge-green">Проведено (@p.PaymentDate.ToString("dd.MM.yyyy HH:mm"))</span>
-                                        break;
-                                    case LandAgencyMvc.Models.PaymentStatus.PendingVerification:
-                                        <span class="la-badge la-badge-indigo">На перевірці банківської виписки</span>
-                                        break;
-                                    case LandAgencyMvc.Models.PaymentStatus.Rejected:
-                                        <span class="la-badge" style="background:#fee2e2; color:#b91c1c;">Відхилено</span>
-                                        break;
-                                    default:
-                                        <span class="la-badge la-badge-amber">Очікує сплати за IBAN</span>
-                                        break;
-                                }
+                                <span class="la-badge @p.StatusBadgeClass">@p.StatusDisplayName</span>
                             </td>
                         </tr>
                     }
-                    <tr style="background:#f1f5f9; font-weight:700;">
+                    <tr class="fw-bold">
                         <td colspan="3">РАЗОМ ЗА УГОДОЮ:</td>
                         <td>$@Model.TotalAmountUsd.ToString("N2")</td>
                         <td>@(Model.IsFullyPaid ? "Виконано в повному обсязі" : "Очікує повного розрахунку")</td>
@@ -86,9 +72,9 @@
                 </tbody>
             </table>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
+            <div class="la-row-between mt-4">
                 <button onclick="window.print()" class="la-btn la-btn-dark">Друкувати / Зберегти у PDF</button>
-                <a asp-controller="Client" asp-action="Cabinet" style="color:#15803d; font-weight:700; text-decoration:none;">← Повернутися до кабінету</a>
+                <a asp-controller="Client" asp-action="Cabinet" class="la-btn la-btn-gray">← Повернутися до кабінету</a>
             </div>
         </div>
     </div>

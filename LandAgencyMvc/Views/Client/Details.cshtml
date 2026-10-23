@@ -12,21 +12,21 @@
         <partial name="_AlertMessages" />
         <div class="la-grid-2">
             <div class="la-card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="la-row-between">
                     <span class="la-badge la-badge-green">✓ Перевірено ДЗК</span>
-                    <h3 style="color:#1d4ed8; margin:0; font-weight:800;">$@Model.PriceUsd.ToString("N0")</h3>
+                    <strong class="la-price-xl">$@Model.PriceUsd.ToString("N0")</strong>
                 </div>
 
-                <h4 style="margin-top:12px; margin-bottom:4px;">@Model.Title (@Model.AreaHectares га)</h4>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                    <span class="text-muted" style="font-size:13px;">Кадастровий №: <strong>@Model.CadastralNumber</strong></span>
-                    <partial name="_DzkLinks" model="Model.CadastralNumber" />
+                <h4 class="mt-2 mb-1">@Model.Title (@Model.AreaHectares га)</h4>
+                <div class="la-row-between mb-3">
+                    <span class="la-meta mb-0">Кадастровий №: <strong>@Model.CadastralNumber</strong></span>
+                    <partial name="_DzkLinks" model="Model" />
                 </div>
 
-                <table class="la-table" style="margin-bottom:14px;">
+                <table class="la-table mb-3">
                     <tbody>
                         <tr>
-                            <td class="text-muted" style="width:42%;">Власник (Продавець):</td>
+                            <td class="text-muted">Власник (Продавець):</td>
                             <td><strong>@Model.Seller?.FullName</strong> (@Model.Seller?.Phone)</td>
                         </tr>
                         <tr>
@@ -34,8 +34,8 @@
                             <td>@Model.Location</td>
                         </tr>
                         <tr>
-                            <td class="text-muted">Площа ділянки:</td>
-                            <td><strong>@Model.AreaHectares га</strong> (@(Math.Round(Model.AreaHectares * 100, 1)) соток)</td>
+                            <td class="text-muted">Площа та ціна за сотку:</td>
+                            <td><strong>@Model.AreaHectares га</strong> (@Model.AreaSotky соток • $@Model.PricePerSotkaUsd.ToString("N0") / сотка)</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Цільове призначення:</td>
@@ -46,7 +46,7 @@
                             <td>
                                 @if (Model.LegalConclusion != null)
                                 {
-                                    <span style="color:#15803d; font-weight:700;">
+                                    <span class="fw-bold text-success">
                                         №@Model.LegalConclusion.ConclusionNumber (@Model.LegalConclusion.RiskLevel)
                                     </span>
                                 }
@@ -72,32 +72,32 @@
                     </tbody>
                 </table>
 
-                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:14px;">
-                    <strong style="font-size:13px;">Опис ділянки:</strong>
-                    <p style="color:#334155; font-size:13px; margin:6px 0 0 0;">@Model.Description</p>
+                <div class="la-subcard">
+                    <strong class="la-text-sm">Опис ділянки:</strong>
+                    <p class="la-text-sm mt-1 mb-0">@Model.Description</p>
                 </div>
 
                 @if (Model.Documents.Any())
                 {
                     <div>
-                        <strong style="font-size:13px; display:block; margin-bottom:6px;">Правовстановлюючі документи ділянки (Контроль цілісності):</strong>
+                        <strong class="la-text-sm d-block mb-2">Правовстановлюючі документи ділянки (Контроль цілісності):</strong>
                         @foreach (var doc in Model.Documents)
                         {
-                            <div style="display:flex; justify-content:space-between; align-items:center; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:12px;">
-                                <div>
+                            <div class="la-subcard-green la-row-between py-2 px-3 mb-2">
+                                <div class="la-text-xs">
                                     <strong>@doc.Title</strong> (@doc.DocType №@doc.DocumentNumber від @doc.IssueDate.ToString("dd.MM.yyyy"))<br />
                                     @if (!string.IsNullOrWhiteSpace(doc.FileHash))
                                     {
-                                        <small class="text-muted">SHA-256: <code style="background:#e2e8f0; padding:1px 4px; border-radius:3px;">@doc.FileHash[..Math.Min(16, doc.FileHash.Length)]...</code></small>
+                                        <span class="text-muted">SHA-256: <code class="la-code">@doc.ShortFileHash</code></span>
                                     }
                                     @if (doc.IsSignedByKep)
                                     {
-                                        <span class="la-badge la-badge-green" style="margin-left:6px;">✓ @doc.KepSignatureHash</span>
+                                        <span class="la-badge la-badge-green ms-1">✓ @doc.KepSignatureHash</span>
                                     }
                                 </div>
                                 @if (!string.IsNullOrEmpty(doc.FileUrl))
                                 {
-                                    <a href="@doc.FileUrl" target="_blank" style="color:#15803d; font-weight:700; text-decoration:none;">Переглянути файл ↗</a>
+                                    <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути файл ↗</a>
                                 }
                             </div>
                         }
@@ -109,13 +109,13 @@
                 <h5>Записатися на виїзний огляд</h5>
                 @if (currentUser != null && Model.SellerId == currentUser.Id)
                 {
-                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:14px; font-size:13px;">
-                        Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" style="color:#1d4ed8; font-weight:700;">Мій кабінет</a>.
+                    <div class="la-subcard la-text-sm">
+                        Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" class="fw-bold">Мій кабінет</a>.
                     </div>
                 }
                 else
                 {
-                    <p class="text-muted" style="font-size:13px; margin-bottom:16px;">Оберіть зручний час виїзду на ділянку для огляду межових знаків, комунікацій та оригіналів документів з рієлтором</p>
+                    <p class="la-meta mb-3">Оберіть зручний час виїзду на ділянку для огляду межових знаків, комунікацій та оригіналів документів з рієлтором</p>
 
                     <form asp-controller="Client" asp-action="CreateViewing" method="post">
                         <input type="hidden" name="landPlotId" value="@Model.Id" />

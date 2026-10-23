@@ -1,13 +1,7 @@
-@model IEnumerable<LandAgencyMvc.Models.SaleDeal>
+@model LandAgencyMvc.Models.RealtorDealsViewModel
 @{
     ViewData["Title"] = "Супровід угод та Нотаріат — Панель Рієлтора";
     ViewData["ActiveNav"] = "Deals";
-    var currentUser = ViewBag.CurrentUser as LandAgencyMvc.Models.AppUser;
-    var availablePlots = ViewBag.AvailablePlots as List<LandAgencyMvc.Models.LandPlot> ?? new();
-    var clients = ViewBag.Clients as List<LandAgencyMvc.Models.AppUser> ?? new();
-    int? preselectedPlotId = ViewBag.PreselectedPlotId as int?;
-    int? preselectedBuyerId = ViewBag.PreselectedBuyerId as int?;
-    decimal? preselectedPrice = ViewBag.PreselectedPrice as decimal?;
 }
 
 <div class="la-window">
@@ -23,32 +17,32 @@
                     <div>
                         <label class="la-label">Земельна ділянка</label>
                         <select name="landPlotId" class="la-input" required>
-                            @if (!availablePlots.Any())
+                            @if (!Model.AvailablePlots.Any())
                             {
                                 <option value="0">-- Немає вільних перевірених ділянок --</option>
                             }
-                            @foreach (var p in availablePlots)
+                            @foreach (var p in Model.AvailablePlots)
                             {
-                                <option value="@p.Id" selected="@(preselectedPlotId == p.Id)">@p.CadastralNumber (@p.AreaHectares га, @p.Title — $@p.PriceUsd.ToString("N0"))</option>
+                                <option value="@p.Id" selected="@(Model.PreselectedPlotId == p.Id)">@p.CadastralNumber (@p.AreaHectares га, @p.Title — $@p.PriceUsd.ToString("N0"))</option>
                             }
                         </select>
                     </div>
                     <div>
                         <label class="la-label">Покупець</label>
                         <select name="buyerId" class="la-input" required>
-                            @if (!clients.Any())
+                            @if (!Model.Clients.Any())
                             {
                                 <option value="0">-- Немає зареєстрованих клієнтів --</option>
                             }
-                            @foreach (var c in clients)
+                            @foreach (var c in Model.Clients)
                             {
-                                <option value="@c.Id" selected="@(preselectedBuyerId == c.Id)">@c.FullName (@c.Phone)</option>
+                                <option value="@c.Id" selected="@(Model.PreselectedBuyerId == c.Id)">@c.FullName (@c.Phone)</option>
                             }
                         </select>
                     </div>
                     <div>
                         <label class="la-label">Узгоджена сума угоди (USD)</label>
-                        <input name="finalPriceUsd" type="number" value="@preselectedPrice" class="la-input" placeholder="0" required />
+                        <input name="finalPriceUsd" type="number" value="@Model.PreselectedPrice" class="la-input" placeholder="0" required />
                     </div>
                 </div>
                 <div class="la-grid-3">
@@ -66,29 +60,29 @@
                     </div>
                 </div>
 
-                <div class="la-grid-2" style="background:#f1f5f9; padding:12px 14px; border-radius:8px; margin:10px 0;">
+                <div class="la-subcard la-grid-2">
                     <div>
-                        <label class="la-label" style="color:#0f172a;">РНОКПП (ІПН) Покупця для нотаріального договору</label>
-                        <input name="buyerTaxId" class="la-input" placeholder="10 цифр (якщо ще не внесено в профіль)" style="background:#fff; margin-bottom:0;" />
+                        <label class="la-label">РНОКПП (ІПН) Покупця для нотаріального договору</label>
+                        <input name="buyerTaxId" class="la-input mb-0" placeholder="10 цифр (якщо ще не внесено в профіль)" />
                     </div>
                     <div>
-                        <label class="la-label" style="color:#0f172a;">Рахунок IBAN Продавця для переказу коштів</label>
-                        <input name="sellerBankIban" class="la-input" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN: UA та 27 цифр" style="background:#fff; margin-bottom:0; text-transform:uppercase;" />
+                        <label class="la-label">Рахунок IBAN Продавця для переказу коштів</label>
+                        <input name="sellerBankIban" class="la-input mb-0 text-uppercase" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN: UA та 27 цифр" />
                     </div>
                 </div>
                 <button type="submit" class="la-btn la-btn-amber">1. Сформувати проєкт угоди з рахунками та передати юристу</button>
             </form>
         </div>
 
-        @foreach (var d in Model)
+        @foreach (var d in Model.Deals)
         {
             <div class="la-card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h5 style="margin:0;">Картка угоди №@d.DraftContractNumber</h5>
+                <div class="la-row-between">
+                    <h5 class="mb-0">Картка угоди №@d.DraftContractNumber</h5>
                     <span class="la-badge @d.StatusBadgeClass">@d.StatusDisplayName</span>
                 </div>
 
-                <p style="font-size:13px; color:#334155; margin:8px 0 4px 0;">
+                <p class="la-text-sm my-2">
                     <strong>Ділянка:</strong> @d.LandPlot?.CadastralNumber (@d.LandPlot?.AreaHectares га, @d.LandPlot?.Title)<br />
                     <strong>Продавець:</strong> @d.LandPlot?.Seller?.FullName • <strong>Покупець:</strong> @d.Buyer?.FullName<br />
                     <strong>Ціна угоди:</strong> $@d.FinalPriceUsd.ToString("N0") • <strong>Комісія агентства (3%):</strong> $@d.AgencyCommissionUsd.ToString("N0") •
@@ -96,78 +90,76 @@
                 </p>
                 @if (!string.IsNullOrEmpty(d.LawyerApprovalNotes))
                 {
-                    <p style="font-size:12px; color:#4338ca; margin:4px 0 10px 0;"><strong>Правова віза юриста:</strong> @d.LawyerApprovalNotes</p>
+                    <p class="la-text-xs fw-bold text-primary mb-2">Правова віза юриста: @d.LawyerApprovalNotes</p>
                 }
 
-                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin:10px 0;">
-                    <strong style="font-size:13px; color:#0f172a; display:block; margin-bottom:6px;">Графік рахунків-фактур та банківські платежі:</strong>
+                <div class="la-subcard">
+                    <strong class="la-text-sm d-block mb-2">Графік рахунків-фактур та банківські платежі:</strong>
                     @if (!d.Payments.Any())
                     {
-                        <span class="text-muted" style="font-size:12px;">Рахунки ще не згенеровано.</span>
+                        <span class="la-text-xs">Рахунки ще не згенеровано.</span>
                     }
                     else
                     {
-                        <div style="display:flex; flex-direction:column; gap:8px;">
-                            @foreach (var p in d.Payments)
-                            {
-                                <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; border:1px solid #cbd5e1; padding:8px 12px; border-radius:6px; font-size:12px;">
-                                    <div>
-                                        <strong>Рахунок @p.InvoiceNumber:</strong> @p.PaymentType — <strong>$@p.AmountUsd.ToString("N0")</strong><br />
-                                        <span class="text-muted">Отримувач IBAN: @p.RecipientIban</span>
-                                        @if (!string.IsNullOrWhiteSpace(p.PaymentReference))
-                                        {
-                                            <span style="color:#0369a1; font-weight:600; margin-left:8px;">(Квитанція клієнта: @p.PaymentReference)</span>
-                                        }
-                                    </div>
-                                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                        <span class="la-badge @p.StatusBadgeClass">@p.StatusDisplayName</span>
-                                        @if (p.Status == LandAgencyMvc.Models.PaymentStatus.PendingVerification)
-                                        {
-                                            <form asp-controller="Realtor" asp-action="VerifyClientPayment" method="post" style="display:inline-flex; gap:6px;">
-                                                <input type="hidden" name="paymentId" value="@p.Id" />
-                                                <input name="verificationNotes" class="la-input" style="width:150px; font-size:11px; margin:0; padding:4px 8px;" placeholder="№ банківської виписки" />
-                                                <button type="submit" class="la-btn la-btn-green la-btn-xs">✓ Підтвердити зарахування</button>
-                                            </form>
-                                            <form asp-controller="Realtor" asp-action="RejectClientPayment" method="post" style="display:inline-flex; gap:6px;">
-                                                <input type="hidden" name="paymentId" value="@p.Id" />
-                                                <input type="hidden" name="rejectionNotes" value="Не знайдено у банківській виписці за вказаним референсом" />
-                                                <button type="submit" class="la-btn la-btn-red la-btn-xs">✕ Відхилити</button>
-                                            </form>
-                                        }
-                                        else if (p.Status == LandAgencyMvc.Models.PaymentStatus.Confirmed)
-                                        {
-                                            <span style="color:#16a34a; font-weight:700; font-size:12px;">Підтверджено випискою ✓</span>
-                                        }
-                                    </div>
+                        @foreach (var p in d.Payments)
+                        {
+                            <div class="la-subcard bg-white la-row-between py-2 px-3 mb-2">
+                                <div class="la-text-xs">
+                                    <strong>Рахунок @p.InvoiceNumber:</strong> @p.PaymentType — <strong>$@p.AmountUsd.ToString("N0")</strong><br />
+                                    <span class="text-muted">Отримувач IBAN: @p.RecipientIban</span>
+                                    @if (!string.IsNullOrWhiteSpace(p.PaymentReference))
+                                    {
+                                        <span class="fw-bold text-primary ms-2">(Квитанція клієнта: @p.PaymentReference)</span>
+                                    }
                                 </div>
-                            }
-                        </div>
+                                <div class="la-action-row">
+                                    <span class="la-badge @p.StatusBadgeClass">@p.StatusDisplayName</span>
+                                    @if (p.Status == LandAgencyMvc.Models.PaymentStatus.PendingVerification)
+                                    {
+                                        <form asp-controller="Realtor" asp-action="VerifyClientPayment" method="post" class="la-inline-form">
+                                            <input type="hidden" name="paymentId" value="@p.Id" />
+                                            <input name="verificationNotes" class="la-input-inline" placeholder="№ банківської виписки" />
+                                            <button type="submit" class="la-btn la-btn-green la-btn-xs">✓ Підтвердити зарахування</button>
+                                        </form>
+                                        <form asp-controller="Realtor" asp-action="RejectClientPayment" method="post" class="la-inline-form">
+                                            <input type="hidden" name="paymentId" value="@p.Id" />
+                                            <input type="hidden" name="rejectionNotes" value="Не знайдено у банківській виписці за вказаним референсом" />
+                                            <button type="submit" class="la-btn la-btn-red la-btn-xs">✕ Відхилити</button>
+                                        </form>
+                                    }
+                                    else if (p.Status == LandAgencyMvc.Models.PaymentStatus.Confirmed)
+                                    {
+                                        <span class="la-text-xs fw-bold text-success">Підтверджено випискою ✓</span>
+                                    }
+                                </div>
+                            </div>
+                        }
                     }
                 </div>
 
                 @if (d.Status != LandAgencyMvc.Models.DealStatus.CompletedAtNotary && d.Status != LandAgencyMvc.Models.DealStatus.Cancelled)
                 {
-                    <div style="margin-top:10px;">
-                        <strong style="font-size:12px; display:block; margin-bottom:6px;">Управління нотаріальними етапами:</strong>
-                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                            <form asp-controller="Realtor" asp-action="SendDealToLawyer" method="post" style="display:inline;">
+                    <div class="mt-2">
+                        <strong class="la-text-xs d-block mb-2">Управління нотаріальними етапами:</strong>
+                        <div class="la-action-row">
+                            <form asp-controller="Realtor" asp-action="SendDealToLawyer" method="post">
                                 <input type="hidden" name="dealId" value="@d.Id" />
                                 <button type="submit" class="la-btn la-btn-indigo la-btn-sm">1. Направити юристу на візу</button>
                             </form>
 
-                            <form asp-controller="Realtor" asp-action="SignDealAtNotary" method="post" style="display:inline-flex; gap:6px; align-items:center;">
+                            <form asp-controller="Realtor" asp-action="SignDealAtNotary" method="post" class="la-inline-form">
                                 <input type="hidden" name="dealId" value="@d.Id" />
-                                <input name="notarialRegistryNumber" value="@d.NotarialRegistryNumber" class="la-input" style="margin:0; padding:6px 10px; font-size:12px; width:170px;" placeholder="Реєстровий № нотаріуса" />
+                                <input name="notarialRegistryNumber" value="@d.NotarialRegistryNumber" class="la-input-inline" placeholder="Реєстровий № нотаріуса" />
                                 <button type="submit" class="la-btn la-btn-blue la-btn-sm" title="@(!d.IsAgencyFeePaid ? "Потрібно підтвердити зарахування коштів за квитанцією" : "")">2. Підтвердити підпис у нотаріуса</button>
                             </form>
 
-                            <form asp-controller="Realtor" asp-action="CompleteNotaryDeal" method="post" style="display:inline;">
+                            <form asp-controller="Realtor" asp-action="CompleteNotaryDeal" method="post">
                                 <input type="hidden" name="dealId" value="@d.Id" />
                                 <input type="hidden" name="notarialRegistryNumber" value="@d.NotarialRegistryNumber" />
-                                <button type="submit" class="la-btn la-btn-green la-btn-sm" title="@(!d.IsFullyPaid ? "Потрібно підтвердити всі банківські розрахунки за угодою" : "")">3. Зареєструвати право в ДРРП</button>
+                                <button type="submit" class="la-btn la-btn-green la-btn-sm" title="@(!d.IsFullyPaid ? "Потрібно підтвердити всі банківські розрахунків за угодою" : "")">3. Зареєструвати право в ДРРП</button>
                             </form>
 
-                            <form asp-controller="Realtor" asp-action="CancelDeal" method="post" style="display:inline;">
+                            <form asp-controller="Realtor" asp-action="CancelDeal" method="post">
                                 <input type="hidden" name="dealId" value="@d.Id" />
                                 <input type="hidden" name="reason" value="Скасовано за погодженням сторін до моменту реєстрації в ДРРП" />
                                 <button type="submit" class="la-btn la-btn-red la-btn-sm">✕ Скасувати угоду</button>
@@ -176,10 +168,9 @@
                     </div>
                 }
 
-                <div style="margin-top:12px; font-size:13px;">
-                    <a asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank" style="color:#1d4ed8; font-weight:700; text-decoration:none;">Друкована форма договору (PDF)</a>
-                    <span style="margin:0 8px; color:#94a3b8;">•</span>
-                    <a asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" target="_blank" style="color:#1d4ed8; font-weight:700; text-decoration:none;">Рахунок-фактура та квитанція</a>
+                <div class="la-action-row mt-3">
+                    <a asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank" class="la-btn la-btn-link la-btn-xs">Друкована форма договору (PDF)</a>
+                    <a asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" target="_blank" class="la-btn la-btn-white la-btn-xs">Рахунок-фактура та квитанція</a>
                 </div>
             </div>
         }
@@ -196,13 +187,13 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var d in Model)
+                    @foreach (var d in Model.Deals)
                     {
                         <tr>
                             <td><strong>@d.DraftContractNumber</strong></td>
                             <td>@d.LandPlot?.CadastralNumber</td>
                             <td><strong>$@d.FinalPriceUsd.ToString("N0")</strong> (комісія $@d.AgencyCommissionUsd.ToString("N0"))</td>
-                            <td><span style="color:#1d4ed8; font-weight:700;">@d.StatusDisplayName</span></td>
+                            <td><span class="la-badge @d.StatusBadgeClass">@d.StatusDisplayName</span></td>
                         </tr>
                     }
                 </tbody>
