@@ -75,7 +75,7 @@ public static class DzkRegistrySimulator
             RequestedAt = DateTime.Now,
             CadastralNumber = cadastral,
             IsCadastralFormatValid = koatuu.IsValid,
-            CadastralZoneCode = koatuu.IsValid ? $"{koatuu.RegionCode}..." : "3222486200",
+            CadastralZoneCode = cadastral.Length >= 10 ? cadastral[..10] : (koatuu.IsValid ? $"{koatuu.RegionCode}00000000" : "3222486200"),
             RegionName = koatuu.RegionName,
             RegisteredAreaHa = plot.AreaHectares,
             RegisteredPurpose = plot.Purpose,

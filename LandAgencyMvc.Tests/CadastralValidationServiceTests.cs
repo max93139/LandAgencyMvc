@@ -180,6 +180,35 @@ public class CadastralValidationServiceTests : IDisposable
         Assert.True(_context.ViewingRequests.Any());
         Assert.True(_context.SaleDeals.Any());
         Assert.True(_context.Payments.Count() >= 2);
+
+        foreach (var plot in _context.LandPlots)
+        {
+            Assert.DoesNotContain("іпотечне обтяження", plot.Title, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("занижена оцінка", plot.Title, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("перевірки юриста", plot.Description, StringComparison.OrdinalIgnoreCase);
+        }
+
+        foreach (var req in _context.SelectionRequests)
+        {
+            Assert.DoesNotContain("(ID:", req.RealtorNotes, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task DzkRegistrySimulator_DetectsArrestsAndPriceAnomalies_WithoutDebugArtifactsInTitle()
+    {
+        _context.InitializeDatabase();
+        var gatnePlot = _context.LandPlots.First(p => p.CadastralNumber == "3221884000:03:001:0000");
+
+        Assert.Equal("Ділянка під житлову забудову в с. Гатне", gatnePlot.Title);
+        Assert.DoesNotContain("обтяження", gatnePlot.Title, StringComparison.OrdinalIgnoreCase);
+
+        var extract = await DzkRegistrySimulator.QueryRegistriesAsync(gatnePlot, _service);
+
+        Assert.True(extract.HasDrrpArrestsOrMortgages);
+        Assert.True(extract.IsPriceAnomalyDetected);
+        Assert.StartsWith("Високий", extract.RecommendedRiskLevel);
+        Assert.Contains("3221884000", extract.CadastralZoneCode);
     }
 
     public void Dispose()

@@ -214,7 +214,7 @@ public class LandAgencyContext : DbContext
             PriceUsd = 42000m,
             OwnershipDocNumber = "ДА-ЯЯ-410293",
             SellerBankIban = seller.BankDetails,
-            Description = "Родюча земельна ділянка сільськогосподарського призначення, зручний під'їзд для техніки, очікує планової перевірки юриста в ДЗК.",
+            Description = "Родюча земельна ділянка сільськогосподарського призначення, якісний чорнозем, рівнинний рельєф, зручний асфальтований під'їзд для великогабаритної агротехніки.",
             Status = PlotStatus.PendingLegalCheck,
             SellerId = seller.Id,
             AssignedRealtorId = realtor?.Id,
@@ -224,14 +224,14 @@ public class LandAgencyContext : DbContext
         var plot4 = new LandPlot
         {
             CadastralNumber = "3221884000:03:001:0000",
-            Title = "Ділянка у с. Гатне (іпотечне обтяження / занижена оцінка)",
+            Title = "Ділянка під житлову забудову в с. Гатне",
             Location = "Київська область, Фастівський район, с. Гатне, вул. Покровська, 3",
             AreaHectares = 0.12,
             Purpose = "02.01 Для будівництва житлового будинку",
             PriceUsd = 5400m,
             OwnershipDocNumber = "ДРРП-10029384",
             SellerBankIban = seller.BankDetails,
-            Description = "Терміновий продаж, наявний запис про іпотечний спір у реєстрі речових прав.",
+            Description = "Терміновий продаж ділянки правильної прямокутної форми у новому масиві забудови. Газ та електромережа проходять уздовж вулиці.",
             Status = PlotStatus.PendingLegalCheck,
             SellerId = seller.Id,
             AssignedRealtorId = realtor?.Id,
@@ -326,7 +326,7 @@ public class LandAgencyContext : DbContext
             IsProcessedByRealtor = true,
             ProcessedByRealtorId = realtor?.Id,
             MatchedPlotIds = plot1.Id.ToString(),
-            RealtorNotes = $"Автопідбір: знайдено 1 верифіковану ділянку в каталозі (ID: {plot1.Id}).",
+            RealtorNotes = "Підібрано перевірену земельну ділянку в Обухівському районі (с. Лісники), що повністю відповідає критеріям площі та бюджету.",
             CreatedAt = DateTime.Now.AddDays(-2)
         };
         SelectionRequests.Add(selectionReq);
