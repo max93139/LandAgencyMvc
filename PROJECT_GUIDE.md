@@ -73,7 +73,6 @@
 ```
 LandAgencyMvc/
 ├── LandAgencyMvc.sln                 # Файл рішення для Visual Studio / Rider
-├── LandAgencyMvc.Tests/              # Проєкт модульних тестів (xUnit, 52 тести)
 └── LandAgencyMvc/                    # Основний проєкт застосунку
     ├── Program.cs                    # Точка входу, конфігурація DI, middleware, ініціалізація БД
     ├── LandAgencyMvc.csproj          # Файл конфігурації проєкту .NET та NuGet-пакетів
@@ -221,8 +220,8 @@ LandAgencyMvc/
 ```bash
 cd /Users/mac/Desktop/projects/LandAgencyMvc
 
-# Збірка та запуск модульних тестів (xUnit)
-dotnet test
+# Збірка проєкту
+dotnet build
 
 # Запуск веб-сервера
 dotnet run --project LandAgencyMvc
