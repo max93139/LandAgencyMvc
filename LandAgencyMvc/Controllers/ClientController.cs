@@ -74,17 +74,20 @@ public class ClientController : Controller
             query = query.Where(p => p.Purpose.Contains(cleanPurpose));
         }
 
+        var plots = await query.OrderByDescending(p => p.Id).ToListAsync();
+
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var cleanSearch = search.Trim().ToLower();
-            query = query.Where(p =>
-                p.Title.ToLower().Contains(cleanSearch) ||
-                p.Location.ToLower().Contains(cleanSearch) ||
-                p.CadastralNumber.ToLower().Contains(cleanSearch) ||
-                p.Description.ToLower().Contains(cleanSearch));
+            var searchTerms = search.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            plots = plots.Where(p =>
+                searchTerms.All(term =>
+                    p.Title.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    p.Location.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    p.CadastralNumber.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrEmpty(p.Description) && p.Description.Contains(term, StringComparison.OrdinalIgnoreCase))
+                )
+            ).ToList();
         }
-
-        var plots = await query.OrderByDescending(p => p.Id).ToListAsync();
 
         var viewModel = new CatalogViewModel
         {
