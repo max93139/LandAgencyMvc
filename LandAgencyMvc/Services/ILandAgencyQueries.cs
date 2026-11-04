@@ -152,6 +152,26 @@ public sealed record LandBankRow(
 
 public sealed record TableStatsRow(string TableName, string ClassName, int RowCount, string Description);
 
+public sealed record BenchmarkComparisonRow(
+    string CadastralNumber,
+    string Location,
+    decimal ActualPriceUsd,
+    decimal BenchmarkPriceUsd,
+    decimal DeviationPercent,
+    string EvaluationVerdict);
+
+public sealed record LinqShowcaseResult(
+    int TotalPlotsWithAllDocsVerified,
+    int TotalBuyersWithAnyViewing,
+    IReadOnlyList<string> AllDistinctPurposes,
+    IReadOnlyList<string> MarketIntersectRegions,
+    IReadOnlyList<string> BuyersWithoutDeals,
+    IReadOnlyList<string> FlattenedDocTitles,
+    string AggregatedCadastralRoll,
+    IReadOnlyList<BenchmarkComparisonRow> ZippedBenchmarks,
+    IReadOnlyList<PlotRow> MultiSortedPlots,
+    IReadOnlyList<PlotRow> PaginatedPlots);
+
 public interface ILandAgencyQueries
 {
     Task<List<TableStatsRow>> GetTableStatsAsync();
@@ -175,4 +195,6 @@ public interface ILandAgencyQueries
     Task UpdateUserAsync(int id, string fullName, string phone, bool isActive, string? newPassword);
 
     Task<string> DeleteUserAsync(int id);
+
+    Task<LinqShowcaseResult> GetLinqShowcaseAsync();
 }

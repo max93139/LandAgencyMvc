@@ -36,7 +36,9 @@ public class LandAgencyQueries : ILandAgencyQueries
         if (!string.IsNullOrWhiteSpace(filter.Region))
         {
             var region = filter.Region.Trim();
-            query = query.Where(p => p.Location.Contains(region));
+            var regionCap = char.ToUpper(region[0]) + (region.Length > 1 ? region.Substring(1) : "");
+            var regionLower = char.ToLower(region[0]) + (region.Length > 1 ? region.Substring(1) : "");
+            query = query.Where(p => p.Location.Contains(region) || p.Location.Contains(regionCap) || p.Location.Contains(regionLower));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Purpose))
@@ -73,8 +75,10 @@ public class LandAgencyQueries : ILandAgencyQueries
         if (!string.IsNullOrWhiteSpace(filter.Participant))
         {
             var text = filter.Participant.Trim();
-            query = query.Where(p => (p.Seller != null && (p.Seller.FullName.Contains(text) || p.Seller.Email.Contains(text) || p.Seller.Phone.Contains(text)))
-                                  || (p.AssignedRealtor != null && (p.AssignedRealtor.FullName.Contains(text) || p.AssignedRealtor.Email.Contains(text))));
+            var textCap = char.ToUpper(text[0]) + (text.Length > 1 ? text.Substring(1) : "");
+            var textLower = char.ToLower(text[0]) + (text.Length > 1 ? text.Substring(1) : "");
+            query = query.Where(p => (p.Seller != null && (p.Seller.FullName.Contains(text) || p.Seller.FullName.Contains(textCap) || p.Seller.FullName.Contains(textLower) || p.Seller.Email.Contains(text) || p.Seller.Phone.Contains(text)))
+                                  || (p.AssignedRealtor != null && (p.AssignedRealtor.FullName.Contains(text) || p.AssignedRealtor.FullName.Contains(textCap) || p.AssignedRealtor.FullName.Contains(textLower) || p.AssignedRealtor.Email.Contains(text))));
         }
 
         if (filter.From.HasValue)
@@ -92,10 +96,9 @@ public class LandAgencyQueries : ILandAgencyQueries
         var desc = filter.Descending;
         query = filter.Sort switch
         {
-            PlotSort.Price => desc ? query.OrderByDescending(p => p.PriceUsd) : query.OrderBy(p => p.PriceUsd),
-            PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares) : query.OrderBy(p => p.AreaHectares),
-            PlotSort.Title => desc ? query.OrderByDescending(p => p.Title) : query.OrderBy(p => p.Title),
-            PlotSort.Location => desc ? query.OrderByDescending(p => p.Location) : query.OrderBy(p => p.Location),
+            PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.AreaHectares).ThenBy(p => p.CreatedAt),
+            PlotSort.Title => desc ? query.OrderByDescending(p => p.Title).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Title).ThenBy(p => p.CreatedAt),
+            PlotSort.Location => desc ? query.OrderByDescending(p => p.Location).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Location).ThenBy(p => p.CreatedAt),
             _ => desc ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)
         };
 
@@ -122,11 +125,17 @@ public class LandAgencyQueries : ILandAgencyQueries
         string sql = projected.ToQueryString();
         var rows = await projected.ToListAsync();
 
-        if (filter.Sort == PlotSort.PricePerSotka)
+        if (filter.Sort == PlotSort.Price)
         {
             rows = desc
-                ? rows.OrderByDescending(r => r.PricePerSotkaUsd).ToList()
-                : rows.OrderBy(r => r.PricePerSotkaUsd).ToList();
+                ? rows.OrderByDescending(r => r.PriceUsd).ThenByDescending(r => r.CreatedAt).ToList()
+                : rows.OrderBy(r => r.PriceUsd).ThenBy(r => r.CreatedAt).ToList();
+        }
+        else if (filter.Sort == PlotSort.PricePerSotka)
+        {
+            rows = desc
+                ? rows.OrderByDescending(r => r.PricePerSotkaUsd).ThenByDescending(r => r.CreatedAt).ToList()
+                : rows.OrderBy(r => r.PricePerSotkaUsd).ThenBy(r => r.CreatedAt).ToList();
         }
 
         return new QueryResult<PlotRow>(rows, sql);
@@ -252,7 +261,9 @@ public class LandAgencyQueries : ILandAgencyQueries
         if (!string.IsNullOrWhiteSpace(filter.Region))
         {
             var region = filter.Region.Trim();
-            query = query.Where(x => x.Plot.Location.Contains(region));
+            var regionCap = char.ToUpper(region[0]) + (region.Length > 1 ? region.Substring(1) : "");
+            var regionLower = char.ToLower(region[0]) + (region.Length > 1 ? region.Substring(1) : "");
+            query = query.Where(x => x.Plot.Location.Contains(region) || x.Plot.Location.Contains(regionCap) || x.Plot.Location.Contains(regionLower));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Purpose))
@@ -422,6 +433,152 @@ public class LandAgencyQueries : ILandAgencyQueries
         await tx.CommitAsync();
 
         return user.FullName;
+    }
+
+    public async Task<LinqShowcaseResult> GetLinqShowcaseAsync()
+    {
+        var allPlots = await _db.LandPlots
+            .Include(p => p.Documents)
+            .Include(p => p.Seller)
+            .Include(p => p.AssignedRealtor)
+            .AsNoTracking()
+            .ToListAsync();
+
+        int totalPlotsWithAllDocsVerified = allPlots
+            .Count(p => p.Documents.Any() && p.Documents.All(d => d.IsVerified));
+
+        var allUsers = await _db.Users.AsNoTracking().ToListAsync();
+        var allViewings = await _db.ViewingRequests.AsNoTracking().ToListAsync();
+
+        int totalBuyersWithAnyViewing = allUsers
+            .Count(u => u.Role == UserRole.Client && allViewings.Any(v => v.BuyerId == u.Id));
+
+        var allDistinctPurposes = allPlots
+            .Select(p => p.Purpose)
+            .Distinct()
+            .OrderBy(p => p)
+            .ToList();
+
+        var sellerDistricts = allPlots
+            .SelectMany(p => p.Location.Split(',', StringSplitOptions.TrimEntries))
+            .Where(part => part.Contains("район") || part.StartsWith("м."))
+            .Distinct()
+            .ToList();
+
+        var allRequests = await _db.SelectionRequests.AsNoTracking().ToListAsync();
+        var buyerRequestedDistricts = allRequests
+            .Select(s => s.DesiredDistrict.Trim())
+            .Distinct()
+            .ToList();
+
+        var marketIntersectRegions = sellerDistricts.Intersect(buyerRequestedDistricts).OrderBy(r => r).ToList();
+
+        var allClients = allUsers
+            .Where(u => u.Role == UserRole.Client)
+            .Select(u => u.FullName)
+            .ToList();
+
+        var allDeals = await _db.SaleDeals.Include(d => d.Buyer).AsNoTracking().ToListAsync();
+        var dealBuyers = allDeals
+            .Where(d => d.Buyer != null)
+            .Select(d => d.Buyer!.FullName)
+            .Distinct()
+            .ToList();
+
+        var buyersWithoutDeals = allClients.Except(dealBuyers).OrderBy(n => n).ToList();
+
+        var flattenedDocTitles = allPlots
+            .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
+            .SelectMany(p => p.Documents.Select(d => $"{p.CadastralNumber}: {d.Title} ({d.DocType})"))
+            .Take(10)
+            .ToList();
+
+        var aggregatedCadastralRoll = allPlots
+            .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
+            .Select(p => p.CadastralNumber)
+            .Take(6)
+            .Aggregate("Кадастровий реєстр сертифікованих ділянок: ", (acc, cad) => $"{acc} [{cad}]");
+
+        var samplePlots = allPlots.Take(5).ToList();
+        var benchmarkPrices = new[] { 27000m, 35000m, 40000m, 16000m, 62000m };
+        var zippedBenchmarks = samplePlots
+            .Zip(benchmarkPrices, (plot, bench) =>
+            {
+                var diff = plot.PriceUsd - bench;
+                var pct = bench > 0 ? Math.Round(diff / bench * 100m, 1) : 0m;
+                var verdict = pct switch
+                {
+                    > 10m => "Вище ринку (Завищена)",
+                    < -10m => "Нижче ринку (Дисконт)",
+                    _ => "Ринкова справедлива ціна"
+                };
+                return new BenchmarkComparisonRow(
+                    plot.CadastralNumber,
+                    plot.Location,
+                    plot.PriceUsd,
+                    bench,
+                    pct,
+                    verdict);
+            })
+            .ToList();
+
+        var multiSortedPlots = allPlots
+            .OrderBy(p => p.Location)
+            .ThenByDescending(p => p.PriceUsd)
+            .Take(10)
+            .Select(p => new PlotRow(
+                p.Id,
+                p.CadastralNumber,
+                p.Title,
+                p.Location,
+                p.AreaHectares,
+                Math.Round(p.AreaHectares * 100.0, 2),
+                p.Purpose,
+                p.PriceUsd,
+                p.AreaHectares > 0 ? Math.Round(p.PriceUsd / (decimal)(p.AreaHectares * 100.0), 0) : 0m,
+                p.Status,
+                p.Seller?.FullName ?? "Власник",
+                p.Seller?.Phone ?? "",
+                p.AssignedRealtor?.FullName ?? "Рієлтор",
+                p.Documents?.Count ?? 0,
+                "Перевірено",
+                p.CreatedAt))
+            .ToList();
+
+        var paginatedPlots = allPlots
+            .OrderBy(p => p.Id)
+            .Skip(2)
+            .Take(4)
+            .Select(p => new PlotRow(
+                p.Id,
+                p.CadastralNumber,
+                p.Title,
+                p.Location,
+                p.AreaHectares,
+                Math.Round(p.AreaHectares * 100.0, 2),
+                p.Purpose,
+                p.PriceUsd,
+                p.AreaHectares > 0 ? Math.Round(p.PriceUsd / (decimal)(p.AreaHectares * 100.0), 0) : 0m,
+                p.Status,
+                p.Seller?.FullName ?? "Власник",
+                p.Seller?.Phone ?? "",
+                p.AssignedRealtor?.FullName ?? "Рієлтор",
+                p.Documents?.Count ?? 0,
+                "Перевірено",
+                p.CreatedAt))
+            .ToList();
+
+        return new LinqShowcaseResult(
+            totalPlotsWithAllDocsVerified,
+            totalBuyersWithAnyViewing,
+            allDistinctPurposes,
+            marketIntersectRegions,
+            buyersWithoutDeals,
+            flattenedDocTitles,
+            aggregatedCadastralRoll,
+            zippedBenchmarks,
+            multiSortedPlots,
+            paginatedPlots);
     }
 
     private static string NormalizeEmail(string email) => (email ?? string.Empty).Trim().ToLowerInvariant();

@@ -72,3 +72,8 @@ public class UpdateUserFormModel
     public bool IsActive { get; set; }
     public string? NewPassword { get; set; }
 }
+
+public class LinqShowcaseViewModel
+{
+    public LinqShowcaseResult Showcase { get; set; } = null!;
+}

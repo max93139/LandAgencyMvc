@@ -46,8 +46,9 @@ public class QueriesController : Controller
         DateOnly? from = null,
         DateOnly? to = null,
         TurnoverSort sort = TurnoverSort.Turnover,
-        bool desc = true)
+        bool? desc = null)
     {
+        bool isDescending = desc ?? true;
         var today = DateOnly.FromDateTime(DateTime.Today);
         var day = date ?? today;
         var periodFrom = from ?? today.AddMonths(-3);
@@ -57,8 +58,8 @@ public class QueriesController : Controller
             ? Period.Between(periodFrom, periodTo)
             : Period.Containing(kind, day);
 
-        var byPurpose = await _queries.TurnoverByPurposeAsync(period, sort, desc);
-        var byAgent = await _queries.AgentPerformanceAsync(period, AgentSort.Turnover, desc);
+        var byPurpose = await _queries.TurnoverByPurposeAsync(period, sort, isDescending);
+        var byAgent = await _queries.AgentPerformanceAsync(period, AgentSort.Turnover, isDescending);
 
         var model = new PeriodTurnoverViewModel
         {
@@ -67,12 +68,23 @@ public class QueriesController : Controller
             From = DateOnly.FromDateTime(period.From),
             To = DateOnly.FromDateTime(period.To).AddDays(-1),
             Sort = sort,
-            Descending = desc,
+            Descending = isDescending,
             Period = period,
             ByPurpose = byPurpose,
             ByAgent = byAgent
         };
 
+        return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> LinqShowcase()
+    {
+        var showcase = await _queries.GetLinqShowcaseAsync();
+        var model = new LinqShowcaseViewModel
+        {
+            Showcase = showcase
+        };
         return View(model);
     }
 
