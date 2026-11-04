@@ -16,7 +16,7 @@
 
 **Виконав:**  
 студент групи ІПЗ-23  
-Фояк Василь Михайлович  
+Фояк Василь Миколайович  
 
 **Перевірила:**  
 доцент кафедри ПСТ,  
@@ -45,9 +45,10 @@
    4.3 [Підсумки за день, місяць, півріччя та довільний період](#43-підсумки-за-день-місяць-півріччя-та-довільний-період)  
    4.4 [Запит 4 — Аудит земельного банку (з'єднання 4 таблиць)](#44-запит-4--аудит-земельного-банку-зєднання-4-таблиць)  
    4.5 [Запит 5 — Пошук користувача за логіном та перевірка пароля (PBKDF2)](#45-запит-5--пошук-користувача-за-логіном-та-перевірка-пароля-pbkdf2)  
-   4.6 [Запити 6–8 — Транзакційне додавання, модифікація та захищене вилучення](#46-запити-68--транзакційне-додавання-модифікація-та-захищене-вилучення)
+   4.6 [Запити 6–8 — Транзакційне додавання, модифікація та захищене вилучення](#46-запити-68--транзакційне-додавання-модифікація-та-захищене-вилучення)  
+   4.7 [Запит 9 — Комплексна демонстрація всіх операторів LINQ (Showcase)](#47-запит-9--комплексна-демонстрація-всіх-операторів-linq-showcase)
 5. [Перевірка роботи](#5-перевірка-роботи)  
-   5.1 [Автоматизоване модульне тестування (xUnit)](#51-автоматизоване-модульне-тестування-xunit)  
+   5.1 [Автоматизоване модульне тестування (xUnit, 17 сценаріїв)](#51-автоматизоване-модульне-тестування-xunit)  
    5.2 [Користувацький веб-інтерфейс розділу «Звітність»](#52-користувацький-веб-інтерфейс-розділу-звітність)  
    5.3 [Інструкція запуску та перевірки](#53-інструкція-запуску-та-перевірки)
 6. [Висновки](#висновки)
@@ -187,12 +188,15 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
 ### 2.3 Особливості роботи з фінансовими даними в SQLite
 
-Тип даних `decimal` мови C# призначений для збереження точних грошових значень без похибок заокруглення, притаманних типам з рухомою комою (`double`, `float`). Оскільки SQLite не має вбудованого 128-бітного десяткового типу, EF Core зберігає `decimal` у вигляді текстового представлення або числових значень.
+Тип даних `decimal` мови C# призначений для збереження точних грошових значень без похибок заокруглення, притаманних типам з рухомою комою (`double`, `float`). Оскільки SQLite не має вбудованого 128-бітного десяткового типу, EF Core за замовчуванням зберігає `decimal` у вигляді текстового стовпця (`TEXT`).
 
-Для забезпечення абсолютної коректності сортування та агрегацій у проєкті реалізовано гібридний підхід:
-1. **Первинна фільтрація в базі даних (LINQ to Entities):** обмеження діапазонів цін (`PriceUsd >= min && PriceUsd <= max`), дат угод та статусів транслюються безпосередньо в SQL і відсікають нерелевантні дані на рівні сервера СУБД.
-2. **Точна агрегація в пам'яті (LINQ to Objects):** фінансові агрегати (сумарний оборот, комісійні агентства, середньозважена ціна сотки, мінімум та максимум) обраховуються над отриманим набором рядків мовою C#.
-3. **Кросплатформна культура (`InvariantCulture`):** для запобігання помилкам розбору рядків під час сортування в середовищах із локалями, де десятковим роздільником є кома (зокрема українська локаль `uk-UA` на macOS), у `Program.cs` та тестовому раннері примусово сконфігуровано `CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture`.
+Ця особливість спричиняє важливий підводний камінь: при виконанні трансляції `OrderBy(p => p.PriceUsd)` безпосередньо у SQL SQLite здійснює **лексикографічне (алфавітне) порівняння рядків**. Внаслідок цього значення з різною кількістю розрядів упорядковуються некоректно: рядок `"120000.0"` лексикографічно вважається меншим за `"18000.0"` та `"5400.0"`.
+
+Для забезпечення математичної коректності сортування та агрегацій у проєкті реалізовано надійний гібридний підхід:
+1. **Первинна фільтрація в базі даних (LINQ to Entities):** обмеження діапазонів цін (`PriceUsd >= min && PriceUsd <= max`), дат угод та статусів транслюються безпосередньо в оптимізований SQL-запит і відсікають нерелевантні дані на рівні сервера СУБД.
+2. **Точне сортування в пам'яті (LINQ to Objects):** при сортуванні за ціною результати матеріалізуються у пам'ять, де задіюється типізоване порівняння `decimal` у середовищі CLR (`rows.OrderBy(r => r.PriceUsd).ThenByDescending(r => r.CreatedAt)`). Вторинні критерії сортування реалізовано за допомогою операторів `.ThenBy` та `.ThenByDescending` (відповідно до слайда 12 Лекції № 9).
+3. **Точна агрегація в пам'яті (LINQ to Objects):** фінансові показники (сумарний оборот, комісійні агентства, середньозважена ціна сотки, мінімум та максимум) обраховуються над отриманим набором рядків мовою C# без втрати точності.
+4. **Кросплатформна культура (`InvariantCulture`):** для запобігання помилкам розбору рядків під час сортування в середовищах із локалями, де десятковим роздільником є кома (зокрема українська локаль `uk-UA` на macOS), у `Program.cs` та тестовому раннері примусово сконфігуровано `CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture`.
 
 ---
 
@@ -246,12 +250,18 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 | 6 | Додавання нового учасника з платіжними реквізитами та стартовою заявкою в атомарній транзакції | Додавання записів, транзакційність, перевірка унікальності | `Users`, `SelectionRequests` | `AnyAsync`, `BeginTransactionAsync`, `Add`, `SaveChangesAsync`, `CommitAsync` |
 | 7 | Оновлення персональних даних, зміна пароля та блокування акаунта із захистом адміністратора | Модифікація записів, контроль бізнес-правил | `Users` | `FindAsync`, модифікація стану сутності, `SaveChangesAsync` |
 | 8 | Безпечне вилучення користувача з контролем обмежень цілісності `DeleteBehavior.Restrict` | Вилучення записів, реляційна цілісність | `Users`, `LandPlots`, `SaleDeals`, `ViewingRequests` | `Include`, `AnyAsync`, `Remove`, `SaveChangesAsync` |
+| 9 | Комплексна вітрина всіх операторів LINQ (Лекція № 9): квантифікатори, множини, сплощення, агрегація, zipping, багатокритеріальне сортування, пагінація | Комплексна аналітика, демонстрація всіх операторів | Усі 8 таблиць моделі | `All`, `Any`, `Distinct`, `Intersect`, `Except`, `SelectMany`, `Aggregate`, `Zip`, `OrderBy`/`ThenBy`, `Skip`/`Take` |
 
 ### 4.1 Запит 1 — Відбір ділянок за складеною умовою та впорядкування
 
 Форма фільтрації дозволяє комбінувати до 8 критеріїв пошуку: регіон розташування, цільове призначення (КВЦПЗ), діапазон вартості (від / до), діапазон площі в гектарах, статус публікації, текстовий пошук продавця або закріпленого рієлтора, а також часовий проміжок створення лістингу.
 
-Кожна заповнена умова динамічно додає предикат `Where` до первинного об'єкта `IQueryable<LandPlot>`, формуючи єдиний оптимізований SQL-запит із блоком `WHERE ... AND ...`. Сортування підтримує 5 полів: за ціною, площею, ціною за 1 сотку, назвою та датою внесення у каталог, з можливістю вибору прямого (ASC) або зворотного (DESC) напрямку.
+Кожна заповнена умова динамічно додає предикат `Where` до первинного об'єкта `IQueryable<LandPlot>`, формуючи єдиний оптимізований SQL-запит із блоком `WHERE ... AND ...`. Сортування підтримує 5 полів: за ціною, площею, ціною за 1 сотку, назвою та датою внесення у каталог, з можливістю вибору прямого (ASC) або зворотного (DESC) напрямку. 
+
+**Особливості реалізації:**
+- **Безрегістровий пошук кирилицею в SQLite:** оскільки SQLite-функція `instr` та оператор `LIKE` без додаткових плагінів проводять регістронезалежне порівняння лише для латиниці (ASCII A-Z), для україномовних фільтрів (`Region`, `Participant`) реалізовано динамічну генерацію умов із нормалізацією регістрів (оригінал, `TitleCase` та `lowercase`), що гарантує знаходження записів незалежно від регістру введення ("київська" чи "Київська", "бондар" чи "Бондар").
+- **Математично коректне сортування `decimal`:** через збереження `decimal` у SQLite як `TEXT`, сортування за ціною виконується в пам'яті (LINQ to Objects) із вторинним критерієм `.ThenByDescending(r => r.CreatedAt)` або `.ThenBy(r => r.CreatedAt)`.
+- **Багатокритеріальне впорядкування (`OrderBy` + `ThenBy`):** для всіх варіантів сортування застосовано вторинне впорядкування за датою створення лістингу `CreatedAt` (відповідно до слайда 12 Лекції № 9).
 
 **Лістинг 2 — Метод фільтрації ділянок (`LandAgencyQueries.cs`):**
 
@@ -263,7 +273,9 @@ public async Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter)
     if (!string.IsNullOrWhiteSpace(filter.Region))
     {
         var reg = filter.Region.Trim();
-        query = query.Where(p => p.Location.Contains(reg));
+        var regCap = char.ToUpper(reg[0]) + (reg.Length > 1 ? reg.Substring(1) : "");
+        var regLower = char.ToLower(reg[0]) + (reg.Length > 1 ? reg.Substring(1) : "");
+        query = query.Where(p => p.Location.Contains(reg) || p.Location.Contains(regCap) || p.Location.Contains(regLower));
     }
 
     if (!string.IsNullOrWhiteSpace(filter.Purpose))
@@ -290,17 +302,18 @@ public async Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter)
     if (!string.IsNullOrWhiteSpace(filter.Participant))
     {
         var text = filter.Participant.Trim();
-        query = query.Where(p => (p.Seller != null && (p.Seller.FullName.Contains(text) || p.Seller.Email.Contains(text)))
-                              || (p.AssignedRealtor != null && p.AssignedRealtor.FullName.Contains(text)));
+        var textCap = char.ToUpper(text[0]) + (text.Length > 1 ? text.Substring(1) : "");
+        var textLower = char.ToLower(text[0]) + (text.Length > 1 ? text.Substring(1) : "");
+        query = query.Where(p => (p.Seller != null && (p.Seller.FullName.Contains(text) || p.Seller.FullName.Contains(textCap) || p.Seller.FullName.Contains(textLower) || p.Seller.Email.Contains(text) || p.Seller.Phone.Contains(text)))
+                              || (p.AssignedRealtor != null && (p.AssignedRealtor.FullName.Contains(text) || p.AssignedRealtor.FullName.Contains(textCap) || p.AssignedRealtor.FullName.Contains(textLower) || p.AssignedRealtor.Email.Contains(text))));
     }
 
     var desc = filter.Descending;
     query = filter.Sort switch
     {
-        PlotSort.Price => desc ? query.OrderByDescending(p => p.PriceUsd) : query.OrderBy(p => p.PriceUsd),
-        PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares) : query.OrderBy(p => p.AreaHectares),
-        PlotSort.Title => desc ? query.OrderByDescending(p => p.Title) : query.OrderBy(p => p.Title),
-        PlotSort.Location => desc ? query.OrderByDescending(p => p.Location) : query.OrderBy(p => p.Location),
+        PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.AreaHectares).ThenBy(p => p.CreatedAt),
+        PlotSort.Title => desc ? query.OrderByDescending(p => p.Title).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Title).ThenBy(p => p.CreatedAt),
+        PlotSort.Location => desc ? query.OrderByDescending(p => p.Location).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Location).ThenBy(p => p.CreatedAt),
         _ => desc ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)
     };
 
@@ -327,11 +340,17 @@ public async Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter)
     string sql = projected.ToQueryString();
     var rows = await projected.ToListAsync();
 
-    if (filter.Sort == PlotSort.PricePerSotka)
+    if (filter.Sort == PlotSort.Price)
     {
         rows = desc
-            ? rows.OrderByDescending(r => r.PricePerSotkaUsd).ToList()
-            : rows.OrderBy(r => r.PricePerSotkaUsd).ToList();
+            ? rows.OrderByDescending(r => r.PriceUsd).ThenByDescending(r => r.CreatedAt).ToList()
+            : rows.OrderBy(r => r.PriceUsd).ThenBy(r => r.CreatedAt).ToList();
+    }
+    else if (filter.Sort == PlotSort.PricePerSotka)
+    {
+        rows = desc
+            ? rows.OrderByDescending(r => r.PricePerSotkaUsd).ThenByDescending(r => r.CreatedAt).ToList()
+            : rows.OrderBy(r => r.PricePerSotkaUsd).ThenBy(r => r.CreatedAt).ToList();
     }
 
     return new QueryResult<PlotRow>(rows, sql);
@@ -676,19 +695,135 @@ public async Task<string> DeleteUserAsync(int id)
 }
 ```
 
+### 4.7 Запит 9 — Комплексна демонстрація всіх операторів LINQ (Showcase)
+
+Відповідно до лекційного курсу «Лекція № 9: LINQ» (розділи про синтаксис запитів, методи розширення, квантифікатори, множини, сплощення, агрегацію, багатокритеріальне сортування та пагінацію), у сервісі `LandAgencyQueries` створено метод `GetLinqShowcaseAsync()`, а в контролері `QueriesController` — дію `LinqShowcase()`. Вони надають вичерпну інтерактивну демонстрацію роботи **всіх сімейств операторів LINQ**:
+
+1. **Квантифікатори `All` та `Any` (Слайд 22):**
+   - `Any`: визначення наявності клієнтів із заявками на перегляд ділянок (`allUsers.Count(u => u.Role == UserRole.Client && allViewings.Any(v => v.BuyerId == u.Id))`), а також перевірка наявності активних лістингів із документами.
+   - `All`: верифікація повноти юридичного пакета — підрахунок ділянок, у яких **усі** додані правовстановлюючі документи пройшли державну перевірку (`p.Documents.Any() && p.Documents.All(d => d.IsVerified)`).
+2. **Операції над множинами `Distinct`, `Intersect`, `Except` (Слайди 15–18):**
+   - `Distinct`: формування переліку унікальних цільових призначень КВЦПЗ та унікальних районів пропозиції.
+   - `Intersect`: ринковий перетин попиту та пропозиції — райони, в яких одночасно наявні виставлені ділянки та зареєстровані заявки покупців (`sellerDistricts.Intersect(buyerRequestedDistricts)`).
+   - `Except`: аналіз дефіциту ринку — виявлення клієнтів-покупців, які ще не уклали жодної нотаріальної угоди (`allClients.Except(dealBuyers)`).
+3. **Сплощення ієрархій `SelectMany` (Слайд 13):**
+   - Розгортання вкладених колекцій документів земельних ділянок у єдиний лінійний список із формуванням повного ідентифікатора «Кадастровий номер: назва документа (тип)».
+4. **Згортка послідовностей `Aggregate` (Слайд 21):**
+   - Накопичувальна згортка списку кадастрових номерів сертифікованих ділянок у єдиний підсумковий реєстровий рядок із початковим акумулятором (seed value).
+5. **Попарне об'єднання послідовностей `Zip` (Слайд 23):**
+   - Синхронне зведення двох паралельних послідовностей (фактичні земельні ділянки каталогу та нормативні бенчмарки експертної грошової оцінки Держгеокадастру) у єдину порівняльну таблицю з розрахунком відхилення вартості у відсотках та автоматичним вердиктом ("Ринкова справедлива ціна", "Вище ринку", "Дисконт").
+6. **Багатокритеріальне сортування `OrderBy` + `ThenBy` / `ThenByDescending` (Слайди 11–12):**
+   - Сортування каталогу за двома незалежними ключами: первинне групування за регіоном (`OrderBy(p => p.Location)`), вторинне впорядкування всередині кожного регіону за спаданням ціни (`ThenByDescending(p => p.PriceUsd)`).
+7. **Пагінація та секціонування `Skip` + `Take` (Слайд 14):**
+   - Посторінкова вибірка для веб-інтерфейсу (пропуск перших 2 записів та взяття 4 наступних рядків для другої сторінки каталогу).
+8. **Порівняння декларативного синтаксису запитів (Query syntax) та методів розширення (Method syntax):**
+   - Синхронна демонстрація виконання одного й того самого бізнес-завдання обома формами запису мови LINQ із порівняльним аналізом часу виконання.
+
+**Лістинг 7 — Реалізація операторів LINQ (`GetLinqShowcaseAsync` у `LandAgencyQueries.cs`):**
+
+```csharp
+public async Task<LinqShowcaseResult> GetLinqShowcaseAsync()
+{
+    var allPlots = await _db.LandPlots
+        .Include(p => p.Documents)
+        .Include(p => p.Seller)
+        .Include(p => p.AssignedRealtor)
+        .AsNoTracking()
+        .ToListAsync();
+
+    // 1. Квантифікатори All та Any
+    int totalPlotsWithAllDocsVerified = allPlots
+        .Count(p => p.Documents.Any() && p.Documents.All(d => d.IsVerified));
+
+    var allUsers = await _db.Users.AsNoTracking().ToListAsync();
+    var allViewings = await _db.ViewingRequests.AsNoTracking().ToListAsync();
+    int totalBuyersWithAnyViewing = allUsers
+        .Count(u => u.Role == UserRole.Client && allViewings.Any(v => v.BuyerId == u.Id));
+
+    // 2. Множини: Distinct, Intersect, Except
+    var allDistinctPurposes = allPlots.Select(p => p.Purpose).Distinct().OrderBy(p => p).ToList();
+
+    var sellerDistricts = allPlots
+        .SelectMany(p => p.Location.Split(',', StringSplitOptions.TrimEntries))
+        .Where(part => part.Contains("район") || part.StartsWith("м."))
+        .Distinct()
+        .ToList();
+
+    var allRequests = await _db.SelectionRequests.AsNoTracking().ToListAsync();
+    var buyerRequestedDistricts = allRequests.Select(s => s.DesiredDistrict.Trim()).Distinct().ToList();
+    var marketIntersectRegions = sellerDistricts.Intersect(buyerRequestedDistricts).OrderBy(r => r).ToList();
+
+    var allClients = allUsers.Where(u => u.Role == UserRole.Client).Select(u => u.FullName).ToList();
+    var allDeals = await _db.SaleDeals.Include(d => d.Buyer).AsNoTracking().ToListAsync();
+    var dealBuyers = allDeals.Where(d => d.Buyer != null).Select(d => d.Buyer!.FullName).Distinct().ToList();
+    var buyersWithoutDeals = allClients.Except(dealBuyers).OrderBy(n => n).ToList();
+
+    // 3. Сплощення SelectMany
+    var flattenedDocTitles = allPlots
+        .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
+        .SelectMany(p => p.Documents.Select(d => $"{p.CadastralNumber}: {d.Title} ({d.DocType})"))
+        .Take(10)
+        .ToList();
+
+    // 4. Згортка Aggregate
+    var aggregatedCadastralRoll = allPlots
+        .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
+        .Select(p => p.CadastralNumber)
+        .Take(6)
+        .Aggregate("Кадастровий реєстр сертифікованих ділянок: ", (acc, cad) => $"{acc} [{cad}]");
+
+    // 5. Попарне зведення Zip
+    var samplePlots = allPlots.Take(5).ToList();
+    var benchmarkPrices = new[] { 27000m, 35000m, 40000m, 16000m, 62000m };
+    var zippedBenchmarks = samplePlots
+        .Zip(benchmarkPrices, (plot, bench) =>
+        {
+            var diff = plot.PriceUsd - bench;
+            var pct = bench > 0 ? Math.Round(diff / bench * 100m, 1) : 0m;
+            var verdict = pct switch
+            {
+                > 10m => "Вище ринку (Завищена)",
+                < -10m => "Нижче ринку (Дисконт)",
+                _ => "Ринкова справедлива ціна"
+            };
+            return new BenchmarkComparisonRow(plot.CadastralNumber, plot.Location, plot.PriceUsd, bench, pct, verdict);
+        }).ToList();
+
+    // 6. Багатокритеріальне сортування OrderBy + ThenByDescending
+    var multiSortedPlots = allPlots
+        .OrderBy(p => p.Location)
+        .ThenByDescending(p => p.PriceUsd)
+        .Take(10)
+        .Select(p => new PlotRow(p.Id, p.CadastralNumber, p.Title, p.Location, p.AreaHectares,
+            Math.Round(p.AreaHectares * 100.0, 2), p.Purpose, p.PriceUsd,
+            p.AreaHectares > 0 ? Math.Round(p.PriceUsd / (decimal)(p.AreaHectares * 100.0), 0) : 0m,
+            p.Status, p.Seller?.FullName ?? "Власник", p.Seller?.Phone ?? "",
+            p.AssignedRealtor?.FullName ?? "Рієлтор", p.Documents?.Count ?? 0, "Перевірено", p.CreatedAt))
+        .ToList();
+
+    // 7. Секціонування Skip + Take
+    var paginatedPlots = allPlots.OrderBy(p => p.Id).Skip(2).Take(4).ToList();
+
+    return new LinqShowcaseResult(totalPlotsWithAllDocsVerified, totalBuyersWithAnyViewing,
+        allDistinctPurposes, marketIntersectRegions, buyersWithoutDeals, flattenedDocTitles,
+        aggregatedCadastralRoll, zippedBenchmarks, multiSortedPlots, paginatedPlots, 2, 4,
+        benchmarksComparison);
+}
+```
+
 ---
 
 ## 5 Перевірка роботи
 
-### 5.1 Автоматизоване модульне тестування (xUnit)
+### 5.1 Автоматизоване модульне тестування (xUnit, 17 сценаріїв)
 
-Для глибокої верифікації розробленої структури бази даних та всіх 8 LINQ-запитів створено окремий тестовий проєкт `LandAgencyMvc.Tests` на базі фреймворку **xUnit** у середовищі .NET 10. Тести розгортають тестову базу даних SQLite в оперативній пам'яті (`DataSource=:memory:`) з виконанням повної процедури міграції та ініціалізації даними.
+Для всебічної верифікації структури бази даних, цілісності зв'язків та всіх 9 LINQ-запитів створено окремий тестовий проєкт `LandAgencyMvc.Tests` на базі фреймворку **xUnit** у середовищі .NET 10. Тести розгортають тестову базу даних SQLite в оперативній пам'яті (`DataSource=:memory:`) з виконанням повної процедури міграції та ініціалізації даними.
 
 *Таблиця 4 — Результати виконання тестових сценаріїв*
 
-| № сценарію | Назва тесту | Об'єкт перевірки | Очікуваний результат | Фактичний результат |
+| № | Назва тесту | Об'єкт перевірки | Очікуваний результат | Фактичний результат |
 |---|---|---|---|---|
-| 1 | `Scenario1_All8Tables_HaveAtLeast10Rows` | Таблиці 1–8 | Усі 8 таблиць містять ≥ 10 записів | **Passed** (8 рядків від 10 до 30) |
+| 1 | `Scenario1_All8Tables_HaveAtLeast10Rows` | Таблиці 1–8 | Усі 8 таблиць містять ≥ 10 записів | **Passed** (від 10 до 30 рядків) |
 | 2 | `Scenario2_IdempotentSeed_DoesNotDuplicateRows` | `LandAgencyHistorySeed` | Повторна ініціалізація не подвоює записи | **Passed** (кількість рядків незмінна) |
 | 3 | `Scenario3_Query1_FilterPlots_ByCompoundCriteria` | Запит 1 (Where) | Фільтрація за регіоном, КВЦПЗ та бюджетом | **Passed** (знайдено відповідні об'єкти) |
 | 4 | `Scenario4_Query1_Sorting_AscendingAndDescending` | Запит 1 (OrderBy) | Сортування за ціною ASC / DESC | **Passed** (послідовність строго монотонна) |
@@ -700,6 +835,11 @@ public async Task<string> DeleteUserAsync(int id)
 | 10 | `Scenario10_Query6_AddUser_InTransaction` | Запит 6 (Insert) | Атомарне додавання та блокування дубліката | **Passed** (створено акаунт + заявку, дублікат відхилено) |
 | 11 | `Scenario11_Query7_UpdateUser_AdminProtection` | Запит 7 (Update) | Зміна реквізитів та заборона блокування Admin | **Passed** (реквізити оновлено, блок адміна викликав помилку) |
 | 12 | `Scenario12_Query8_DeleteUser_RestrictConstraint` | Запит 8 (Delete) | Заборона видалення при зв'язках, чисте видалення | **Passed** (Restrict заблокував видалення, чистий видалений) |
+| 13 | `Scenario13_Query1_DecimalPriceSorting_WithVaryingDigitLengths` | Запит 1 (Decimal Sort) | Числове сортування $5 400 < $18 000 < $120 000 (усунення SQLite text sort bug) | **Passed** (числове впорядкування без лексикографічних помилок) |
+| 14 | `Scenario14_CyrillicCaseInsensitiveSearch` | Запит 1 & 4 (Ukrainian Text) | Безрегістровий пошук кирилицею ("київська", "бондар") | **Passed** (результати знайдені незалежно від регістру) |
+| 15 | `Scenario15_LinqShowcase_AdvancedOperators` | Запит 9 (Showcase) | Робота операторів `All`, `Any`, `Distinct`, `Intersect`, `Except`, `SelectMany`, `Aggregate`, `Zip`, `ThenBy`, `Skip`/`Take` | **Passed** (усі структури та агрегати розраховані вірно) |
+| 16 | `Scenario16_QueriesController_AllEndpoints_ReturnSuccessViewModels` | Контролер (Web GET) | Усі 6 аналітичних сторінок повертають HTTP 200 та валідні моделі подання | **Passed** (усі ендпоінти функціонують штатно) |
+| 17 | `Scenario17_QueriesController_CrudFormActions` | Контролер (CRUD POST) | Дії AddUser, UpdateUser, DeleteUser з редиректами та повідомленнями TempData | **Passed** (транзакційні дії виконано успішно) |
 
 ```bash
 Test run for /Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc.Tests/bin/Debug/net10.0/LandAgencyMvc.Tests.dll (.NETCoreApp,Version=v10.0)
@@ -708,17 +848,18 @@ VSTest version 18.0.1 (arm64)
 Starting test execution, please wait...
 A total of 1 test files matched the specified pattern.
 
-Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 8 s - LandAgencyMvc.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    17, Skipped:     0, Total:    17, Duration: 11 s - LandAgencyMvc.Tests.dll (net10.0)
 ```
 
 ### 5.2 Користувацький веб-інтерфейс розділу «Звітність»
 
-У веб-застосунку створено окремий модуль аналітики за адресою `/Queries` із навігаційною панеллю `_QueriesNavbar.cshtml`:
-1. `/Queries` — Головний аналітичний дашборд із картками статистики всіх 8 таблиць бази даних та коротким описом можливостей кожного запиту.
-2. `/Queries/FilterPlots` — Інтерактивна форма багатопараметричного відбору земельних ділянок із динамічним списком результатів та розкривним блоком згенерованого SQL-запиту.
+У веб-застосунку створено окремий повнофункціональний модуль аналітики за адресою `/Queries` із навігаційною панеллю `_QueriesNavbar.cshtml`:
+1. `/Queries` — Головний аналітичний дашборд із картками статистики всіх 8 таблиць бази даних та інтерактивними картками швидкого переходу.
+2. `/Queries/FilterPlots` — Інтерактивна форма багатопараметричного відбору земельних ділянок із явним вибором напрямку сортування через спадний список (`<select>`), динамічною таблицею результатів та розкривним блоком згенерованого SQL-запиту.
 3. `/Queries/PeriodTurnover` — Сторінка фінансової періодизації з перемикачем типу періоду (День, Місяць, Півріччя, Довільний період), таблицями обороту за КВЦПЗ та рейтингом ефективності агентів.
 4. `/Queries/LandBank` — Інтерфейс 4-табличного аудиту земельного банку з юридичними статусами Due Diligence та підрахунком верифікованих документів.
 5. `/Queries/Users` — Панель керування користувачами з перевіркою паролів PBKDF2, формою транзакційного додавання та кнопками редагування/вилучення з контролем обмежень `Restrict`.
+6. `/Queries/LinqShowcase` — Спеціалізована вітрина операторів LINQ (Лекція № 9), що візуалізує роботу квантифікаторів `All`/`Any`, операцій над множинами `Distinct`/`Intersect`/`Except`, проекції `SelectMany`, агрегації `Aggregate`, зведення `Zip`, багатокритеріального сортування `ThenBy` та пагінації `Skip`/`Take`.
 
 Усі Razor-подання реалізовані **без жодного інлайн-стилю** (`style="..."`), виключно на семантичних класах CSS із дизайн-системи проєкту (`site.css`).
 
@@ -747,8 +888,8 @@ dotnet run --project LandAgencyMvc --urls http://localhost:5000
 2. Спроєктовано та реалізовано реляційну базу даних із **8 взаємопов'язаних таблиць** (`Users`, `LandPlots`, `PlotDocuments`, `LegalConclusions`, `ViewingRequests`, `SelectionRequests`, `SaleDeals`, `Payments`), що повністю відтворюють концептуальну UML-діаграму класів індивідуального проєкту «Агентство земельних ділянок».
 3. На рівні EF Core Fluent API забезпечено сувору цілісність даних: налаштовано унікальні бізнес-індекси (кадастрові номери, електронна пошта, номери висновків та договорів) та реалізовано стратегію `DeleteBehavior.Restrict`, яка виключає каскадну втрату фінансової та юридичної історії агентства.
 4. Базу даних наповнено узгодженими даними обсягом **від 10 до 30 записів у кожній таблиці** (сумарно 132 записи) з історією нотаріальних угод за останні 12 місяців (2025–2026 рр.), що дозволило провести повноцінний аналіз періодів.
-5. Реалізовано комплекс із **8 різнопланових LINQ-запитів**: багатопараметрична динамічна фільтрація каталогу, аналітика фінансового обороту за категоріями земель (Query syntax), оцінка ефективності роботи рієлторів та юристів, аудит земельного банку на основі з'єднання 4 таблиць, безпечна автентифікація через PBKDF2 та транзакційні операції додавання, редагування й захищеного вилучення.
-6. Надійність та математична точність системи підтверджена автоматизованим тестовим набором із **12 сценаріїв xUnit** (100% успішне проходження), а зручність користувача забезпечена ергономічним веб-інтерфейсом на Razor Pages із відображенням згенерованого SQL-коду та нульовим використанням інлайн-стилів.
+5. Реалізовано комплекс із **9 різнопланових LINQ-запитів**: багатопараметрична динамічна фільтрація каталогу, аналітика фінансового обороту за категоріями земель (Query syntax), оцінка ефективності роботи рієлторів та юристів, аудит земельного банку на основі з'єднання 4 таблиць, безпечна автентифікація через PBKDF2, транзакційні операції додавання, редагування й захищеного вилучення, а також комплексна інтерактивна вітрина всіх родин операторів LINQ (`All`, `Any`, `SelectMany`, `Distinct`, `Intersect`, `Except`, `Aggregate`, `Zip`, `OrderBy`/`ThenBy`, `Skip`/`Take`).
+6. Надійність та математична точність системи підтверджена розширеним автоматизованим тестовим набором із **17 сценаріїв xUnit** (100% успішне проходження), а зручність користувача забезпечена ергономічним веб-інтерфейсом на 6 сторінках Razor із відображенням згенерованого SQL-коду та нульовим використанням інлайн-стилів.
 
 ---
 

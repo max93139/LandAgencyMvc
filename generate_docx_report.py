@@ -371,7 +371,7 @@ def build_docx_report():
     add_code_block(doc, code_onmodel, title_str="Лістинг 1 — Налаштування обмежень OnModelCreating (LandAgencyContext.cs)")
 
     add_heading_2(doc, "2.2 Особливості обробки типу decimal у SQLite")
-    add_body_paragraph(doc, "У SQLite числа з фіксованою точкою (decimal) не мають власного вбудованого 128-бітного формату, тому EF Core транслює їх у текстове або дійсне представлення. Для забезпечення коректного функціонування під час сортування в умовах локалей із десятковою комою (uk-UA) у точці входу Program.cs та тестах примусово активовано CultureInfo.InvariantCulture. Фільтрація діапазонів цін виконується на стороні СУБД, а точний розрахунок середніх сум, комісій та оборотів проводиться в C# над отриманим набором рядків.")
+    add_body_paragraph(doc, "У SQLite числа з фіксованою точкою (decimal) зберігаються як TEXT. При виконанні виразу ORDER BY PriceUsd у SQL SQLite здійснює лексикографічне порівняння рядків, через що число '120000.0' помилково вважається меншим за '18000.0' або '5400.0'. Для забезпечення суворої математичної точності сортування за ціною дані матеріалізуються у пам'ять і впорядковуються за допомогою LINQ to Objects із вторинним сортуванням за CreatedAt через .ThenBy / .ThenByDescending (відповідно до слайда 12 Лекції № 9). Крім того, у Program.cs та тестах активовано CultureInfo.InvariantCulture для уникнення проблем із комою в українській локалі.")
 
     # 3. ЗАПОВНЕННЯ ТАБЛИЦЬ ДАНИМИ
     add_heading_1(doc, "3 Заповнення таблиць даними")
@@ -398,27 +398,33 @@ def build_docx_report():
 
     t3_headers = ["№", "Призначення запиту", "Тип за завданням", "Задіяні таблиці", "Ключові методи LINQ"]
     t3_rows = [
-        ["1", "Фільтр ділянок за параметрами та сортування", "Відбір, сортування", "LandPlots, Users, Docs, Legal", "Where, OrderBy, Select, ToQueryString"],
+        ["1", "Фільтр ділянок за параметрами та сортування", "Відбір, сортування", "LandPlots, Users, Docs, Legal", "Where, OrderBy, ThenBy, Select, ToQueryString"],
         ["2", "Оборот за цільовим призначенням (період)", "Узагальнення за період", "SaleDeals", "Query syntax (from...in), group, let, Sum, Average"],
         ["3", "Рейтинг ефективності агентів за період", "Узагальнення, з'єднання", "SaleDeals, Users", "Where, GroupBy, Sum, OrderByDescending"],
-        ["4", "Аудит земельного банку (ризики та права)", "З'єднання 4 таблиць", "Plots, Users, Docs, Legal", "Inner Join, Left Join, Where, Select"],
+        ["4", "Аудит земельного банку (ризики та права)", "З'єднання 4 таблиць", "Plots, Users, Docs, Legal", "Inner Join, Left Join, Where, Select, ThenBy"],
         ["5", "Пошук користувача та перевірка пароля", "Пошук, автентифікація", "Users", "SingleOrDefaultAsync, VerifyHashedPassword"],
         ["6", "Транзакційне додавання клієнта із заявкою", "Додавання, транзакція", "Users, SelectionRequests", "BeginTransactionAsync, AnyAsync, Add, Commit"],
         ["7", "Оновлення даних користувача та пароля", "Модифікація сутності", "Users", "FindAsync, SaveChangesAsync, контроль Admin"],
-        ["8", "Захищене вилучення (контроль Restrict)", "Вилучення записів", "Users, Plots, Deals", "Include, AnyAsync, Remove, Restrict-перевірка"]
+        ["8", "Захищене вилучення (контроль Restrict)", "Вилучення записів", "Users, Plots, Deals", "Include, AnyAsync, Remove, Restrict-перевірка"],
+        ["9", "Комплексна вітрина всіх операторів LINQ", "Демонстрація операторів Лекції 9", "Усі 8 таблиць моделі", "All, Any, Distinct, Intersect, Except, SelectMany, Aggregate, Zip, Skip/Take"]
     ]
     t3_widths = [Inches(0.4), Inches(2.0), Inches(1.3), Inches(1.4), Inches(1.4)]
     add_table_data(doc, t3_headers, t3_rows, t3_widths, title_str="Таблиця 3 — Зведена характеристика реалізованих запитів LINQ")
 
     add_heading_2(doc, "4.1 Запит 1 — Відбір ділянок за складеною умовою та впорядкування")
-    add_body_paragraph(doc, "Форма фільтрації підтримує 8 параметрів: регіон, код КВЦПЗ, діапазони площі й ціни, статус лістингу, текстовий пошук учасника та дати внесення до каталогу. Кожна заповнена умова додає предикат Where до IQueryable. Сортування реалізовано за ціною, площею, назвою та ціною за сотку в напрямках ASC та DESC.")
+    add_body_paragraph(doc, "Форма фільтрації підтримує 8 параметрів: регіон, код КВЦПЗ, діапазони площі й ціни, статус лістингу, текстовий пошук учасника та дати внесення до каталогу. Кожна заповнена умова додає предикат Where до IQueryable. Для україномовних фільтрів (Region, Participant) реалізовано безрегістровий пошук шляхом порівняння з оригінальним, TitleCase та lowercase значеннями, що обходить обмеження SQLite щодо нелатинських літер. Сортування за ціною здійснюється в пам'яті через LINQ to Objects з вторинним критерієм ThenByDescending(r => r.CreatedAt), усуваючи лексикографічну помилку сортування рядків у SQLite.")
 
     code_q1 = (
         "public async Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter)\n"
         "{\n"
         "    var query = _context.LandPlots.AsNoTracking();\n"
         "    if (!string.IsNullOrWhiteSpace(filter.Region))\n"
-        "        query = query.Where(p => p.Location.Contains(filter.Region.Trim()));\n"
+        "    {\n"
+        "        var reg = filter.Region.Trim();\n"
+        "        var regCap = char.ToUpper(reg[0]) + (reg.Length > 1 ? reg.Substring(1) : \"\");\n"
+        "        var regLower = char.ToLower(reg[0]) + (reg.Length > 1 ? reg.Substring(1) : \"\");\n"
+        "        query = query.Where(p => p.Location.Contains(reg) || p.Location.Contains(regCap) || p.Location.Contains(regLower));\n"
+        "    }\n"
         "    if (!string.IsNullOrWhiteSpace(filter.Purpose))\n"
         "        query = query.Where(p => p.Purpose.Contains(filter.Purpose.Trim()));\n"
         "    if (filter.MinPrice.HasValue)\n"
@@ -428,9 +434,9 @@ def build_docx_report():
         "    var desc = filter.Descending;\n"
         "    query = filter.Sort switch\n"
         "    {\n"
-        "        PlotSort.Price => desc ? query.OrderByDescending(p => p.PriceUsd) : query.OrderBy(p => p.PriceUsd),\n"
-        "        PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares) : query.OrderBy(p => p.AreaHectares),\n"
-        "        PlotSort.Title => desc ? query.OrderByDescending(p => p.Title) : query.OrderBy(p => p.Title),\n"
+        "        PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.AreaHectares).ThenBy(p => p.CreatedAt),\n"
+        "        PlotSort.Title => desc ? query.OrderByDescending(p => p.Title).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Title).ThenBy(p => p.CreatedAt),\n"
+        "        PlotSort.Location => desc ? query.OrderByDescending(p => p.Location).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Location).ThenBy(p => p.CreatedAt),\n"
         "        _ => desc ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)\n"
         "    };\n\n"
         "    var projected = query.Take(MaxRows).Select(p => new PlotRow(\n"
@@ -442,7 +448,13 @@ def build_docx_report():
         "        p.AssignedRealtor != null ? p.AssignedRealtor.FullName : \"Не призначено\",\n"
         "        p.Documents.Count, p.LegalConclusion != null ? p.LegalConclusion.RiskLevel : \"Не перевірено\",\n"
         "        p.CreatedAt));\n\n"
-        "    return new QueryResult<PlotRow>(await projected.ToListAsync(), projected.ToQueryString());\n"
+        "    var rows = await projected.ToListAsync();\n"
+        "    if (filter.Sort == PlotSort.Price)\n"
+        "    {\n"
+        "        rows = desc ? rows.OrderByDescending(r => r.PriceUsd).ThenByDescending(r => r.CreatedAt).ToList()\n"
+        "                    : rows.OrderBy(r => r.PriceUsd).ThenBy(r => r.CreatedAt).ToList();\n"
+        "    }\n"
+        "    return new QueryResult<PlotRow>(rows, projected.ToQueryString());\n"
         "}"
     )
     add_code_block(doc, code_q1, title_str="Лістинг 2 — Запит 1: Фільтрація каталогу ділянок (LandAgencyQueries.cs)")
@@ -588,9 +600,30 @@ def build_docx_report():
     )
     add_code_block(doc, code_crud, title_str="Лістинг 6 — Запити 6 і 8: Транзакційне додавання та вилучення із захистом Restrict")
 
+    add_heading_2(doc, "4.6 Запит 9 — Комплексна демонстрація всіх операторів LINQ (Showcase)")
+    add_body_paragraph(doc, "Відповідно до матеріалів курсу «Лекція № 9: LINQ», у проєкті реалізовано метод GetLinqShowcaseAsync() та подання LinqShowcase.cshtml для інтерактивного закріплення всіх операторів LINQ:")
+    add_bullet_item(doc, "All (перевірка наявності повного пакета документів) та Any (перевірка активності покупців у виїзних переглядах);", bold_prefix="Квантифікатори: ")
+    add_bullet_item(doc, "Distinct (унікальні коди цільового призначення), Intersect (спільні райони між пропозицією та попитом) та Except (покупці без укладених угод);", bold_prefix="Множинні операції: ")
+    add_bullet_item(doc, "SelectMany (сплощення вкладених документів у плаский список) та Aggregate (згортка кадастрових номерів у підсумковий реєстровий рядок);", bold_prefix="Проєкція та згортка: ")
+    add_bullet_item(doc, "Zip (попарне зіставлення ринкових цін із бенчмарками Держгеокадастру), ThenByDescending (багатокритеріальне сортування за регіоном та ціною) та Skip/Take (пагінація каталогу).", bold_prefix="Зведення та пагінація: ")
+
+    code_showcase = (
+        "// Демонстрація операторів LINQ (фрагмент GetLinqShowcaseAsync)\n"
+        "int verifiedPlots = allPlots.Count(p => p.Documents.Any() && p.Documents.All(d => d.IsVerified));\n"
+        "var intersectDistricts = sellerDistricts.Intersect(buyerDistricts).OrderBy(r => r).ToList();\n"
+        "var buyersWithoutDeals = allClients.Except(dealBuyers).OrderBy(n => n).ToList();\n"
+        "var flatDocs = allPlots.Where(p => p.Status == PlotStatus.VerifiedInCatalog)\n"
+        "                       .SelectMany(p => p.Documents.Select(d => $\"{p.CadastralNumber}: {d.Title}\")).Take(10).ToList();\n"
+        "var roll = allPlots.Select(p => p.CadastralNumber).Take(6).Aggregate(\"Реєстр: \", (acc, c) => $\"{acc} [{c}]\");\n"
+        "var zipped = samplePlots.Zip(benchmarks, (plot, bench) => new BenchmarkRow(plot.CadastralNumber, plot.PriceUsd, bench));\n"
+        "var sorted = allPlots.OrderBy(p => p.Location).ThenByDescending(p => p.PriceUsd).Take(10).ToList();\n"
+        "var paged = allPlots.OrderBy(p => p.Id).Skip(2).Take(4).ToList();"
+    )
+    add_code_block(doc, code_showcase, title_str="Лістинг 7 — Запит 9: Вітрина операторів LINQ (LandAgencyQueries.cs)")
+
     # 5. ПЕРЕВІРКА РОБОТИ
     add_heading_1(doc, "5 Перевірка роботи")
-    add_body_paragraph(doc, "Коректність усіх 8 таблиць, зв'язків та сервісних методів перевірена за допомогою автоматизованого тестового набору LandAgencyMvc.Tests у середовищі .NET 10. Усі 12 сценаріїв успішно пройдено за 8 секунд.")
+    add_body_paragraph(doc, "Коректність усіх 8 таблиць, зв'язків та сервісних методів перевірена за допомогою автоматизованого тестового набору LandAgencyMvc.Tests у середовищі .NET 10. Усі 17 сценаріїв успішно пройдено за 11 секунд.")
 
     t4_headers = ["№", "Сценарій тесту xUnit", "Перевірка", "Очікуваний результат", "Статус"]
     t4_rows = [
@@ -605,12 +638,17 @@ def build_docx_report():
         ["9", "Scenario9_Query5_FindUser_PBKDF2", "Запит 5 (Auth)", "Пошук та верифікація хешу пароля", "Passed"],
         ["10", "Scenario10_Query6_AddUser_Transaction", "Запит 6 (Insert)", "Атомарне додавання та захист від дубліката", "Passed"],
         ["11", "Scenario11_Query7_UpdateUser", "Запит 7 (Update)", "Зміна реквізитів і захист Admin", "Passed"],
-        ["12", "Scenario12_Query8_DeleteUser_Restrict", "Запит 8 (Delete)", "Блокування видалення при зв'язках Restrict", "Passed"]
+        ["12", "Scenario12_Query8_DeleteUser_Restrict", "Запит 8 (Delete)", "Блокування видалення при зв'язках Restrict", "Passed"],
+        ["13", "Scenario13_Query1_DecimalPriceSorting", "Запит 1 (Sort)", "Числове сортування цін (усунення багу SQLite)", "Passed"],
+        ["14", "Scenario14_CyrillicCaseInsensitiveSearch", "Запит 1 & 4 (Text)", "Безрегістровий пошук українською мовою", "Passed"],
+        ["15", "Scenario15_LinqShowcase_AdvancedOperators", "Запит 9 (Showcase)", "All, Any, Distinct, Intersect, Except, Zip тощо", "Passed"],
+        ["16", "Scenario16_QueriesController_AllEndpoints", "Контролер (GET)", "Усі 6 сторінок розділу повертають HTTP 200", "Passed"],
+        ["17", "Scenario17_QueriesController_CrudFormActions", "Контролер (POST)", "Транзакційні дії Add, Update, Delete", "Passed"]
     ]
     t4_widths = [Inches(0.4), Inches(2.2), Inches(1.1), Inches(2.0), Inches(0.8)]
     add_table_data(doc, t4_headers, t4_rows, t4_widths, title_str="Таблиця 4 — Результати модульного тестування (xUnit .NET 10)")
 
-    add_body_paragraph(doc, "Усі веб-сторінки розділу «Звітність» перевірені локально в браузері. Сторінки не містять інлайн-стилів, відображають згенерований SQL-запит та коректно взаємодіють із базою даних.")
+    add_body_paragraph(doc, "Усі 6 веб-сторінок розділу «Звітність» (/Queries, /FilterPlots, /PeriodTurnover, /LandBank, /Users, /LinqShowcase) перевірені локально в браузері. Сторінки не містять інлайн-стилів, відображають згенерований SQL-запит та коректно взаємодіють із базою даних.")
 
     # 6. ВИСНОВКИ
     add_heading_1(doc, "Висновки")
@@ -618,8 +656,8 @@ def build_docx_report():
     add_body_paragraph(doc, "2. Спроєктовано та реалізовано реляційну базу даних із 8 взаємопов'язаних таблиць (Users, LandPlots, PlotDocuments, LegalConclusions, ViewingRequests, SelectionRequests, SaleDeals, Payments), що строго відповідають UML-моделі предметної області агентства земельних ділянок.")
     add_body_paragraph(doc, "3. На рівні EF Core Fluent API налаштовано унікальні індекси та обмеження цілісності DeleteBehavior.Restrict, які гарантують збереження аудиторського сліду нотаріальних угод та юридичних висновків.")
     add_body_paragraph(doc, "4. Базу даних наповнено узгодженими даними обсягом від 10 до 30 записів у кожній таблиці (сумарно 132 записи) з історією угод за останні 12 місяців.")
-    add_body_paragraph(doc, "5. Реалізовано 8 різнопланових LINQ-запитів, що поєднують виконання на стороні сервера СУБД (LINQ to Entities) та обробку точних грошових сум decimal у пам'яті (LINQ to Objects).")
-    add_body_paragraph(doc, "6. Роботу системи перевірено за допомогою 12 автоматизованих тестів xUnit та інтерактивного веб-інтерфейсу Razor без інлайн-стилів.")
+    add_body_paragraph(doc, "5. Реалізовано 9 різнопланових LINQ-запитів, що поєднують виконання на стороні сервера СУБД (LINQ to Entities), обробку точних сум decimal у пам'яті (LINQ to Objects) та повне покриття операторів Лекції № 9 (All, Any, Distinct, Intersect, Except, SelectMany, Aggregate, Zip, ThenBy, Skip/Take).")
+    add_body_paragraph(doc, "6. Роботу системи перевірено за допомогою 17 автоматизованих тестів xUnit та інтерактивного веб-інтерфейсу Razor на 6 сторінках без жодного інлайн-стилю.")
 
     # 7. ПЕРЕЛІК ДЖЕРЕЛ
     add_heading_1(doc, "Перелік використаних джерел")
