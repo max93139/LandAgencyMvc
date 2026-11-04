@@ -21,6 +21,12 @@ public class LandAgencyContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<AppUser>().HasIndex(u => u.Email).IsUnique();
+        modelBuilder.Entity<LandPlot>().HasIndex(p => p.CadastralNumber).IsUnique();
+        modelBuilder.Entity<LegalConclusion>().HasIndex(c => c.ConclusionNumber).IsUnique();
+        modelBuilder.Entity<SaleDeal>().HasIndex(d => d.DraftContractNumber).IsUnique();
+        modelBuilder.Entity<Payment>().HasIndex(p => p.InvoiceNumber).IsUnique();
+
         modelBuilder.Entity<LandPlot>()
             .HasOne(p => p.Seller)
             .WithMany(u => u.OwnedPlots)
@@ -40,10 +46,22 @@ public class LandAgencyContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ViewingRequest>()
+            .HasOne(v => v.LandPlot)
+            .WithMany(p => p.ViewingRequests)
+            .HasForeignKey(v => v.LandPlotId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ViewingRequest>()
             .HasOne(v => v.Realtor)
             .WithMany()
             .HasForeignKey(v => v.RealtorId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SaleDeal>()
+            .HasOne(d => d.LandPlot)
+            .WithMany()
+            .HasForeignKey(d => d.LandPlotId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<SaleDeal>()
             .HasOne(d => d.Buyer)
@@ -62,6 +80,30 @@ public class LandAgencyContext : DbContext
             .WithMany()
             .HasForeignKey(d => d.LawyerId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Payment>()
+            .HasOne(p => p.SaleDeal)
+            .WithMany(d => d.Payments)
+            .HasForeignKey(p => p.SaleDealId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PlotDocument>()
+            .HasOne(d => d.LandPlot)
+            .WithMany(p => p.Documents)
+            .HasForeignKey(d => d.LandPlotId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<LegalConclusion>()
+            .HasOne(c => c.LandPlot)
+            .WithOne(p => p.LegalConclusion)
+            .HasForeignKey<LegalConclusion>(c => c.LandPlotId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SelectionRequest>()
+            .HasOne(s => s.Buyer)
+            .WithMany()
+            .HasForeignKey(s => s.BuyerId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     public void InitializeDatabase()
@@ -135,6 +177,8 @@ public class LandAgencyContext : DbContext
         {
             SeedInitialDomainData();
         }
+
+        LandAgencyHistorySeed.SeedHistoryData(this);
     }
 
     private void SeedInitialDomainData()
@@ -389,6 +433,9 @@ public class LandAgencyContext : DbContext
             _ = Payments.Select(p => p.InvoiceNumber).FirstOrDefault();
             _ = LandPlots.Select(p => p.SellerBankIban).FirstOrDefault();
             _ = Users.Select(u => u.OwnershipDoc).FirstOrDefault();
+            _ = Users.Select(u => u.IsActive).FirstOrDefault();
+            _ = SaleDeals.Select(d => d.CreatedAt).FirstOrDefault();
+            _ = ViewingRequests.Select(v => v.CreatedAt).FirstOrDefault();
         }
         catch
         {

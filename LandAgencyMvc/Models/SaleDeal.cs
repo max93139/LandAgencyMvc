@@ -43,6 +43,8 @@ public class SaleDeal
 
     public DateTime NotaryDate { get; set; }
 
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
     public string DraftContractNumber { get; set; } = string.Empty;
 
     /// <summary>
