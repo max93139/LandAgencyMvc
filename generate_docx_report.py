@@ -300,16 +300,47 @@ def add_table_data(doc, headers, rows, col_widths=None, title_str=None):
     p_after.paragraph_format.space_after = Pt(6)
 
 
-def build_docx_report():
-    doc = docx.Document()
-
-    # Встановлення полів сторінки відповідно до ДСТУ (Left 30mm, Right 15mm, Top 20mm, Bottom 20mm)
-    sections = doc.sections
-    for section in sections:
+def setup_page_numbering(doc):
+    for section in doc.sections:
         section.top_margin = Mm(20)
         section.bottom_margin = Mm(20)
         section.left_margin = Mm(25)
         section.right_margin = Mm(15)
+        section.footer_distance = Mm(12)
+        section.different_first_page_header_footer = True
+
+        first_footer = section.first_page_footer
+        for p in first_footer.paragraphs:
+            p.text = ""
+
+        footer = section.footer
+        p_footer = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        p_footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_footer.paragraph_format.space_before = Pt(0)
+        p_footer.paragraph_format.space_after = Pt(0)
+        p_footer.text = ""
+
+        fld = parse_xml(r'''
+            <w:fldSimple %s w:instr="PAGE">
+                <w:r>
+                    <w:rPr>
+                        <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+                        <w:sz w:val="22"/>
+                        <w:szCs w:val="22"/>
+                    </w:rPr>
+                </w:r>
+            </w:fldSimple>
+        ''' % nsdecls('w'))
+        p_footer._p.append(fld)
+
+
+def build_docx_report():
+    doc = docx.Document()
+
+    element = parse_xml(r'<w:updateFields %s w:val="true"/>' % nsdecls('w'))
+    doc.settings.element.append(element)
+
+    setup_page_numbering(doc)
 
     add_title_page(doc)
 
