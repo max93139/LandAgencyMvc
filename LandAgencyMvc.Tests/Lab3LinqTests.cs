@@ -1,5 +1,9 @@
+using LandAgencyMvc.Controllers;
 using LandAgencyMvc.Models;
 using LandAgencyMvc.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -310,5 +314,191 @@ public class Lab3LinqTests : IDisposable
 
         var checkDeleted = await _context.Users.FindAsync(freshUser.Id);
         Assert.Null(checkDeleted);
+    }
+
+    [Fact]
+    public async Task Scenario13_Query1_DecimalPriceSorting_WithVaryingDigitLengths()
+    {
+        var seller = await _context.Users.FirstAsync(u => u.Role == UserRole.Client);
+
+        var plotCheap = new LandPlot
+        {
+            CadastralNumber = "9999999901:01:001:0001",
+            Title = "Бюджетна ділянка під садок",
+            Location = "Черкаська область, с. Мошни",
+            AreaHectares = 0.08,
+            Purpose = "01.05 Індивідуальне садівництво",
+            PriceUsd = 5400m,
+            OwnershipDocNumber = "ДРРП-999991",
+            SellerBankIban = seller.BankDetails,
+            Description = "Тестова ділянка з 4-значною ціною",
+            Status = PlotStatus.VerifiedInCatalog,
+            SellerId = seller.Id,
+            CreatedAt = DateTime.Now.AddDays(-2)
+        };
+
+        var plotExpensive = new LandPlot
+        {
+            CadastralNumber = "9999999901:01:001:0002",
+            Title = "Елітна резиденція в Конча-Заспі",
+            Location = "Київська область, смт Козин",
+            AreaHectares = 0.60,
+            Purpose = "02.01 Для будівництва житлового будинку",
+            PriceUsd = 120000m,
+            OwnershipDocNumber = "ДРРП-999992",
+            SellerBankIban = seller.BankDetails,
+            Description = "Тестова ділянка з 6-значною ціною",
+            Status = PlotStatus.VerifiedInCatalog,
+            SellerId = seller.Id,
+            CreatedAt = DateTime.Now.AddDays(-1)
+        };
+
+        _context.LandPlots.AddRange(plotCheap, plotExpensive);
+        await _context.SaveChangesAsync();
+
+        var filterAsc = new PlotFilter { Sort = PlotSort.Price, Descending = false };
+        var resultAsc = await _queries.FilterPlotsAsync(filterAsc);
+
+        Assert.Equal(5400m, resultAsc.Rows.First().PriceUsd);
+        Assert.Equal(120000m, resultAsc.Rows.Last().PriceUsd);
+
+        for (int i = 0; i < resultAsc.Rows.Count - 1; i++)
+        {
+            Assert.True(resultAsc.Rows[i].PriceUsd <= resultAsc.Rows[i + 1].PriceUsd,
+                $"Помилка сортування ASC: {resultAsc.Rows[i].PriceUsd} > {resultAsc.Rows[i + 1].PriceUsd}");
+        }
+
+        var filterDesc = new PlotFilter { Sort = PlotSort.Price, Descending = true };
+        var resultDesc = await _queries.FilterPlotsAsync(filterDesc);
+
+        Assert.Equal(120000m, resultDesc.Rows.First().PriceUsd);
+        Assert.Equal(5400m, resultDesc.Rows.Last().PriceUsd);
+
+        for (int i = 0; i < resultDesc.Rows.Count - 1; i++)
+        {
+            Assert.True(resultDesc.Rows[i].PriceUsd >= resultDesc.Rows[i + 1].PriceUsd,
+                $"Помилка сортування DESC: {resultDesc.Rows[i].PriceUsd} < {resultDesc.Rows[i + 1].PriceUsd}");
+        }
+    }
+
+    [Fact]
+    public async Task Scenario14_CyrillicCaseInsensitiveSearch()
+    {
+        var resultLowerRegion = await _queries.FilterPlotsAsync(new PlotFilter { Region = "київська" });
+        Assert.NotEmpty(resultLowerRegion.Rows);
+        Assert.All(resultLowerRegion.Rows, r => Assert.Contains("Київська", r.Location));
+
+        var resultLowerParticipant = await _queries.FilterPlotsAsync(new PlotFilter { Participant = "бондар" });
+        Assert.NotEmpty(resultLowerParticipant.Rows);
+        Assert.Contains(resultLowerParticipant.Rows, r => r.RealtorName.Contains("Бондар"));
+
+        var resultAudit = await _queries.LandBankAuditAsync(new LandBankFilter { Region = "київська" });
+        Assert.NotEmpty(resultAudit.Rows);
+        Assert.All(resultAudit.Rows, r => Assert.Contains("Київська", r.Location));
+    }
+
+    [Fact]
+    public async Task Scenario15_LinqShowcase_AdvancedOperators()
+    {
+        var showcase = await _queries.GetLinqShowcaseAsync();
+
+        Assert.True(showcase.TotalPlotsWithAllDocsVerified > 0);
+        Assert.True(showcase.TotalBuyersWithAnyViewing > 0);
+        Assert.True(showcase.AllDistinctPurposes.Count >= 3);
+        Assert.NotEmpty(showcase.MarketIntersectRegions);
+        Assert.NotEmpty(showcase.BuyersWithoutDeals);
+        Assert.NotEmpty(showcase.FlattenedDocTitles);
+        Assert.StartsWith("Кадастровий реєстр сертифікованих ділянок: ", showcase.AggregatedCadastralRoll);
+        Assert.Equal(5, showcase.ZippedBenchmarks.Count);
+        Assert.All(showcase.ZippedBenchmarks, z => Assert.False(string.IsNullOrWhiteSpace(z.EvaluationVerdict)));
+        Assert.NotEmpty(showcase.MultiSortedPlots);
+        Assert.Equal(4, showcase.PaginatedPlots.Count);
+    }
+
+    [Fact]
+    public async Task Scenario16_QueriesController_AllEndpoints_ReturnSuccessViewModels()
+    {
+        var controller = new QueriesController(_queries, _context);
+
+        var indexResult = Assert.IsType<ViewResult>(await controller.Index());
+        var indexModel = Assert.IsType<QueriesDashboardViewModel>(indexResult.Model);
+        Assert.Equal(8, indexModel.TotalTables);
+        Assert.True(indexModel.TotalRows >= 80);
+
+        var filterResult = Assert.IsType<ViewResult>(await controller.FilterPlots(new PlotFilter()));
+        var filterModel = Assert.IsType<PlotsFilterViewModel>(filterResult.Model);
+        Assert.NotEmpty(filterModel.Result.Rows);
+
+        var turnoverResult = Assert.IsType<ViewResult>(await controller.PeriodTurnover(PeriodKind.Month, desc: false));
+        var turnoverModel = Assert.IsType<PeriodTurnoverViewModel>(turnoverResult.Model);
+        Assert.False(turnoverModel.Descending);
+        Assert.NotEmpty(turnoverModel.ByPurpose.Rows);
+
+        var landBankResult = Assert.IsType<ViewResult>(await controller.LandBank(new LandBankFilter()));
+        var landBankModel = Assert.IsType<LandBankViewModel>(landBankResult.Model);
+        Assert.NotEmpty(landBankModel.Result.Rows);
+
+        var usersResult = Assert.IsType<ViewResult>(await controller.Users());
+        var usersModel = Assert.IsType<UsersManagementViewModel>(usersResult.Model);
+        Assert.NotEmpty(usersModel.Users);
+
+        var showcaseResult = Assert.IsType<ViewResult>(await controller.LinqShowcase());
+        var showcaseModel = Assert.IsType<LinqShowcaseViewModel>(showcaseResult.Model);
+        Assert.NotNull(showcaseModel.Showcase);
+    }
+
+    private sealed class TestTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object?> LoadTempData(HttpContext? context) => new Dictionary<string, object?>();
+        public void SaveTempData(HttpContext? context, IDictionary<string, object?>? values) { }
+    }
+
+    [Fact]
+    public async Task Scenario17_QueriesController_CrudFormActions()
+    {
+        var httpContext = new DefaultHttpContext();
+        var tempData = new TempDataDictionary(httpContext, new TestTempDataProvider());
+
+        var controller = new QueriesController(_queries, _context)
+        {
+            TempData = tempData
+        };
+
+        var emptyAddResult = Assert.IsType<RedirectToActionResult>(await controller.AddUser(new AddUserFormModel()));
+        Assert.Equal("Users", emptyAddResult.ActionName);
+        Assert.NotNull(tempData["ErrorMessage"]);
+
+        string email = "controller.client@test.ua";
+        var validAddResult = Assert.IsType<RedirectToActionResult>(await controller.AddUser(new AddUserFormModel
+        {
+            FullName = "Контролер Клієнт",
+            Email = email,
+            Phone = "+380 50 777 66 55",
+            Role = UserRole.Client,
+            Password = "passClient123",
+            BankDetails = "UA113052990000026201234567811"
+        }));
+        Assert.Equal("Users", validAddResult.ActionName);
+        Assert.NotNull(tempData["SuccessMessage"]);
+
+        var created = await _context.Users.FirstAsync(u => u.Email == email);
+        var updateResult = Assert.IsType<RedirectToActionResult>(await controller.UpdateUser(new UpdateUserFormModel
+        {
+            Id = created.Id,
+            FullName = "Контролер Клієнт Оновлений",
+            Phone = "+380 67 111 22 33",
+            IsActive = true,
+            NewPassword = null
+        }));
+        Assert.Equal("Users", updateResult.ActionName);
+
+        var updated = await _context.Users.FindAsync(created.Id);
+        Assert.Equal("Контролер Клієнт Оновлений", updated!.FullName);
+
+        var deleteResult = Assert.IsType<RedirectToActionResult>(await controller.DeleteUser(created.Id));
+        Assert.Equal("Users", deleteResult.ActionName);
+
+        var deletedCheck = await _context.Users.FindAsync(created.Id);
+        Assert.Null(deletedCheck);
     }
 }
