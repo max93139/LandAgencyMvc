@@ -1,0 +1,230 @@
+@model LandAgencyMvc.Models.LinqShowcaseViewModel
+@{
+    ViewData["Title"] = "Демонстрація всіх категорій операторів LINQ";
+    ViewData["ActiveNav"] = "LinqShowcase";
+}
+
+<div class="la-window">
+    <partial name="_QueriesNavbar" />
+
+    <div class="la-body">
+        <partial name="_AlertMessages" />
+
+        <div class="la-card">
+            <div class="la-row-between">
+                <div>
+                    <h2>Комплексна демонстрація операторів LINQ (Лекція №9)</h2>
+                    <p class="la-meta">
+                        Охоплення всіх категорій мови інтегрованих запитів: квантори (All, Any), сплощення (SelectMany), операції над множинами (Distinct, Intersect, Except), згортка (Aggregate), спарювання (Zip), множинне сортування (ThenBy) та пагінація (Skip, Take).
+                    </p>
+                </div>
+                <a class="la-btn la-btn-gray la-btn-sm" asp-controller="Queries" asp-action="Index">← До переліку звітів</a>
+            </div>
+        </div>
+
+        <div class="la-grid-2">
+            <div class="la-card">
+                <h3>1. Квантори та логічні предикати (Quantifiers: All & Any)</h3>
+                <p class="la-meta">
+                    Оператор <code>All</code> перевіряє виконання умови для 100% елементів послідовності; оператор <code>Any</code> перевіряє наявність хоча б одного елемента, що задовольняє умову.
+                </p>
+                <div class="la-subcard la-subcard-green">
+                    <span class="la-stat-num">@Model.Showcase.TotalPlotsWithAllDocsVerified</span>
+                    <p class="la-meta">
+                        Ділянок, у яких <strong>усі (All)</strong> завантажені документи мають підтверджений статус <code>IsVerified == true</code>.
+                    </p>
+                    <p><code>plots.Where(p =&gt; p.Documents.Any() &amp;&amp; p.Documents.All(d =&gt; d.IsVerified))</code></p>
+                </div>
+                <div class="la-subcard la-subcard-indigo">
+                    <span class="la-stat-num">@Model.Showcase.TotalBuyersWithAnyViewing</span>
+                    <p class="la-meta">
+                        Клієнтів-покупців, які мають <strong>хоча б одну (Any)</strong> активну заявку на виїзний перегляд меж ділянки.
+                    </p>
+                    <p><code>users.Where(u =&gt; u.Role == Client &amp;&amp; viewings.Any(v =&gt; v.BuyerId == u.Id))</code></p>
+                </div>
+            </div>
+
+            <div class="la-card">
+                <h3>2. Проєкція зі сплощенням колекцій (SelectMany)</h3>
+                <p class="la-meta">
+                    Оператор <code>SelectMany</code> «розгортає» вкладені колекції (1:N) у єдиний плоский потік елементів (від кожного об'єкта ділянки до списку її правовстановлюючих документів).
+                </p>
+                <p><code>plots.Where(...).SelectMany(p =&gt; p.Documents.Select(d =&gt; $"{p.CadastralNumber}: {d.Title}"))</code></p>
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Сплощений реєстр документів ділянок (Flattened Stream)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int docIdx = 1; }
+                        @foreach (var doc in Model.Showcase.FlattenedDocTitles)
+                        {
+                            <tr>
+                                <td>@(docIdx++)</td>
+                                <td><code>@doc</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="la-card">
+            <h3>3. Теоретико-множинні операції (Set Operations: Distinct, Intersect, Except)</h3>
+            <p class="la-meta">
+                Реалізація класичних операцій над множинами: усунення дублікатів (Distinct), знаходження перетину вимог попиту та пропозиції (Intersect) та знаходження різниці множин (Except).
+            </p>
+            <div class="la-grid-3">
+                <div class="la-subcard la-subcard-indigo">
+                    <h4>Унікальні цільові призначення (Distinct)</h4>
+                    <p class="la-meta">Всі неповторювані коди КВЦПЗ у поточному каталозі:</p>
+                    <ul>
+                        @foreach (var purpose in Model.Showcase.AllDistinctPurposes)
+                        {
+                            <li><small>@purpose</small></li>
+                        }
+                    </ul>
+                    <p><code>plots.Select(p =&gt; p.Purpose).Distinct()</code></p>
+                </div>
+
+                <div class="la-subcard la-subcard-green">
+                    <h4>Перетин попиту та пропозиції (Intersect)</h4>
+                    <p class="la-meta">Регіони, де є ділянки продавців ТА одночасно подані заявки покупців:</p>
+                    <ul>
+                        @foreach (var region in Model.Showcase.MarketIntersectRegions)
+                        {
+                            <li><strong>@region</strong> <span class="la-badge la-badge-green">Активний попит ✓</span></li>
+                        }
+                    </ul>
+                    <p><code>sellerRegions.Intersect(buyerDistricts)</code></p>
+                </div>
+
+                <div class="la-subcard la-subcard-amber">
+                    <h4>Покупці без оформлених угод (Except)</h4>
+                    <p class="la-meta">Зареєстровані клієнти, які ще не придбали жодної ділянки (потенційні ліди):</p>
+                    <ul>
+                        @foreach (var client in Model.Showcase.BuyersWithoutDeals)
+                        {
+                            <li>@client <span class="la-badge la-badge-amber">В роботі рієлтора</span></li>
+                        }
+                    </ul>
+                    <p><code>allClients.Except(dealBuyers)</code></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="la-grid-2">
+            <div class="la-card">
+                <h3>4. Акумуляція та згортка послідовності (Aggregate)</h3>
+                <p class="la-meta">
+                    Оператор <code>Aggregate</code> застосовує функцію акумуляції до послідовності елементів для отримання єдиного зведеного результату (аналог fold/reduce).
+                </p>
+                <div class="la-subcard">
+                    <p><code>plots.Select(p =&gt; p.CadastralNumber).Aggregate("Реєстр: ", (acc, cad) =&gt; $"{acc} [{cad}]")</code></p>
+                    <p><strong>Результат виконання агрегації:</strong></p>
+                    <p><code>@Model.Showcase.AggregatedCadastralRoll</code></p>
+                </div>
+            </div>
+
+            <div class="la-card">
+                <h3>5. Спарювання паралельних послідовностей (Zip)</h3>
+                <p class="la-meta">
+                    Оператор <code>Zip</code> попарно об'єднує дві незалежні послідовності однакової довжини за вказаним правилом проєкції (ділянки каталогу та розрахункові бенчмарки вартості).
+                </p>
+                <p><code>plots.Zip(benchmarks, (p, b) =&gt; new BenchmarkComparisonRow(p.CadastralNumber, ...))</code></p>
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>Кадастровий номер</th>
+                            <th>Фактична ціна</th>
+                            <th>Бенчмарк</th>
+                            <th>Відхилення</th>
+                            <th>Оцінка AVM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var z in Model.Showcase.ZippedBenchmarks)
+                        {
+                            <tr>
+                                <td><code>@z.CadastralNumber</code></td>
+                                <td><strong>$@z.ActualPriceUsd.ToString("N0")</strong></td>
+                                <td>$@z.BenchmarkPriceUsd.ToString("N0")</td>
+                                <td>
+                                    @if (z.DeviationPercent > 0)
+                                    {
+                                        <span class="la-badge la-badge-red">+@z.DeviationPercent%</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="la-badge la-badge-green">@z.DeviationPercent%</span>
+                                    }
+                                </td>
+                                <td><small>@z.EvaluationVerdict</small></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="la-grid-2">
+            <div class="la-card">
+                <h3>6. Множинні критерії сортування (OrderBy &amp; ThenByDescending)</h3>
+                <p class="la-meta">
+                    Сортування за первинним ключем (Регіон/Локація за зростанням), а всередині кожного регіону — вторинне сортування (Ціна за спаданням).
+                </p>
+                <p><code>plots.OrderBy(p =&gt; p.Location).ThenByDescending(p =&gt; p.PriceUsd)</code></p>
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>Локація (Primary: ASC)</th>
+                            <th>Ціна (Secondary: DESC)</th>
+                            <th>Кадастровий номер</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var plot in Model.Showcase.MultiSortedPlots)
+                        {
+                            <tr>
+                                <td>@plot.Location</td>
+                                <td><strong>$@plot.PriceUsd.ToString("N0")</strong></td>
+                                <td><code>@plot.CadastralNumber</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="la-card">
+                <h3>7. Секціонування та пагінація даних (Skip &amp; Take)</h3>
+                <p class="la-meta">
+                    Посторінковий вивід результатів: пропуск перших <code>Skip(2)</code> записів та взяття наступних <code>Take(4)</code> для ефективної передачі даних на клієнт.
+                </p>
+                <p><code>plots.OrderBy(p =&gt; p.Id).Skip(2).Take(4)</code></p>
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Назва ділянки</th>
+                            <th>Площа</th>
+                            <th>Ціна</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var plot in Model.Showcase.PaginatedPlots)
+                        {
+                            <tr>
+                                <td><strong>#@plot.Id</strong></td>
+                                <td>@plot.Title</td>
+                                <td>@plot.AreaHectares га</td>
+                                <td><strong>$@plot.PriceUsd.ToString("N0")</strong></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

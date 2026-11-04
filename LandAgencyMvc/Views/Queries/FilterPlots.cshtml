@@ -94,10 +94,11 @@
 
                 <div class="la-row-between">
                     <div>
-                        <label>
-                            <input type="checkbox" name="Descending" value="true" checked="@Model.Filter.Descending" />
-                            За спаданням (Descending)
-                        </label>
+                        <label class="la-label">Напрямок сортування:</label>
+                        <select class="la-input" name="Descending">
+                            <option value="true" selected="@Model.Filter.Descending">За спаданням (від більшого до меншого)</option>
+                            <option value="false" selected="@(!Model.Filter.Descending)">За зростанням (від меншого до більшого)</option>
+                        </select>
                     </div>
                     <div>
                         <a class="la-btn la-btn-gray la-btn-sm" asp-controller="Queries" asp-action="FilterPlots">Скинути фільтр</a>

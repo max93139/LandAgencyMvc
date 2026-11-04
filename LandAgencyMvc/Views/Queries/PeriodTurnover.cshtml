@@ -64,8 +64,11 @@
                             </select>
                         </label>
                         <label>
-                            <input type="checkbox" name="desc" value="true" checked="@Model.Descending" />
-                            За спаданням
+                            Порядок:
+                            <select name="desc" class="la-input">
+                                <option value="true" selected="@Model.Descending">За спаданням</option>
+                                <option value="false" selected="@(!Model.Descending)">За зростанням</option>
+                            </select>
                         </label>
                     </div>
                     <div>
