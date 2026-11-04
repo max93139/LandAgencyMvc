@@ -24,6 +24,7 @@
             <a class="@(activeNav == "Conclusion" ? "active" : "")" asp-controller="Lawyer" asp-action="Conclusion">Юридичний висновок</a>
         }
         <a class="@(activeNav == "Contracts" ? "active" : "")" asp-controller="Lawyer" asp-action="Contracts">Погодження договорів</a>
+        <a class="@(activeNav == "Queries" ? "active" : "")" asp-controller="Queries" asp-action="Index">Звітність (LINQ)</a>
     </div>
     <div class="la-topbar-user">
         <span>@fullName@cert</span>

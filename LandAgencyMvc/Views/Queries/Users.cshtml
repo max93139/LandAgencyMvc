@@ -1,0 +1,184 @@
+@model LandAgencyMvc.Models.UsersManagementViewModel
+@{
+    ViewData["Title"] = "Запити 5–8 — Управління користувачами (CRUD & Restrict)";
+    ViewData["ActiveNav"] = "Users";
+}
+
+<div class="la-window">
+    <partial name="_QueriesNavbar" />
+
+    <div class="la-body">
+        <partial name="_AlertMessages" />
+
+        <div class="la-card">
+            <div class="la-row-between">
+                <div>
+                    <h2>Запити 5–8: Пошук, верифікація пароля, транзакційне додавання, зміна та вилучення</h2>
+                    <p class="la-meta">
+                        Комплексна демонстрація операцій C-R-U-D, криптографічної перевірки хешів PBKDF2, атомарних транзакцій та захисту цілісності бази даних <code>OnDelete(DeleteBehavior.Restrict)</code>.
+                    </p>
+                </div>
+                <a class="la-btn la-btn-gray la-btn-sm" asp-controller="Queries" asp-action="Index">← До переліку звітів</a>
+            </div>
+        </div>
+
+        <div class="la-grid-2">
+            <div class="la-card">
+                <h3>Запит 5: Пошук за логіном (Email) та перевірка пароля</h3>
+                <p class="la-meta">
+                    Паролі зберігаються у форматі криптографічного соленого хешу PBKDF2 (<code>PasswordHasher&lt;AppUser&gt;</code>). Відкритий пароль у базі відсутній, перевірка здійснюється методом <code>VerifyHashedPassword</code>.
+                </p>
+
+                <form method="get" asp-controller="Queries" asp-action="Users">
+                    <label class="la-label">Електронна пошта (Email)</label>
+                    <input class="la-input" name="checkEmail" value="@Model.CheckPasswordEmail" placeholder="напр. seller@landagency.ua" required />
+
+                    <label class="la-label">Пароль для перевірки</label>
+                    <input type="password" class="la-input" name="password" placeholder="Введіть пароль" required />
+
+                    <div class="la-row-between">
+                        <button type="submit" class="la-btn la-btn-indigo la-btn-sm">Перевірити PBKDF2 пароль</button>
+                        <small class="la-meta">Тестові паролі: client123, realtor123, lawyer123, admin123</small>
+                    </div>
+                </form>
+
+                @if (Model.PasswordCheckResult.HasValue)
+                {
+                    <div class="la-alert @(Model.PasswordCheckResult.Value ? "la-alert-success" : "la-alert-error")">
+                        <strong>Результат перевірки:</strong>
+                        @(Model.PasswordCheckResult.Value ? "Пароль вірний. Автентифікацію пройдено успішно ✓" : "Пароль невірний. Хеш не співпадає ✕")
+                    </div>
+                }
+            </div>
+
+            <div class="la-card">
+                <h3>Запит 6: Транзакційне додавання нового користувача</h3>
+                <p class="la-meta">
+                    Створення користувача, розрахунок PBKDF2 хешу та автоматичне формування стартової заявки на підбір (для клієнтів) у межах єдиної атомарної транзакції <code>BeginTransactionAsync()</code>.
+                </p>
+
+                <form method="post" asp-controller="Queries" asp-action="AddUser">
+                    @Html.AntiForgeryToken()
+                    <div class="la-grid-2">
+                        <div>
+                            <label class="la-label">ПІБ користувача *</label>
+                            <input class="la-input" name="FullName" placeholder="Гончаренко Богдан Іванович" required />
+                        </div>
+                        <div>
+                            <label class="la-label">Email (унікальний) *</label>
+                            <input type="email" class="la-input" name="Email" placeholder="b.goncharenko@test.ua" required />
+                        </div>
+                    </div>
+
+                    <div class="la-grid-3">
+                        <div>
+                            <label class="la-label">Телефон</label>
+                            <input class="la-input" name="Phone" placeholder="+380 50 111 22 33" />
+                        </div>
+                        <div>
+                            <label class="la-label">Роль у системі</label>
+                            <select class="la-input" name="Role">
+                                <option value="Client">Клієнт (Покупець / Продавець)</option>
+                                <option value="Realtor">Рієлтор агентства</option>
+                                <option value="Lawyer">Юрист агентства</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="la-label">Пароль облікового запису *</label>
+                            <input type="password" class="la-input" name="Password" placeholder="Секретний пароль" required />
+                        </div>
+                    </div>
+
+                    <label class="la-label">IBAN розрахунковий рахунок (для фінансових угод)</label>
+                    <input class="la-input" name="BankDetails" placeholder="UA123052990000026201234567899" />
+
+                    <button type="submit" class="la-btn la-btn-green la-btn-sm">+ Додати користувача в транзакції</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="la-card">
+            <h3>Запити 7 та 8: Реєстр облікових записів (Модифікація, Блокування & Контроль Restrict)</h3>
+            <p class="la-meta">
+                Зміна ПІБ, телефону, статусу активності (блокування) та пароля (Запит 7). Вилучення користувача (Запит 8): захист від каскадного видалення — користувачів із зареєстрованими ділянками або угодами видалити неможливо, їх можна лише заблокувати.
+            </p>
+
+            <table class="la-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>ПІБ користувача</th>
+                        <th>Email / Логін</th>
+                        <th>Телефон</th>
+                        <th>Роль</th>
+                        <th>Статус</th>
+                        <th>IBAN / Рахунок</th>
+                        <th>Дії (Запити 7 та 8)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model.Users)
+                    {
+                        <tr>
+                            <td><strong>#@u.Id</strong></td>
+                            <td>
+                                <strong>@u.FullName</strong>
+                                @if (u.Email.Contains("admin"))
+                                {
+                                    <span class="la-badge la-badge-indigo">Головний адміністратор</span>
+                                }
+                            </td>
+                            <td><code>@u.Email</code></td>
+                            <td>@u.Phone</td>
+                            <td><span class="la-badge la-badge-indigo">@u.Role</span></td>
+                            <td>
+                                @if (u.IsActive)
+                                {
+                                    <span class="la-badge la-badge-green">Активний ✓</span>
+                                }
+                                else
+                                {
+                                    <span class="la-badge la-badge-red">Заблоковано ✕</span>
+                                }
+                            </td>
+                            <td><small><code>@u.BankDetails</code></small></td>
+                            <td>
+                                <details>
+                                    <summary class="la-btn la-btn-gray la-btn-xs">Редагувати</summary>
+                                    <div class="la-subcard">
+                                        <form method="post" asp-controller="Queries" asp-action="UpdateUser">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="Id" value="@u.Id" />
+                                            <label class="la-label">ПІБ</label>
+                                            <input class="la-input" name="FullName" value="@u.FullName" required />
+                                            <label class="la-label">Телефон</label>
+                                            <input class="la-input" name="Phone" value="@u.Phone" />
+                                            <label>
+                                                <input type="checkbox" name="IsActive" value="true" checked="@u.IsActive" />
+                                                Обліковий запис активний
+                                            </label>
+                                            <label class="la-label">Новий пароль (залиште порожнім, якщо без змін)</label>
+                                            <input type="password" class="la-input" name="NewPassword" placeholder="Новий пароль" />
+                                            <button type="submit" class="la-btn la-btn-indigo la-btn-xs">Зберегти зміни (Запит 7)</button>
+                                        </form>
+                                    </div>
+                                </details>
+
+                                @if (!u.Email.Contains("admin"))
+                                {
+                                    <form method="post" asp-controller="Queries" asp-action="DeleteUser" class="la-inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@u.Id" />
+                                        <button type="submit" class="la-btn la-btn-red la-btn-xs" onclick="return confirm('Видалити користувача @u.FullName? Увага: якщо у користувача є прив\'язані ділянки чи угоди, система відхилить видалення за правилом Restrict.');">
+                                            Вилучити (Запит 8)
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

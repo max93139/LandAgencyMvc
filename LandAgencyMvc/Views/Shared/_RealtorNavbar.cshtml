@@ -15,6 +15,7 @@
         <a class="@(activeNav == "Requests" ? "active" : "")" asp-controller="Realtor" asp-action="Requests">Запити на підбір</a>
         <a class="@(activeNav == "Viewings" ? "active" : "")" asp-controller="Realtor" asp-action="Viewings">Черга оглядів</a>
         <a class="@(activeNav == "Deals" ? "active" : "")" asp-controller="Realtor" asp-action="Deals">Угоди та нотаріат</a>
+        <a class="@(activeNav == "Queries" ? "active" : "")" asp-controller="Queries" asp-action="Index">Звітність (LINQ)</a>
     </div>
     <div class="la-topbar-user">
         <span>@fullName@license</span>

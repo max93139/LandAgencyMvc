@@ -18,6 +18,8 @@
             <a class="@(activeNav == "Catalog" ? "active" : "")" asp-controller="Client" asp-action="Catalog">Каталог ділянок</a>
         }
         <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет (Оголошення / Угоди)</a>
+        <a class="@(activeNav == "Queries" ? "active" : "")" asp-controller="Queries" asp-action="Index">Звітність (LINQ)</a>
+        <a class="la-nav-item" asp-controller="Home" asp-action="Contacts">Контакти </a>
     </div>
     <div class="la-topbar-user">
         <a class="la-btn la-btn-green la-btn-sm" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>

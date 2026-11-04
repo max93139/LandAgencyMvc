@@ -10,6 +10,7 @@
         {
             <a class="@(activeNav == "Catalog" ? "active" : "")" asp-controller="Client" asp-action="Catalog">Каталог</a>
             <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет</a>
+            <a class="@(activeNav == "Queries" ? "active" : "")" asp-controller="Queries" asp-action="Index">Звітність (LINQ)</a>
             <a asp-controller="Account" asp-action="Logout">Вийти</a>
         }
         else

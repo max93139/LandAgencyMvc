@@ -1,0 +1,179 @@
+@model LandAgencyMvc.Models.LandBankViewModel
+@{
+    ViewData["Title"] = "Запит 4 — Аудит земельного банку (4 таблиці)";
+    ViewData["ActiveNav"] = "LandBank";
+}
+
+<div class="la-window">
+    <partial name="_QueriesNavbar" />
+
+    <div class="la-body">
+        <partial name="_AlertMessages" />
+
+        <div class="la-card">
+            <div class="la-row-between">
+                <div>
+                    <h2>Запит 4: Комплексний аудит земельного банку та власників</h2>
+                    <p class="la-meta">
+                        Реляційне з'єднання 4 таблиць: <code>LandPlots</code> (ділянки) ⨝ <code>Users</code> (продавці) ⨝ <code>PlotDocuments</code> (документи) ⟕ <code>LegalConclusions</code> (юридичні висновки ДЗК).
+                    </p>
+                </div>
+                <a class="la-btn la-btn-gray la-btn-sm" asp-controller="Queries" asp-action="Index">← До переліку звітів</a>
+            </div>
+        </div>
+
+        <div class="la-card">
+            <h3>Фільтр аудиту земельного банку</h3>
+            <form method="get" asp-controller="Queries" asp-action="LandBank">
+                <div class="la-grid-4">
+                    <div>
+                        <label class="la-label">Область / Локація</label>
+                        <input class="la-input" name="Region" value="@Model.Filter.Region" placeholder="напр. Київська, Львівська..." />
+                    </div>
+
+                    <div>
+                        <label class="la-label">Рівень юридичного ризику (ДЗК/ДРРП)</label>
+                        <select class="la-input" name="RiskLevel">
+                            <option value="">-- Усі рівні ризику --</option>
+                            <option value="Низький" selected="@(Model.Filter.RiskLevel == "Низький")">Низький (Чисто)</option>
+                            <option value="Середній" selected="@(Model.Filter.RiskLevel == "Середній")">Середній (Сервітут / ЛЕП)</option>
+                            <option value="Високий" selected="@(Model.Filter.RiskLevel == "Високий")">Високий (Судовий арешт / Іпотека)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="la-label">Цільове призначення</label>
+                        <input class="la-input" name="Purpose" value="@Model.Filter.Purpose" placeholder="02.01, 01.01..." />
+                    </div>
+
+                    <div>
+                        <label class="la-label">Статус ділянки</label>
+                        <select class="la-input" name="Status">
+                            <option value="">-- Усі статуси --</option>
+                            <option value="VerifiedInCatalog" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)">Опубліковано</option>
+                            <option value="PendingLegalCheck" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)">На перевірці</option>
+                            <option value="Sold" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.Sold)">Продано</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="la-row-between">
+                    <div>
+                        <label>
+                            <input type="checkbox" name="OnlyVerifiedDocs" value="true" checked="@Model.Filter.OnlyVerifiedDocs" />
+                            Тільки об'єкти з прикріпленими документами (SHA-256)
+                        </label>
+                    </div>
+                    <div>
+                        <a class="la-btn la-btn-gray la-btn-sm" asp-controller="Queries" asp-action="LandBank">Скинути</a>
+                        <button type="submit" class="la-btn la-btn-amber la-btn-sm">Виконати аудит 4 таблиць</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="la-grid-4">
+            <div class="la-card">
+                <span class="la-stat-num">@Model.TotalPlots</span>
+                <span class="la-meta">Ділянок у вибірці</span>
+            </div>
+            <div class="la-card">
+                <span class="la-stat-num">@Model.TotalAreaHa.ToString("F2") га</span>
+                <span class="la-meta">Сумарна площа банку</span>
+            </div>
+            <div class="la-card">
+                <span class="la-stat-num">@Model.TotalValueUsd.ToString("N0") $</span>
+                <span class="la-meta">Сукупна оціночна вартість</span>
+            </div>
+            <div class="la-card">
+                <span class="la-stat-num">@Model.TotalCleanPlots</span>
+                <span class="la-meta">Схвалено юристом (Чисто)</span>
+            </div>
+        </div>
+
+        <div class="la-card">
+            <h3>Зведена відомість земельного банку (@Model.Result.Rows.Count записів)</h3>
+
+            @if (Model.Result.Rows.Count == 0)
+            {
+                <p class="la-meta">Об'єктів за даними критеріями не виявлено.</p>
+            }
+            else
+            {
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>Кадастровий номер</th>
+                            <th>Ділянка та адреса</th>
+                            <th>Цільове призначення</th>
+                            <th>Площа</th>
+                            <th>Вартість ($)</th>
+                            <th>Власник (Продавець)</th>
+                            <th>IBAN продавця</th>
+                            <th>Документів</th>
+                            <th>Ризик ДЗК / ДРРП</th>
+                            <th>Правовий статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Result.Rows)
+                        {
+                            <tr>
+                                <td><code>@row.CadastralNumber</code></td>
+                                <td>
+                                    <strong>@row.Title</strong><br />
+                                    <small class="la-meta">@row.Location</small>
+                                </td>
+                                <td><small>@row.Purpose</small></td>
+                                <td>@row.AreaHectares.ToString("F2") га</td>
+                                <td><strong>@row.PriceUsd.ToString("N0") $</strong></td>
+                                <td>
+                                    @row.SellerName<br />
+                                    <small class="la-meta">@row.SellerPhone</small>
+                                </td>
+                                <td><small><code>@row.SellerIban</code></small></td>
+                                <td>
+                                    <span class="la-badge la-badge-indigo">@row.DocumentsCount док.</span>
+                                </td>
+                                <td>
+                                    @if (row.RiskLevel.Contains("Чисто") || row.RiskLevel.Contains("Низький"))
+                                    {
+                                        <span class="la-badge la-badge-green">@row.RiskLevel</span>
+                                    }
+                                    else if (row.RiskLevel.Contains("Середній"))
+                                    {
+                                        <span class="la-badge la-badge-amber">@row.RiskLevel</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="la-badge la-badge-red">@row.RiskLevel</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (row.IsLegalApproved)
+                                    {
+                                        <span class="la-badge la-badge-green">Схвалено ✓</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="la-badge la-badge-red">Не схвалено ✕</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Result.SqlQuery))
+        {
+            <div class="la-card">
+                <h4>Згенерований SQL-запит (4-табличний Join via EF Core ToQueryString)</h4>
+                <div class="la-code-block">
+                    <pre><code>@Model.Result.SqlQuery</code></pre>
+                </div>
+            </div>
+        }
+    </div>
+</div>
