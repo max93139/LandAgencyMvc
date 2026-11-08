@@ -44,6 +44,12 @@ public class AccountController : Controller
             return RedirectToAction(nameof(Login), new { returnUrl });
         }
 
+        if (!user.IsActive)
+        {
+            TempData["LoginError"] = "Обліковий запис заблоковано адміністратором.";
+            return RedirectToAction(nameof(Login), new { returnUrl });
+        }
+
         await _db.SaveChangesAsync();
         await SignInUserAsync(user);
 
