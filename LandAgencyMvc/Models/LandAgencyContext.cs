@@ -234,7 +234,7 @@ public class LandAgencyContext : DbContext
             OwnershipDocNumber = "ДРРП-59102847",
             SellerBankIban = seller.BankDetails,
             Description = "Рівна фасаднa ділянка 15 соток, асфальтований під'їзд, газ та електрика 15 кВт уздовж межі, межові знаки винесені в натуру.",
-            Status = PlotStatus.VerifiedInCatalog,
+            Status = PlotStatus.Sold,
             SellerId = seller.Id,
             AssignedRealtorId = realtor?.Id,
             CreatedAt = DateTime.Now.AddDays(-5)
@@ -251,7 +251,7 @@ public class LandAgencyContext : DbContext
             OwnershipDocNumber = "ДРРП-60291834",
             SellerBankIban = seller.BankDetails,
             Description = "Ділянка правильної прямокутної форми у котеджному масиві, поруч міські комунікації та зручний виїзд на кільцеву дорогу.",
-            Status = PlotStatus.VerifiedInCatalog,
+            Status = PlotStatus.Sold,
             SellerId = seller.Id,
             AssignedRealtorId = realtor?.Id,
             CreatedAt = DateTime.Now.AddDays(-4)
@@ -268,7 +268,7 @@ public class LandAgencyContext : DbContext
             OwnershipDocNumber = "ДА-ЯЯ-410293",
             SellerBankIban = seller.BankDetails,
             Description = "Родюча земельна ділянка сільськогосподарського призначення, якісний чорнозем, рівнинний рельєф, зручний асфальтований під'їзд для великогабаритної агротехніки.",
-            Status = PlotStatus.PendingLegalCheck,
+            Status = PlotStatus.Sold,
             SellerId = seller.Id,
             AssignedRealtorId = realtor?.Id,
             CreatedAt = DateTime.Now.AddDays(-1)
@@ -393,35 +393,6 @@ public class LandAgencyContext : DbContext
             Status = ViewingStatus.Scheduled
         };
         ViewingRequests.Add(viewing1);
-
-        var deal1 = new SaleDeal
-        {
-            LandPlotId = plot2.Id,
-            BuyerId = buyer.Id,
-            RealtorId = realtor?.Id,
-            LawyerId = lawyer?.Id,
-            NotaryOffice = "Перша Львівська державна нотаріальна контора",
-            NotaryDate = DateTime.Today.AddDays(3).AddHours(14),
-            LawyerApprovalNotes = "Текст договору відповідає вимогам ст. 132 Земельного кодексу України. Дозволено передачу пакету документів нотаріусу."
-        };
-        deal1.PrepareContractDraft($"ДГ-{DateTime.Now:yyyy}-101", plot2.PriceUsd, 3.0);
-        deal1.Status = DealStatus.ApprovedByLawyerForNotary;
-
-        SaleDeals.Add(deal1);
-        SaveChanges();
-
-        var payments = deal1.CreateDefaultPayments(
-            seller.BankDetails,
-            isPaid: false,
-            senderIban: buyer.BankDetails,
-            agencyIban: realtor?.BankDetails);
-
-        if (payments.Count > 1)
-        {
-            payments[1].SubmitPayment("TRX-PB24-908172", buyer.BankDetails);
-        }
-
-        Payments.AddRange(payments);
         SaveChanges();
     }
 
