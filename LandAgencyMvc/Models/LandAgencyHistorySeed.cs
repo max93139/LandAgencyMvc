@@ -97,7 +97,7 @@ public static class LandAgencyHistorySeed
         {
             admin = new AppUser
             {
-                FullName = "Сивопляс Максим",
+                FullName = "Адміністратор системи",
                 Email = "admin@landagency.ua",
                 Phone = "+380 50 123 45 67",
                 TaxId = "3345109821",
