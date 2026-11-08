@@ -80,6 +80,16 @@
                     </div>
 
                     <div>
+                        <label class="la-label">Дата реєстрації: З</label>
+                        <input type="date" class="la-input" name="From" value="@(Model.Filter.From?.ToString("yyyy-MM-dd"))" />
+                    </div>
+
+                    <div>
+                        <label class="la-label">Дата реєстрації: По</label>
+                        <input type="date" class="la-input" name="To" value="@(Model.Filter.To?.ToString("yyyy-MM-dd"))" />
+                    </div>
+
+                    <div>
                         <label class="la-label">Сортування</label>
                         <select class="la-input" name="Sort">
                             <option value="Date" selected="@(Model.Filter.Sort == LandAgencyMvc.Services.PlotSort.Date)">За датою лістингу</option>

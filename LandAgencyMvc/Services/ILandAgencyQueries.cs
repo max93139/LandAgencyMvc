@@ -148,7 +148,8 @@ public sealed record LandBankRow(
     int DocumentsCount,
     string RiskLevel,
     bool IsLegalApproved,
-    PlotStatus Status);
+    PlotStatus Status,
+    DateTime RegistrationDate = default);
 
 public sealed record TableStatsRow(string TableName, string ClassName, int RowCount, string Description);
 
@@ -165,12 +166,14 @@ public sealed record LinqShowcaseResult(
     int TotalBuyersWithAnyViewing,
     IReadOnlyList<string> AllDistinctPurposes,
     IReadOnlyList<string> MarketIntersectRegions,
+    IReadOnlyList<string> AllMarketRegionsUnion,
     IReadOnlyList<string> BuyersWithoutDeals,
     IReadOnlyList<string> FlattenedDocTitles,
     string AggregatedCadastralRoll,
     IReadOnlyList<BenchmarkComparisonRow> ZippedBenchmarks,
     IReadOnlyList<PlotRow> MultiSortedPlots,
-    IReadOnlyList<PlotRow> PaginatedPlots);
+    IReadOnlyList<PlotRow> PaginatedPlots,
+    IReadOnlyList<string> PlinqHighValuePlots);
 
 public interface ILandAgencyQueries
 {

@@ -24,20 +24,47 @@
 
         <div class="la-grid-2">
             <div class="la-card">
-                <h3>Запит 5: Пошук за логіном (Email) та перевірка пароля</h3>
+                <h3>Запит 5: Пошук за логіном (Email) та перевірка пароля (PBKDF2)</h3>
                 <p class="la-meta">
                     Паролі зберігаються у форматі криптографічного соленого хешу PBKDF2 (<code>PasswordHasher&lt;AppUser&gt;</code>). Відкритий пароль у базі відсутній, перевірка здійснюється методом <code>VerifyHashedPassword</code>.
                 </p>
 
+                <h4>1. Пошук користувача за логіном (без введення пароля)</h4>
                 <form method="get" asp-controller="Queries" asp-action="Users">
                     <label class="la-label">Електронна пошта (Email)</label>
-                    <input class="la-input" name="checkEmail" value="@Model.CheckPasswordEmail" placeholder="напр. seller@landagency.ua" required />
+                    <div class="la-row-between">
+                        <input class="la-input" name="searchEmail" value="@Model.SearchEmail" placeholder="напр. seller@landagency.ua або admin@landagency.ua" required />
+                        <button type="submit" class="la-btn la-btn-indigo la-btn-sm">Знайти користувача</button>
+                    </div>
+                </form>
+
+                @if (Model.FoundUser != null)
+                {
+                    <div class="la-subcard la-subcard-green">
+                        <h4>Знайдено: @Model.FoundUser.FullName (ID: #@Model.FoundUser.Id)</h4>
+                        <p class="la-meta">
+                            Email: <code>@Model.FoundUser.Email</code> |
+                            Телефон: <strong>@Model.FoundUser.Phone</strong> |
+                            Роль: <span class="la-badge la-badge-indigo">@Model.FoundUser.Role</span> |
+                            Статус: @(Model.FoundUser.IsActive ? "Активний ✓" : "Заблоковано ✕")
+                        </p>
+                        <p class="la-meta">
+                            IBAN: <code>@(string.IsNullOrWhiteSpace(Model.FoundUser.BankDetails) ? "Не вказано" : Model.FoundUser.BankDetails)</code>
+                        </p>
+                    </div>
+                }
+
+                <h4>2. Криптографічна перевірка пароля (POST-захист від витоку в URL)</h4>
+                <form method="post" asp-controller="Queries" asp-action="VerifyPassword">
+                    @Html.AntiForgeryToken()
+                    <label class="la-label">Електронна пошта (Email)</label>
+                    <input class="la-input" name="checkEmail" value="@(Model.CheckPasswordEmail ?? Model.SearchEmail)" placeholder="напр. seller@landagency.ua" required />
 
                     <label class="la-label">Пароль для перевірки</label>
                     <input type="password" class="la-input" name="password" placeholder="Введіть пароль" required />
 
                     <div class="la-row-between">
-                        <button type="submit" class="la-btn la-btn-indigo la-btn-sm">Перевірити PBKDF2 пароль</button>
+                        <button type="submit" class="la-btn la-btn-green la-btn-sm">Перевірити PBKDF2 пароль (POST)</button>
                         <small class="la-meta">Тестові паролі: client123, realtor123, lawyer123, admin123</small>
                     </div>
                 </form>

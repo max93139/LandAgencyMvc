@@ -76,7 +76,7 @@
             <p class="la-meta">
                 Реалізація класичних операцій над множинами: усунення дублікатів (Distinct), знаходження перетину вимог попиту та пропозиції (Intersect) та знаходження різниці множин (Except).
             </p>
-            <div class="la-grid-3">
+            <div class="la-grid-4">
                 <div class="la-subcard la-subcard-indigo">
                     <h4>Унікальні цільові призначення (Distinct)</h4>
                     <p class="la-meta">Всі неповторювані коди КВЦПЗ у поточному каталозі:</p>
@@ -87,6 +87,18 @@
                         }
                     </ul>
                     <p><code>plots.Select(p =&gt; p.Purpose).Distinct()</code></p>
+                </div>
+
+                <div class="la-subcard la-subcard-green">
+                    <h4>Об'єднання географії ринку (Union)</h4>
+                    <p class="la-meta">Усі регіони пропозиції та попиту (Лекція 9, сл. 12):</p>
+                    <ul>
+                        @foreach (var region in Model.Showcase.AllMarketRegionsUnion)
+                        {
+                            <li><small>@region</small></li>
+                        }
+                    </ul>
+                    <p><code>sellerDistricts.Union(buyerDistricts)</code></p>
                 </div>
 
                 <div class="la-subcard la-subcard-green">
@@ -107,7 +119,7 @@
                     <ul>
                         @foreach (var client in Model.Showcase.BuyersWithoutDeals)
                         {
-                            <li>@client <span class="la-badge la-badge-amber">В роботі рієлтора</span></li>
+                            <li>@client <span class="la-badge la-badge-amber">В роботі</span></li>
                         }
                     </ul>
                     <p><code>allClients.Except(dealBuyers)</code></p>
@@ -225,6 +237,32 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <div class="la-card">
+            <h3>8. Багатопотокова обробка PLINQ (.AsParallel())</h3>
+            <p class="la-meta">
+                Паралельне виконання запитів до колекцій у пам'яті через <strong>Parallel LINQ (PLINQ)</strong>: метод <code>.AsParallel()</code> автоматично розділяє обробку даних між ядрами процесора, прискорюючи фільтрацію та обчислення.
+            </p>
+            <p><code>plots.AsParallel().Where(p =&gt; p.PriceUsd &gt;= 40000m).OrderByDescending(p =&gt; p.PriceUsd)</code></p>
+            <table class="la-table">
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Ділянки високої вартості, відфільтровані через PLINQ (.AsParallel())</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int plinqIdx = 1; }
+                    @foreach (var item in Model.Showcase.PlinqHighValuePlots)
+                    {
+                        <tr>
+                            <td>@(plinqIdx++)</td>
+                            <td><code>@item</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

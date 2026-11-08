@@ -1,10 +1,12 @@
 using LandAgencyMvc.Models;
 using LandAgencyMvc.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace LandAgencyMvc.Controllers;
 
+[Authorize(Roles = "Realtor,Lawyer")]
 public class QueriesController : Controller
 {
     private readonly ILandAgencyQueries _queries;
@@ -46,6 +48,7 @@ public class QueriesController : Controller
         DateOnly? from = null,
         DateOnly? to = null,
         TurnoverSort sort = TurnoverSort.Turnover,
+        AgentSort? agentSort = null,
         bool? desc = null)
     {
         bool isDescending = desc ?? true;
@@ -58,8 +61,15 @@ public class QueriesController : Controller
             ? Period.Between(periodFrom, periodTo)
             : Period.Containing(kind, day);
 
+        var actualAgentSort = agentSort ?? sort switch
+        {
+            TurnoverSort.Deals => AgentSort.Deals,
+            TurnoverSort.Name => AgentSort.Name,
+            _ => AgentSort.Turnover
+        };
+
         var byPurpose = await _queries.TurnoverByPurposeAsync(period, sort, isDescending);
-        var byAgent = await _queries.AgentPerformanceAsync(period, AgentSort.Turnover, isDescending);
+        var byAgent = await _queries.AgentPerformanceAsync(period, actualAgentSort, isDescending);
 
         var model = new PeriodTurnoverViewModel
         {
@@ -101,35 +111,17 @@ public class QueriesController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Users(string? searchEmail = null, string? checkEmail = null, string? password = null)
+    public async Task<IActionResult> Users(string? searchEmail = null)
     {
         var allUsers = await _db.Users.AsNoTracking().OrderBy(u => u.Id).ToListAsync();
         AppUser? foundUser = null;
-        bool? checkResult = null;
 
         if (!string.IsNullOrWhiteSpace(searchEmail))
         {
             foundUser = await _queries.FindUserAsync(searchEmail);
-        }
-
-        if (!string.IsNullOrWhiteSpace(checkEmail) && !string.IsNullOrWhiteSpace(password))
-        {
-            var user = await _queries.FindUserAsync(checkEmail);
-            if (user != null)
+            if (foundUser == null && TempData != null)
             {
-                checkResult = _queries.CheckPassword(user, password);
-                if (checkResult == true)
-                {
-                    TempData["SuccessMessage"] = $"Пароль для користувача {user.FullName} ({user.Email}) успішно підтверджено (PBKDF2).";
-                }
-                else
-                {
-                    TempData["ErrorMessage"] = $"Невірний пароль для облікового запису {user.Email}.";
-                }
-            }
-            else
-            {
-                TempData["ErrorMessage"] = $"Користувача з адресою {checkEmail} не знайдено.";
+                TempData["ErrorMessage"] = $"Користувача з адресою '{searchEmail}' не знайдено.";
             }
         }
 
@@ -138,11 +130,48 @@ public class QueriesController : Controller
             Users = allUsers,
             SearchEmail = searchEmail,
             FoundUser = foundUser,
-            CheckPasswordEmail = checkEmail,
-            PasswordCheckResult = checkResult
+            CheckPasswordEmail = TempData?["CheckPasswordEmail"] as string,
+            PasswordCheckResult = TempData?["PasswordCheckResult"] as bool?
         };
 
         return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> VerifyPassword(string checkEmail, string password)
+    {
+        if (string.IsNullOrWhiteSpace(checkEmail) || string.IsNullOrWhiteSpace(password))
+        {
+            if (TempData != null) TempData["ErrorMessage"] = "Вкажіть email та пароль для перевірки.";
+            return RedirectToAction(nameof(Users));
+        }
+
+        var user = await _queries.FindUserAsync(checkEmail);
+        if (TempData != null) TempData["CheckPasswordEmail"] = checkEmail;
+
+        if (user != null)
+        {
+            bool checkResult = _queries.CheckPassword(user, password);
+            if (TempData != null)
+            {
+                TempData["PasswordCheckResult"] = checkResult;
+                if (checkResult)
+                {
+                    TempData["SuccessMessage"] = $"Пароль для користувача {user.FullName} ({user.Email}) успішно підтверджено (PBKDF2).";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = $"Невірний пароль для облікового запису {user.Email}.";
+                }
+            }
+        }
+        else
+        {
+            if (TempData != null) TempData["ErrorMessage"] = $"Користувача з адресою '{checkEmail}' не знайдено.";
+        }
+
+        return RedirectToAction(nameof(Users), new { searchEmail = checkEmail });
     }
 
     [HttpPost]

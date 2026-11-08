@@ -96,6 +96,8 @@ public class LandAgencyQueries : ILandAgencyQueries
         var desc = filter.Descending;
         query = filter.Sort switch
         {
+            PlotSort.Price => desc ? query.OrderByDescending(p => (double)p.PriceUsd).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => (double)p.PriceUsd).ThenBy(p => p.CreatedAt),
+            PlotSort.PricePerSotka => desc ? query.OrderByDescending(p => (double)p.PriceUsd / (p.AreaHectares * 100.0)).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => (double)p.PriceUsd / (p.AreaHectares * 100.0)).ThenBy(p => p.CreatedAt),
             PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.AreaHectares).ThenBy(p => p.CreatedAt),
             PlotSort.Title => desc ? query.OrderByDescending(p => p.Title).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Title).ThenBy(p => p.CreatedAt),
             PlotSort.Location => desc ? query.OrderByDescending(p => p.Location).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Location).ThenBy(p => p.CreatedAt),
@@ -285,8 +287,10 @@ public class LandAgencyQueries : ILandAgencyQueries
 
         if (filter.OnlyVerifiedDocs)
         {
-            query = query.Where(x => x.DocsCount > 0);
+            query = query.Where(x => x.Plot.Documents.Any(d => d.IsVerified));
         }
+
+        query = query.OrderByDescending(x => x.Plot.CreatedAt);
 
         var projected = query.Select(x => new LandBankRow(
             x.Plot.Id,
@@ -302,7 +306,8 @@ public class LandAgencyQueries : ILandAgencyQueries
             x.DocsCount,
             x.Conclusion != null ? x.Conclusion.RiskLevel : "Не перевірено",
             x.Conclusion != null && x.Conclusion.IsApproved,
-            x.Plot.Status));
+            x.Plot.Status,
+            x.Plot.CreatedAt));
 
         string sql = projected.ToQueryString();
         var rows = await projected.ToListAsync();
@@ -439,6 +444,7 @@ public class LandAgencyQueries : ILandAgencyQueries
     {
         var allPlots = await _db.LandPlots
             .Include(p => p.Documents)
+            .Include(p => p.LegalConclusion)
             .Include(p => p.Seller)
             .Include(p => p.AssignedRealtor)
             .AsNoTracking()
@@ -472,6 +478,7 @@ public class LandAgencyQueries : ILandAgencyQueries
             .ToList();
 
         var marketIntersectRegions = sellerDistricts.Intersect(buyerRequestedDistricts).OrderBy(r => r).ToList();
+        var allMarketRegionsUnion = sellerDistricts.Union(buyerRequestedDistricts).OrderBy(r => r).ToList();
 
         var allClients = allUsers
             .Where(u => u.Role == UserRole.Client)
@@ -541,7 +548,7 @@ public class LandAgencyQueries : ILandAgencyQueries
                 p.Seller?.Phone ?? "",
                 p.AssignedRealtor?.FullName ?? "Рієлтор",
                 p.Documents?.Count ?? 0,
-                "Перевірено",
+                p.LegalConclusion?.RiskLevel ?? "Не перевірено",
                 p.CreatedAt))
             .ToList();
 
@@ -564,8 +571,15 @@ public class LandAgencyQueries : ILandAgencyQueries
                 p.Seller?.Phone ?? "",
                 p.AssignedRealtor?.FullName ?? "Рієлтор",
                 p.Documents?.Count ?? 0,
-                "Перевірено",
+                p.LegalConclusion?.RiskLevel ?? "Не перевірено",
                 p.CreatedAt))
+            .ToList();
+
+        var plinqHighValuePlots = allPlots
+            .AsParallel()
+            .Where(p => p.PriceUsd >= 40000m)
+            .OrderByDescending(p => p.PriceUsd)
+            .Select(p => $"{p.CadastralNumber} — {p.Title} (${p.PriceUsd:N0})")
             .ToList();
 
         return new LinqShowcaseResult(
@@ -573,12 +587,14 @@ public class LandAgencyQueries : ILandAgencyQueries
             totalBuyersWithAnyViewing,
             allDistinctPurposes,
             marketIntersectRegions,
+            allMarketRegionsUnion,
             buyersWithoutDeals,
             flattenedDocTitles,
             aggregatedCadastralRoll,
             zippedBenchmarks,
             multiSortedPlots,
-            paginatedPlots);
+            paginatedPlots,
+            plinqHighValuePlots);
     }
 
     private static string NormalizeEmail(string email) => (email ?? string.Empty).Trim().ToLowerInvariant();
