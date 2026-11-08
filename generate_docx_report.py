@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Скрипт генерації офіційного звіту з лабораторної роботи № 3 у форматі DOCX (ДСТУ 3008:2015)
-для студента Фояка Василя (ІПЗ-23), КПНУ / КНУ ім. Т. Шевченка.
+Генератор офіційного звіту з лабораторної роботи № 3 (ДСТУ 3008:2015)
+для студента Сивопляса Максима (група ІПЗ-23), КНУ імені Тараса Шевченка.
+Дисципліна: «Об'єктно-орієнтоване програмування»
+Тема: «Створення проекту і файлу локальної бази даних. Основи LINQ»
 """
 
+import os
 import docx
 from docx.shared import Inches, Pt, RGBColor, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
@@ -35,7 +38,7 @@ def set_cell_borders(cell, top=None, bottom=None, left=None, right=None):
             node.set(qn('w:val'), b_val.get('val', 'single'))
             node.set(qn('w:sz'), str(b_val.get('sz', 4)))
             node.set(qn('w:space'), '0')
-            node.set(qn('w:color'), b_val.get('color', 'CCCCCC'))
+            node.set(qn('w:color'), b_val.get('color', '000000'))
             tcBorders.append(node)
         else:
             node = OxmlElement(f'w:{b_name}')
@@ -44,26 +47,24 @@ def set_cell_borders(cell, top=None, bottom=None, left=None, right=None):
     tcPr.append(tcBorders)
 
 def add_title_page(doc):
-    # Університет
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p1.paragraph_format.space_before = Pt(0)
     p1.paragraph_format.space_after = Pt(2)
     p1.paragraph_format.line_spacing = 1.15
-    r = p1.add_run("МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ\nКИЇВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ ІМЕНІ ТАРАСА ШЕВЧЕНКА")
-    r.font.name = "Times New Roman"
-    r.font.size = Pt(12)
-    r.font.bold = True
+    r1 = p1.add_run("КИЇВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ ІМЕНІ ТАРАСА ШЕВЧЕНКА")
+    r1.font.name = "Times New Roman"
+    r1.font.size = Pt(13)
+    r1.font.bold = True
 
     p2 = doc.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p2.paragraph_format.space_before = Pt(4)
+    p2.paragraph_format.space_before = Pt(2)
     p2.paragraph_format.space_after = Pt(40)
     r2 = p2.add_run("Факультет інформаційних технологій\nКафедра програмних систем і технологій")
     r2.font.name = "Times New Roman"
-    r2.font.size = Pt(12)
+    r2.font.size = Pt(13)
 
-    # Заголовок
     p_title = doc.add_paragraph()
     p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_title.paragraph_format.space_before = Pt(30)
@@ -92,7 +93,6 @@ def add_title_page(doc):
     r_top.font.size = Pt(13)
     r_top.font.italic = True
 
-    # Виконавець і перевіряючий
     p_meta = doc.add_paragraph()
     p_meta.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p_meta.paragraph_format.space_before = Pt(40)
@@ -101,204 +101,204 @@ def add_title_page(doc):
     r_m = p_meta.add_run(
         "Виконав:\n"
         "студент групи ІПЗ-23\n"
-        "Фояк В. М.\n\n"
+        "Сивопляс Максим\n\n"
         "Перевірила:\n"
         "доцент кафедри ПСТ,\n"
         "канд. техн. наук, доц.\n"
         "Зубик Л. В."
     )
     r_m.font.name = "Times New Roman"
-    r_m.font.size = Pt(12)
+    r_m.font.size = Pt(13)
 
-    # Місто та рік
     p_year = doc.add_paragraph()
     p_year.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_year.paragraph_format.space_before = Pt(20)
     p_year.paragraph_format.space_after = Pt(0)
     r_y = p_year.add_run("Київ — 2026")
     r_y.font.name = "Times New Roman"
-    r_y.font.size = Pt(12)
+    r_y.font.size = Pt(13)
 
     doc.add_page_break()
 
 def add_heading_1(doc, text):
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(16)
-    p.paragraph_format.space_after = Pt(6)
+    p.paragraph_format.space_before = Pt(18)
+    p.paragraph_format.space_after = Pt(8)
     p.paragraph_format.keep_with_next = True
     p.paragraph_format.first_line_indent = Inches(0)
     run = p.add_run(text)
     run.font.name = "Times New Roman"
     run.font.size = Pt(16)
     run.font.bold = True
-    run.font.color.rgb = RGBColor(0x1B, 0x36, 0x5D)
+    run.font.color.rgb = RGBColor(0, 0, 0)
     return p
 
 def add_heading_2(doc, text):
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(12)
-    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.space_before = Pt(14)
+    p.paragraph_format.space_after = Pt(6)
     p.paragraph_format.keep_with_next = True
     p.paragraph_format.first_line_indent = Inches(0)
     run = p.add_run(text)
     run.font.name = "Times New Roman"
     run.font.size = Pt(14)
     run.font.bold = True
-    run.font.color.rgb = RGBColor(0x2C, 0x3E, 0x50)
+    run.font.color.rgb = RGBColor(0, 0, 0)
     return p
 
-def add_body_paragraph(doc, text, bold_prefix=None, italic_suffix=None):
+def add_body_paragraph(doc, text, bold_prefix=None):
     p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    p.paragraph_format.first_line_indent = Inches(0.49)
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(4)
-    p.paragraph_format.line_spacing = 1.15
-    p.paragraph_format.first_line_indent = Inches(0.49) # ~1.25 см
-    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    p.paragraph_format.line_spacing = 1.25
 
     if bold_prefix:
         r_pre = p.add_run(bold_prefix)
         r_pre.font.name = "Times New Roman"
-        r_pre.font.size = Pt(12)
+        r_pre.font.size = Pt(14)
         r_pre.font.bold = True
+        r_pre.font.color.rgb = RGBColor(0, 0, 0)
 
-    r = p.add_run(text)
-    r.font.name = "Times New Roman"
-    r.font.size = Pt(12)
-
-    if italic_suffix:
-        r_suf = p.add_run(italic_suffix)
-        r_suf.font.name = "Times New Roman"
-        r_suf.font.size = Pt(12)
-        r_suf.font.italic = True
+    run = p.add_run(text)
+    run.font.name = "Times New Roman"
+    run.font.size = Pt(14)
+    run.font.color.rgb = RGBColor(0, 0, 0)
     return p
 
 def add_bullet_item(doc, text, bold_prefix=None):
     p = doc.add_paragraph(style='List Bullet')
+    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(3)
-    p.paragraph_format.line_spacing = 1.15
-    p.paragraph_format.first_line_indent = Inches(0)
-    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    p.paragraph_format.line_spacing = 1.25
 
     if bold_prefix:
         r_pre = p.add_run(bold_prefix)
         r_pre.font.name = "Times New Roman"
-        r_pre.font.size = Pt(12)
+        r_pre.font.size = Pt(14)
         r_pre.font.bold = True
+        r_pre.font.color.rgb = RGBColor(0, 0, 0)
 
-    r = p.add_run(text)
-    r.font.name = "Times New Roman"
-    r.font.size = Pt(12)
+    run = p.add_run(text)
+    run.font.name = "Times New Roman"
+    run.font.size = Pt(14)
+    run.font.color.rgb = RGBColor(0, 0, 0)
     return p
 
-def add_code_block(doc, code_str, title_str=None):
-    if title_str:
-        p_t = doc.add_paragraph()
-        p_t.paragraph_format.space_before = Pt(8)
-        p_t.paragraph_format.space_after = Pt(2)
-        p_t.paragraph_format.keep_with_next = True
-        p_t.paragraph_format.first_line_indent = Inches(0)
-        r_t = p_t.add_run(title_str)
-        r_t.font.name = "Times New Roman"
-        r_t.font.size = Pt(11)
-        r_t.font.bold = True
-        r_t.font.italic = True
+def add_code_listing(doc, title, code_lines, language="csharp"):
+    p_t = doc.add_paragraph()
+    p_t.paragraph_format.space_before = Pt(10)
+    p_t.paragraph_format.space_after = Pt(3)
+    p_t.paragraph_format.keep_with_next = True
+    r_t = p_t.add_run(f"Лістинг — {title}")
+    r_t.font.name = "Times New Roman"
+    r_t.font.size = Pt(12)
+    r_t.font.bold = True
+    r_t.font.color.rgb = RGBColor(0, 0, 0)
 
-    table = doc.add_table(rows=1, cols=1)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = False
-    table.columns[0].width = Inches(6.5)
-
-    cell = table.cell(0, 0)
+    tbl = doc.add_table(rows=1, cols=1)
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = tbl.cell(0, 0)
+    cell.width = Inches(6.5)
     set_cell_background(cell, "F8F9FA")
-    set_cell_margins(cell, top=120, bottom=120, left=180, right=180)
-    set_cell_borders(cell,
-        top={'val': 'single', 'sz': 6, 'color': 'BDC3C7'},
-        bottom={'val': 'single', 'sz': 6, 'color': 'BDC3C7'},
-        left={'val': 'single', 'sz': 18, 'color': '2980B9'},
-        right={'val': 'single', 'sz': 6, 'color': 'BDC3C7'}
-    )
+    set_cell_margins(cell, top=100, bottom=100, left=150, right=150)
+    b_val = {'val': 'single', 'sz': 4, 'color': '888888'}
+    set_cell_borders(cell, top=b_val, bottom=b_val, left=b_val, right=b_val)
 
     p = cell.paragraphs[0]
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(0)
-    p.paragraph_format.line_spacing = 1.0
-    p.paragraph_format.first_line_indent = Inches(0)
-    run = p.add_run(code_str.strip())
-    run.font.name = "Consolas"
-    run.font.size = Pt(9.5)
-    run.font.color.rgb = RGBColor(0x2C, 0x3E, 0x50)
+    p.paragraph_format.line_spacing = 1.05
 
-    # Add space after table
+    for i, line in enumerate(code_lines):
+        r = p.add_run(line + ("\n" if i < len(code_lines) - 1 else ""))
+        r.font.name = "Consolas"
+        r.font.size = Pt(9.5)
+        r.font.color.rgb = RGBColor(0x22, 0x22, 0x22)
+
     p_after = doc.add_paragraph()
-    p_after.paragraph_format.space_before = Pt(4)
-    p_after.paragraph_format.space_after = Pt(4)
-    p_after.paragraph_format.line_spacing = 1.0
+    p_after.paragraph_format.space_before = Pt(2)
+    p_after.paragraph_format.space_after = Pt(6)
+
+def add_figure(doc, img_path, caption_text, width=Inches(6.2)):
+    if os.path.exists(img_path):
+        p_img = doc.add_paragraph()
+        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_img.paragraph_format.space_before = Pt(8)
+        p_img.paragraph_format.space_after = Pt(3)
+        p_img.paragraph_format.keep_with_next = True
+        run = p_img.add_run()
+        run.add_picture(img_path, width=width)
+
+        p_cap = doc.add_paragraph()
+        p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_cap.paragraph_format.space_before = Pt(2)
+        p_cap.paragraph_format.space_after = Pt(12)
+        r_cap = p_cap.add_run(caption_text)
+        r_cap.font.name = "Times New Roman"
+        r_cap.font.size = Pt(12)
+        r_cap.font.italic = True
+        r_cap.font.color.rgb = RGBColor(0, 0, 0)
 
 def add_table_data(doc, headers, rows, col_widths=None, title_str=None):
     if title_str:
         p_t = doc.add_paragraph()
         p_t.paragraph_format.space_before = Pt(10)
-        p_t.paragraph_format.space_after = Pt(4)
+        p_t.paragraph_format.space_after = Pt(3)
         p_t.paragraph_format.keep_with_next = True
         p_t.paragraph_format.first_line_indent = Inches(0)
         r_t = p_t.add_run(title_str)
         r_t.font.name = "Times New Roman"
-        r_t.font.size = Pt(11)
-        r_t.font.italic = True
+        r_t.font.size = Pt(12)
+        r_t.font.bold = True
+        r_t.font.color.rgb = RGBColor(0, 0, 0)
 
-    table = doc.add_table(rows=len(rows) + 1, cols=len(headers))
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = False
+    tbl = doc.add_table(rows=len(rows) + 1, cols=len(headers))
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-    # Header Row
-    hdr_cells = table.rows[0].cells
-    for i, title in enumerate(headers):
-        hdr_cells[i].text = title
-        set_cell_background(hdr_cells[i], "2C3E50")
-        set_cell_margins(hdr_cells[i], top=100, bottom=100, left=120, right=120)
-        p = hdr_cells[i].paragraphs[0]
+    hdr_border = {'val': 'single', 'sz': 6, 'color': '000000'}
+    cell_border = {'val': 'single', 'sz': 4, 'color': '555555'}
+
+    for j, h_text in enumerate(headers):
+        cell = tbl.cell(0, j)
+        if col_widths and j < len(col_widths):
+            cell.width = col_widths[j]
+        set_cell_background(cell, "F2F2F2")
+        set_cell_margins(cell, top=100, bottom=100, left=120, right=120)
+        set_cell_borders(cell, top=hdr_border, bottom=hdr_border, left=cell_border, right=cell_border)
+        p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(0)
-        for run in p.runs:
-            run.font.name = "Times New Roman"
-            run.font.size = Pt(10.5)
-            run.font.bold = True
-            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        p.paragraph_format.space_before = Pt(2)
+        p.paragraph_format.space_after = Pt(2)
+        r = p.add_run(h_text)
+        r.font.name = "Times New Roman"
+        r.font.size = Pt(11)
+        r.font.bold = True
+        r.font.color.rgb = RGBColor(0, 0, 0)
 
-    # Data Rows
-    for r_idx, row in enumerate(rows):
-        row_cells = table.rows[r_idx + 1].cells
-        bg_color = "FFFFFF" if r_idx % 2 == 0 else "F4F6F7"
-        for c_idx, val in enumerate(row):
-            row_cells[c_idx].text = str(val)
-            set_cell_background(row_cells[c_idx], bg_color)
-            set_cell_margins(row_cells[c_idx], top=80, bottom=80, left=100, right=100)
-            set_cell_borders(row_cells[c_idx],
-                top={'val': 'single', 'sz': 4, 'color': 'BDC3C7'},
-                bottom={'val': 'single', 'sz': 4, 'color': 'BDC3C7'},
-                left={'val': 'single', 'sz': 4, 'color': 'BDC3C7'},
-                right={'val': 'single', 'sz': 4, 'color': 'BDC3C7'}
-            )
-            p = row_cells[c_idx].paragraphs[0]
-            p.paragraph_format.space_before = Pt(0)
-            p.paragraph_format.space_after = Pt(0)
-            p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_idx > 1 else WD_ALIGN_PARAGRAPH.CENTER
-            for run in p.runs:
-                run.font.name = "Times New Roman"
-                run.font.size = Pt(10)
-
-    # Widths
-    if col_widths:
-        for row in table.rows:
-            for idx, width in enumerate(col_widths):
-                row.cells[idx].width = width
+    for i, row in enumerate(rows):
+        bg = "FFFFFF" if i % 2 == 0 else "FAFAFA"
+        for j, val in enumerate(row):
+            cell = tbl.cell(i + 1, j)
+            if col_widths and j < len(col_widths):
+                cell.width = col_widths[j]
+            set_cell_background(cell, bg)
+            set_cell_margins(cell, top=80, bottom=80, left=120, right=120)
+            set_cell_borders(cell, top=cell_border, bottom=cell_border, left=cell_border, right=cell_border)
+            p = cell.paragraphs[0]
+            p.paragraph_format.space_before = Pt(2)
+            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.line_spacing = 1.1
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT if j > 0 and len(val) > 15 else WD_ALIGN_PARAGRAPH.CENTER
+            r = p.add_run(str(val))
+            r.font.name = "Times New Roman"
+            r.font.size = Pt(10.5)
+            r.font.color.rgb = RGBColor(0, 0, 0)
 
     p_after = doc.add_paragraph()
-    p_after.paragraph_format.space_before = Pt(4)
     p_after.paragraph_format.space_after = Pt(6)
-
 
 def setup_page_numbering(doc):
     for section in doc.sections:
@@ -325,14 +325,64 @@ def setup_page_numbering(doc):
                 <w:r>
                     <w:rPr>
                         <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
-                        <w:sz w:val="22"/>
-                        <w:szCs w:val="22"/>
+                        <w:sz w:val="24"/>
+                        <w:szCs w:val="24"/>
                     </w:rPr>
                 </w:r>
             </w:fldSimple>
         ''' % nsdecls('w'))
         p_footer._p.append(fld)
 
+def add_table_of_contents(doc):
+    add_heading_1(doc, "ЗМІСТ")
+    toc_items = [
+        ("1 Тема, мета та завдання роботи", "3"),
+        ("2 Структура бази даних", "4"),
+        ("    2.1 Таблиці та класи моделі", "4"),
+        ("    2.2 Ключі, унікальні індекси та обмеження цілісності", "6"),
+        ("    2.3 Особливості обробки типу decimal у SQLite", "8"),
+        ("3 Заповнення таблиць даними", "9"),
+        ("    3.1 Початкові та історичні дані", "9"),
+        ("    3.2 Статистика наповнення бази даних", "11"),
+        ("4 Запити до бази даних", "12"),
+        ("    4.1 Запит 1 — Відбір ділянок за складеною умовою та впорядкування", "12"),
+        ("    4.2 Запити 2 і 3 — Періодичні підсумки: оборот та ефективність агентів", "15"),
+        ("    4.3 Фактичні числові результати періодизації", "18"),
+        ("    4.4 Запит 4 — Аудит земельного банку (з'єднання 4 таблиць)", "19"),
+        ("    4.5 Запити 5–8 — Безпечний пошук, додавання, зміна та вилучення", "21"),
+        ("    4.6 Запит 9 — Комплексна демонстрація всіх операторів LINQ (Showcase)", "24"),
+        ("5 Перевірка роботи та користувацький веб-інтерфейс", "28"),
+        ("    5.1 Архітектура контролера звітності та рольова безпека", "28"),
+        ("    5.2 Огляд сторінок розділу «Звітність»", "29"),
+        ("Висновки", "33"),
+        ("Перелік використаних джерел", "34")
+    ]
+
+    for title, pg in toc_items:
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(1)
+        p.paragraph_format.space_after = Pt(2)
+        p.paragraph_format.line_spacing = 1.15
+        p.paragraph_format.first_line_indent = Inches(0)
+        
+        r1 = p.add_run(title)
+        r1.font.name = "Times New Roman"
+        r1.font.size = Pt(12)
+        if not title.startswith("    "):
+            r1.font.bold = True
+
+        r_dots = p.add_run(" " + "." * max(2, (80 - len(title) * 2)) + " ")
+        r_dots.font.name = "Times New Roman"
+        r_dots.font.size = Pt(10)
+        r_dots.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+
+        r2 = p.add_run(pg)
+        r2.font.name = "Times New Roman"
+        r2.font.size = Pt(12)
+        if not title.startswith("    "):
+            r2.font.bold = True
+
+    doc.add_page_break()
 
 def build_docx_report():
     doc = docx.Document()
@@ -341,371 +391,247 @@ def build_docx_report():
     doc.settings.element.append(element)
 
     setup_page_numbering(doc)
-
     add_title_page(doc)
+    add_table_of_contents(doc)
 
     # 1. ТЕМА, МЕТА ТА ЗАВДАННЯ РОБОТИ
     add_heading_1(doc, "1 Тема, мета та завдання роботи")
     add_body_paragraph(doc, "створення проєкту і файлу локальної бази даних. Основи LINQ.", bold_prefix="Тема роботи: ")
-    add_body_paragraph(doc, "ознайомитися з основами мови інтегрованих запитів LINQ (Language Integrated Query) у середовищі .NET 10, побудувати реляційну базу даних на основі UML-моделі предметної області «Агентство земельних ділянок», розробленої в лабораторній роботі № 1, зв'язати таблиці зовнішніми ключами з обмеженнями цілісності, заповнити їх репрезентативними даними та реалізувати комплекс аналітичних і маніпулятивних запитів із відображенням результатів у веб-інтерфейсі ASP.NET Core MVC.", bold_prefix="Мета роботи: ")
+    add_body_paragraph(doc, "ознайомитися з основами мови інтегрованих запитів LINQ (Language Integrated Query) у середовищі .NET 10, побудувати реляційну базу даних на основі концептуальної моделі предметної області «Агентство земельних ділянок», зв'язати таблиці зовнішніми ключами з обмеженнями цілісності Restrict, заповнити їх репрезентативними даними та реалізувати комплекс аналітичних і маніпулятивних запитів із відображенням результатів у захищеному веб-інтерфейсі ASP.NET Core MVC.", bold_prefix="Мета роботи: ")
 
     add_body_paragraph(doc, "Відповідно до методичних вказівок кафедри, у процесі виконання лабораторної роботи поставлено такі основні вимоги:")
     add_bullet_item(doc, "розробити локальну базу даних за тематикою індивідуального проєкту («Агентство земельних ділянок»), структура якої строго відповідає діаграмі класів попередніх робіт (щонайменше 5–6 таблиць, у роботі спроєктовано та реалізовано 8 повних таблиць);", bold_prefix="1. Структура БД: ")
     add_bullet_item(doc, "налаштувати первинні й зовнішні ключі, унікальні індекси та обмеження цілісності DeleteBehavior.Restrict для запобігання втраті фінансово-юридичної історії;", bold_prefix="2. Цілісність: ")
-    add_bullet_item(doc, "заповнити всі таблиці пов'язаними узгодженими даними обсягом від 10 рядків у кожній таблиці з розподілом фінансових операцій за 12 місяців;", bold_prefix="3. Заповнення: ")
+    add_bullet_item(doc, "заповнити всі таблиці пов'язаними узгодженими даними обсягом від 10 рядків у кожній таблиці з розподілом фінансових операцій за 12 місяців (2025–2026 рр.);", bold_prefix="3. Заповнення: ")
     add_bullet_item(doc, "реалізувати щонайменше 8 різноманітних запитів LINQ: відбір за складеною умовою, періодичні узагальнення (день, місяць, півріччя, custom), з'єднання 4 таблиць, безпечний пошук із перевіркою пароля PBKDF2 та транзакційні CRUD-операції;", bold_prefix="4. Запити LINQ: ")
-    add_bullet_item(doc, "створити ергономічний веб-інтерфейс у розділі «Звітність» (QueriesController) з виведенням результатів та згенерованого коду SQL (ToQueryString()) без інлайн-стилів;", bold_prefix="5. Веб-інтерфейс: ")
-    add_bullet_item(doc, "забезпечити глибоке модульне тестування бізнес-логіки та сценаріїв запитів на базі фреймворку xUnit.", bold_prefix="6. Тестування: ")
+    add_bullet_item(doc, "забезпечити повне покриття сімейств операторів LINQ з Лекції № 9: квантори (All, Any), операції над множинами (Distinct, Intersect, Except, Union), згладжування (SelectMany), згортка (Aggregate), попарне зшивання (Zip), розбиття (Skip/Take), а також паралельні запити PLINQ (.AsParallel());", bold_prefix="5. Оператори LINQ: ")
+    add_bullet_item(doc, "створити ергономічний веб-інтерфейс у розділі «Звітність» (QueriesController) з виведенням результатів та згенерованого коду SQL (ToQueryString()) без інлайн-стилів під захистом ролей Realtor/Lawyer;", bold_prefix="6. Веб-інтерфейс: ")
+    add_bullet_item(doc, "оформити академічний звіт відповідно до вимог ДСТУ 3008:2015 з наскрізною нумерацією сторінок, змістом та ілюстраціями роботи системи.", bold_prefix="7. Оформлення: ")
 
     add_body_paragraph(doc, "Методичні вказівки передбачають використання Visual Studio та SQL Server Express LocalDB під ОС Windows. Оскільки розробка виконувалася на платформі macOS (Apple Silicon), де LocalDB відсутній на рівні операційної системи, відповідно до пункту 4 завдань як СУБД використано SQLite за технологією Entity Framework Core Code First. База зберігається в одному файлі landagency.db, забезпечує локальність, повну транзакційну безпеку (ACID) та 100% сумісність із провайдером LINQ to Entities.")
 
     # 2. СТРУКТУРА БАЗИ ДАНИХ
     add_heading_1(doc, "2 Структура бази даних")
-    add_body_paragraph(doc, "База даних спроєктована на основі UML-моделі предметної області LandAgency і містить 8 взаємопов'язаних таблиць. Кожна таблиця відповідає доменному класу діаграми, а система ролей користувачів інкапсульована в сутності AppUser із дискримінатором UserRole.")
+    add_body_paragraph(doc, "База даних спроєктована на основі концептуальної моделі предметної області LandAgency і містить 8 взаємопов'язаних таблиць. Кожна таблиця відповідає доменному класу, а ролі користувачів інкапсульовані в сутності AppUser із дискримінатором UserRole.")
+
+    add_figure(doc, "docs/images/fig01_er_diagram.png", "Рисунок 1 — Реляційна структура бази даних земельного агентства (8 таблиць, зв'язки та ключі)")
 
     t1_headers = ["Таблиця СУБД", "Клас моделі", "Опис сутності та призначення", "Ключі та обмеження"]
     t1_rows = [
-        ["Users", "AppUser", "Користувачі (Покупці, Продавці, Рієлтори, Юристи, Адмін)", "PK Id; Email (унікальний), Role, Password, IsActive"],
-        ["LandPlots", "LandPlot", "Земельні ділянки в каталозі агентства", "PK Id; CadastralNumber (унікальний), FK SellerId, FK AssignedRealtorId"],
-        ["PlotDocuments", "PlotDocument", "Правовстановлюючі документи (ДЗК, ДРРП, витяги)", "PK Id; FK LandPlotId; FileHash (SHA-256), IsVerified"],
-        ["LegalConclusions", "LegalConclusion", "Юридичні висновки Due Diligence перевірки прав", "PK Id; FK LandPlotId (1:1), FK LawyerId; ConclusionNumber (унікальний)"],
-        ["ViewingRequests", "ViewingRequest", "Заявки покупців на виїзний перегляд із рієлтором", "PK Id; FK LandPlotId, FK BuyerId, FK RealtorId; PreferredDate"],
-        ["SelectionRequests", "SelectionRequest", "Запити клієнтів на індивідуальний підбір землі", "PK Id; FK BuyerId; DesiredRegion, DesiredPurpose, MaxBudgetUsd"],
-        ["SaleDeals", "SaleDeal", "Нотаріальні договори купівлі-продажу", "PK Id; FK LandPlotId, FK BuyerId, FK RealtorId, FK LawyerId; DraftContractNumber"],
-        ["Payments", "Payment", "Безготівкові банківські платежі (аванс, основний, комісія)", "PK Id; FK SaleDealId; InvoiceNumber (унікальний), AmountUsd, Status"]
+        ["Users", "AppUser", "Користувачі системи (клієнти, продавці, рієлтори, юристи, адмін)", "PK Id; UNIQUE Email; PBKDF2 PasswordHash"],
+        ["LandPlots", "LandPlot", "Земельні ділянки для продажу (кадастр, площа, призначення, ціна)", "PK Id; UNIQUE CadastralNumber; FK SellerId; FK RealtorId"],
+        ["PlotDocuments", "PlotDocument", "Правовстановлюючі документи (витяги ДРРП, ДЗК, НГО)", "PK Id; FK LandPlotId; SHA-256 FileHash; IsVerified"],
+        ["LegalConclusions", "LegalConclusion", "Висновки Due Diligence перевірки обтяжень, арештів та прав", "PK Id; UNIQUE LandPlotId (1:1); FK LawyerId; UNIQUE Number"],
+        ["ViewingRequests", "ViewingRequest", "Заявки покупців на фізичний виїзний перегляд ділянок", "PK Id; FK LandPlotId; FK BuyerId; FK RealtorId"],
+        ["SelectionRequests", "SelectionRequest", "Запити на автоматичний індивідуальний підбір ділянок", "PK Id; FK BuyerId; критерії площі, бюджету та локації"],
+        ["SaleDeals", "SaleDeal", "Нотаріальні договори купівлі-продажу ділянок агентства", "PK Id; UNIQUE ContractNumber; FK LandPlotId; Restrict"],
+        ["Payments", "Payment", "Банківські безготівкові платежі (вартість ділянки та комісія)", "PK Id; UNIQUE InvoiceNumber; FK SaleDealId; Restrict"]
     ]
-    t1_widths = [Inches(1.1), Inches(1.1), Inches(2.3), Inches(2.0)]
-    add_table_data(doc, t1_headers, t1_rows, t1_widths, title_str="Таблиця 1 — Сутності бази даних агентства земельних ділянок")
+    t1_widths = [Inches(1.1), Inches(1.1), Inches(2.7), Inches(1.6)]
+    add_table_data(doc, t1_headers, t1_rows, t1_widths, title_str="Таблиця 1 — Опис реляційних таблиць бази даних LandAgency")
 
     add_heading_2(doc, "2.1 Ключі, унікальні індекси та обмеження цілісності")
-    add_body_paragraph(doc, "Усі зв'язки між сутностями сконфігуровані в методі OnModelCreating класу LandAgencyContext за допомогою Fluent API. Категоричне правило предметної області — дія OnDelete(DeleteBehavior.Restrict) для зв'язків ділянок, документів, висновків та фінансових угод. Це унеможливлює випадкове видалення юридичної або платіжної історії агентства.")
+    add_body_paragraph(doc, "Для забезпечення реляційної цілісності у методі OnModelCreating класу LandAgencyContext налаштовано зв'язки та обмеження:")
+    add_bullet_item(doc, "унікальний індекс на Email у таблиці Users виключає дублювання облікових записів;", bold_prefix="Users.Email: ")
+    add_bullet_item(doc, "унікальний індекс на CadastralNumber (формат ХХХХХХХХХХ:ХХ:ХХХ:ХХХХ) гарантує ідентифікацію земельного активу;", bold_prefix="LandPlots.CadastralNumber: ")
+    add_bullet_item(doc, "зв'язок 1:1 між LandPlot та LegalConclusion гарантує наявність лише одного правового висновку на одну ділянку;", bold_prefix="LegalConclusions.LandPlotId: ")
+    add_bullet_item(doc, "обмеження DeleteBehavior.Restrict застосовано до всіх фінансових та юридичних сутностей (SaleDeals, Payments, ViewingRequests), що блокує видалення продавців або ділянок, по яких є історія операцій.", bold_prefix="DeleteBehavior.Restrict: ")
 
-    code_onmodel = (
-        "protected override void OnModelCreating(ModelBuilder modelBuilder)\n"
-        "{\n"
-        "    base.OnModelCreating(modelBuilder);\n\n"
-        "    // Унікальні індекси бізнес-ідентифікаторів\n"
-        "    modelBuilder.Entity<AppUser>().HasIndex(u => u.Email).IsUnique();\n"
-        "    modelBuilder.Entity<LandPlot>().HasIndex(p => p.CadastralNumber).IsUnique();\n"
-        "    modelBuilder.Entity<LegalConclusion>().HasIndex(c => c.ConclusionNumber).IsUnique();\n"
-        "    modelBuilder.Entity<SaleDeal>().HasIndex(d => d.DraftContractNumber).IsUnique();\n"
-        "    modelBuilder.Entity<Payment>().HasIndex(p => p.InvoiceNumber).IsUnique();\n\n"
-        "    // Захист юридичної та фінансової історії від каскадного видалення\n"
-        "    modelBuilder.Entity<LandPlot>().HasOne(p => p.Seller).WithMany(u => u.OwnedPlots)\n"
-        "        .HasForeignKey(p => p.SellerId).OnDelete(DeleteBehavior.Restrict);\n\n"
-        "    modelBuilder.Entity<SaleDeal>().HasOne(d => d.LandPlot).WithMany()\n"
-        "        .HasForeignKey(d => d.LandPlotId).OnDelete(DeleteBehavior.Restrict);\n\n"
-        "    modelBuilder.Entity<Payment>().HasOne(p => p.SaleDeal).WithMany(d => d.Payments)\n"
-        "        .HasForeignKey(p => p.SaleDealId).OnDelete(DeleteBehavior.Restrict);\n"
+    add_code_listing(doc, "Налаштування зв'язків та обмежень (LandAgencyContext.cs)", [
+        "protected override void OnModelCreating(ModelBuilder modelBuilder)",
+        "{",
+        "    base.OnModelCreating(modelBuilder);",
+        "",
+        "    modelBuilder.Entity<AppUser>().HasIndex(u => u.Email).IsUnique();",
+        "    modelBuilder.Entity<LandPlot>().HasIndex(p => p.CadastralNumber).IsUnique();",
+        "    modelBuilder.Entity<LegalConclusion>().HasIndex(c => c.ConclusionNumber).IsUnique();",
+        "    modelBuilder.Entity<SaleDeal>().HasIndex(d => d.DraftContractNumber).IsUnique();",
+        "    modelBuilder.Entity<Payment>().HasIndex(p => p.InvoiceNumber).IsUnique();",
+        "",
+        "    modelBuilder.Entity<SaleDeal>()",
+        "        .HasOne(d => d.Buyer).WithMany().HasForeignKey(d => d.BuyerId).OnDelete(DeleteBehavior.Restrict);",
+        "    modelBuilder.Entity<SaleDeal>()",
+        "        .HasOne(d => d.LandPlot).WithMany().HasForeignKey(d => d.LandPlotId).OnDelete(DeleteBehavior.Restrict);",
+        "    modelBuilder.Entity<Payment>()",
+        "        .HasOne(p => p.SaleDeal).WithMany(d => d.Payments).HasForeignKey(p => p.SaleDealId).OnDelete(DeleteBehavior.Restrict);",
         "}"
-    )
-    add_code_block(doc, code_onmodel, title_str="Лістинг 1 — Налаштування обмежень OnModelCreating (LandAgencyContext.cs)")
+    ])
 
     add_heading_2(doc, "2.2 Особливості обробки типу decimal у SQLite")
-    add_body_paragraph(doc, "У SQLite числа з фіксованою точкою (decimal) зберігаються як TEXT. При виконанні виразу ORDER BY PriceUsd у SQL SQLite здійснює лексикографічне порівняння рядків, через що число '120000.0' помилково вважається меншим за '18000.0' або '5400.0'. Для забезпечення суворої математичної точності сортування за ціною дані матеріалізуються у пам'ять і впорядковуються за допомогою LINQ to Objects із вторинним сортуванням за CreatedAt через .ThenBy / .ThenByDescending (відповідно до слайда 12 Лекції № 9). Крім того, у Program.cs та тестах активовано CultureInfo.InvariantCulture для уникнення проблем із комою в українській локалі.")
+    add_body_paragraph(doc, "У провайдері Microsoft.EntityFrameworkCore.Sqlite тип C# decimal транслюється у колонку TEXT, оскільки SQLite не підтримує нативний 128-бітний фінансовий тип. Через це SQL-оператор ORDER BY виконує лексикографічне впорядкування (рядок '120000.0' вважається меншим за '18000.0'). Для розв'язання цієї проблеми в сервісі LandAgencyQueries реалізовано двофазний конвеєр: фільтрація умов WHERE транслюється у SQL через LINQ to Entities, після чого дані матеріалізуються через ToListAsync() і сортування за ціною здійснюється в пам'яті (LINQ to Objects) з повною точністю decimal.")
 
     # 3. ЗАПОВНЕННЯ ТАБЛИЦЬ ДАНИМИ
     add_heading_1(doc, "3 Заповнення таблиць даними")
-    add_body_paragraph(doc, "Базовий механізм ініціалізації розширено класом LandAgencyHistorySeed, який реалізує ідемпотентне наповнення бази узгодженими історичними записами за останні 12 місяців (II півріччя 2025, I та II півріччя 2026 рр.).")
-    add_body_paragraph(doc, "Згенеровано 14 користувачів із реальними податковими номерами та IBAN, 16 ділянок у 7 ключових областях України (Київська, Львівська, Одеська, Івано-Франківська, Закарпатська, Полтавська, Дніпропетровська) з дійсними 19-значними кадастровими номерами, 16 пакетів правовстановлюючих документів із хешами SHA-256, 16 висновків Due Diligence, 14 нотаріальних угод та 30 банківських платежів.")
+    add_body_paragraph(doc, "Базу даних наповнено історичними та валідними даними за 2025–2026 роки через клас LandAgencyHistorySeed. Дані відображають повний операційний цикл земельного агентства: виставлення лотів на перевірку, Due Diligence юристів, замовлення переглядів, нотаріальні договори та безготівкові платежі.")
 
-    t2_headers = ["№", "Таблиця СУБД", "Клас моделі", "Вимога", "Фактично рядків", "Відсоток виконання"]
+    t2_headers = ["Таблиця", "Фактична к-ть рядків", "Вимога (>=10)", "Характеристика наповнення"]
     t2_rows = [
-        ["1", "Users", "AppUser", "≥ 10", "14", "140%"],
-        ["2", "LandPlots", "LandPlot", "≥ 10", "16", "160%"],
-        ["3", "PlotDocuments", "PlotDocument", "≥ 10", "16", "160%"],
-        ["4", "LegalConclusions", "LegalConclusion", "≥ 10", "16", "160%"],
-        ["5", "ViewingRequests", "ViewingRequest", "≥ 10", "16", "160%"],
-        ["6", "SelectionRequests", "SelectionRequest", "≥ 10", "10", "100%"],
-        ["7", "SaleDeals", "SaleDeal", "≥ 10", "14", "140%"],
-        ["8", "Payments", "Payment", "≥ 10", "30", "300%"]
+        ["Users", "14", "Виконано (14 >= 10)", "1 адмін, 2 рієлтори, 2 юристи, 3 продавці, 6 покупців"],
+        ["LandPlots", "16", "Виконано (16 >= 10)", "Київська, Львівська, Івано-Франківська обл. (0.08–5.40 га)"],
+        ["PlotDocuments", "16", "Виконано (16 >= 10)", "Витяги ДЗК, свідоцтва ДРРП із розрахованим SHA-256"],
+        ["LegalConclusions", "16", "Виконано (16 >= 10)", "12 схвалених (чисті), 3 з ризиками, 1 відхилений"],
+        ["ViewingRequests", "16", "Виконано (16 >= 10)", "Заявки на огляд ділянок клієнтами з рієлторами"],
+        ["SelectionRequests", "10", "Виконано (10 >= 10)", "Параметричні запити на автопідбір за бюджетом і КВЦПЗ"],
+        ["SaleDeals", "14", "Виконано (14 >= 10)", "Нотаріальні договори за 12 місяців на загальну суму $664 500"],
+        ["Payments", "28", "Виконано (28 >= 10)", "Безготівкові інвойси: вартість ділянок та комісія 3% ($19 935)"]
     ]
-    t2_widths = [Inches(0.4), Inches(1.3), Inches(1.4), Inches(1.0), Inches(1.2), Inches(1.2)]
-    add_table_data(doc, t2_headers, t2_rows, t2_widths, title_str="Таблиця 2 — Фактичне наповнення таблиць бази даних landagency.db")
+    t2_widths = [Inches(1.4), Inches(1.3), Inches(1.5), Inches(2.3)]
+    add_table_data(doc, t2_headers, t2_rows, t2_widths, title_str="Таблиця 2 — Фактичні обсяги наповнення таблиць landagency.db")
+
+    add_body_paragraph(doc, "Сумарна кількість записів у 8 таблицях бази даних становить 130 рядків, що значно перевищує встановлений методичними вказівками мінімум. Завдяки ідемпотентності процедури посіву повторні запуски вебдодатка не продукують дублікатів і не спотворюють фінансові підсумки.")
 
     # 4. ЗАПИТИ ДО БАЗИ ДАНИХ
     add_heading_1(doc, "4 Запити до бази даних")
-    add_body_paragraph(doc, "Усі запити зібрано в сервісі LandAgencyQueries (Services/LandAgencyQueries.cs). Контролер QueriesController зв'язує параметри HTTP-запитів і передає готові моделі в Razor-подання. Розділ «Звітність» доступний у верхньому меню системи.")
-
-    t3_headers = ["№", "Призначення запиту", "Тип за завданням", "Задіяні таблиці", "Ключові методи LINQ"]
-    t3_rows = [
-        ["1", "Фільтр ділянок за параметрами та сортування", "Відбір, сортування", "LandPlots, Users, Docs, Legal", "Where, OrderBy, ThenBy, Select, ToQueryString"],
-        ["2", "Оборот за цільовим призначенням (період)", "Узагальнення за період", "SaleDeals", "Query syntax (from...in), group, let, Sum, Average"],
-        ["3", "Рейтинг ефективності агентів за період", "Узагальнення, з'єднання", "SaleDeals, Users", "Where, GroupBy, Sum, OrderByDescending"],
-        ["4", "Аудит земельного банку (ризики та права)", "З'єднання 4 таблиць", "Plots, Users, Docs, Legal", "Inner Join, Left Join, Where, Select, ThenBy"],
-        ["5", "Пошук користувача та перевірка пароля", "Пошук, автентифікація", "Users", "SingleOrDefaultAsync, VerifyHashedPassword"],
-        ["6", "Транзакційне додавання клієнта із заявкою", "Додавання, транзакція", "Users, SelectionRequests", "BeginTransactionAsync, AnyAsync, Add, Commit"],
-        ["7", "Оновлення даних користувача та пароля", "Модифікація сутності", "Users", "FindAsync, SaveChangesAsync, контроль Admin"],
-        ["8", "Захищене вилучення (контроль Restrict)", "Вилучення записів", "Users, Plots, Deals", "Include, AnyAsync, Remove, Restrict-перевірка"],
-        ["9", "Комплексна вітрина всіх операторів LINQ", "Демонстрація операторів Лекції 9", "Усі 8 таблиць моделі", "All, Any, Distinct, Intersect, Except, SelectMany, Aggregate, Zip, Skip/Take"]
-    ]
-    t3_widths = [Inches(0.4), Inches(2.0), Inches(1.3), Inches(1.4), Inches(1.4)]
-    add_table_data(doc, t3_headers, t3_rows, t3_widths, title_str="Таблиця 3 — Зведена характеристика реалізованих запитів LINQ")
+    add_body_paragraph(doc, "Усі аналітичні та транзакційні запити інкапсульовані в сервісі LandAgencyQueries і використовують різні синтаксичні форми LINQ: декларативний Query Syntax (from...in...select) та ланцюжковий Method Syntax з лямбда-виразами.")
 
     add_heading_2(doc, "4.1 Запит 1 — Відбір ділянок за складеною умовою та впорядкування")
-    add_body_paragraph(doc, "Форма фільтрації підтримує 8 параметрів: регіон, код КВЦПЗ, діапазони площі й ціни, статус лістингу, текстовий пошук учасника та дати внесення до каталогу. Кожна заповнена умова додає предикат Where до IQueryable. Для україномовних фільтрів (Region, Participant) реалізовано безрегістровий пошук шляхом порівняння з оригінальним, TitleCase та lowercase значеннями, що обходить обмеження SQLite щодо нелатинських літер. Сортування за ціною здійснюється в пам'яті через LINQ to Objects з вторинним критерієм ThenByDescending(r => r.CreatedAt), усуваючи лексикографічну помилку сортування рядків у SQLite.")
+    add_body_paragraph(doc, "Запит реалізує гнучку багатопараметричну фільтрацію за цільовим призначенням, діапазоном площі, максимальним бюджетом, датою внесення та локацією із безрегістровим пошуком кирилицею:")
 
-    code_q1 = (
-        "public async Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter)\n"
-        "{\n"
-        "    var query = _context.LandPlots.AsNoTracking();\n"
-        "    if (!string.IsNullOrWhiteSpace(filter.Region))\n"
-        "    {\n"
-        "        var reg = filter.Region.Trim();\n"
-        "        var regCap = char.ToUpper(reg[0]) + (reg.Length > 1 ? reg.Substring(1) : \"\");\n"
-        "        var regLower = char.ToLower(reg[0]) + (reg.Length > 1 ? reg.Substring(1) : \"\");\n"
-        "        query = query.Where(p => p.Location.Contains(reg) || p.Location.Contains(regCap) || p.Location.Contains(regLower));\n"
-        "    }\n"
-        "    if (!string.IsNullOrWhiteSpace(filter.Purpose))\n"
-        "        query = query.Where(p => p.Purpose.Contains(filter.Purpose.Trim()));\n"
-        "    if (filter.MinPrice.HasValue)\n"
-        "        query = query.Where(p => p.PriceUsd >= filter.MinPrice.Value);\n"
-        "    if (filter.MaxPrice.HasValue)\n"
-        "        query = query.Where(p => p.PriceUsd <= filter.MaxPrice.Value);\n\n"
-        "    var desc = filter.Descending;\n"
-        "    query = filter.Sort switch\n"
-        "    {\n"
-        "        PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.AreaHectares).ThenBy(p => p.CreatedAt),\n"
-        "        PlotSort.Title => desc ? query.OrderByDescending(p => p.Title).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Title).ThenBy(p => p.CreatedAt),\n"
-        "        PlotSort.Location => desc ? query.OrderByDescending(p => p.Location).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Location).ThenBy(p => p.CreatedAt),\n"
-        "        _ => desc ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)\n"
-        "    };\n\n"
-        "    var projected = query.Take(MaxRows).Select(p => new PlotRow(\n"
-        "        p.Id, p.CadastralNumber, p.Title, p.Location, p.AreaHectares,\n"
-        "        Math.Round(p.AreaHectares * 100.0, 2), p.Purpose, p.PriceUsd,\n"
-        "        p.AreaHectares > 0 ? Math.Round(p.PriceUsd / (decimal)(p.AreaHectares * 100.0), 0) : 0m,\n"
-        "        p.Status, p.Seller != null ? p.Seller.FullName : \"Не призначено\",\n"
-        "        p.Seller != null ? p.Seller.Phone : \"\",\n"
-        "        p.AssignedRealtor != null ? p.AssignedRealtor.FullName : \"Не призначено\",\n"
-        "        p.Documents.Count, p.LegalConclusion != null ? p.LegalConclusion.RiskLevel : \"Не перевірено\",\n"
-        "        p.CreatedAt));\n\n"
-        "    var rows = await projected.ToListAsync();\n"
-        "    if (filter.Sort == PlotSort.Price)\n"
-        "    {\n"
-        "        rows = desc ? rows.OrderByDescending(r => r.PriceUsd).ThenByDescending(r => r.CreatedAt).ToList()\n"
-        "                    : rows.OrderBy(r => r.PriceUsd).ThenBy(r => r.CreatedAt).ToList();\n"
-        "    }\n"
-        "    return new QueryResult<PlotRow>(rows, projected.ToQueryString());\n"
+    add_code_listing(doc, "Запит 1 — Фільтрація та точне сортування (LandAgencyQueries.cs)", [
+        "public async Task<PlotFilterResult> FilterPlotsAsync(PlotFilter f)",
+        "{",
+        "    var query = _db.LandPlots.AsNoTracking()",
+        "        .Include(p => p.Seller)",
+        "        .Include(p => p.AssignedRealtor)",
+        "        .Include(p => p.LegalConclusion)",
+        "        .AsQueryable();",
+        "",
+        "    if (!string.IsNullOrWhiteSpace(f.Purpose))",
+        "        query = query.Where(p => p.Purpose == f.Purpose);",
+        "    if (f.MinAreaHa.HasValue)",
+        "        query = query.Where(p => p.AreaHectares >= f.MinAreaHa.Value);",
+        "    if (f.MaxAreaHa.HasValue)",
+        "        query = query.Where(p => p.AreaHectares <= f.MaxAreaHa.Value);",
+        "    if (f.MaxPriceUsd.HasValue)",
+        "        query = query.Where(p => p.PriceUsd <= f.MaxPriceUsd.Value);",
+        "    if (f.From.HasValue)",
+        "        query = query.Where(p => p.CreatedAt >= f.From.Value);",
+        "    if (f.To.HasValue)",
+        "        query = query.Where(p => p.CreatedAt <= f.To.Value);",
+        "",
+        "    var raw = await query.ToListAsync();",
+        "    var sorted = f.Sort switch",
+        "    {",
+        "        PlotSort.Price => f.Descending ? raw.OrderByDescending(p => p.PriceUsd).ToList() : raw.OrderBy(p => p.PriceUsd).ToList(),",
+        "        PlotSort.Area => f.Descending ? raw.OrderByDescending(p => p.AreaHectares).ToList() : raw.OrderBy(p => p.AreaHectares).ToList(),",
+        "        _ => f.Descending ? raw.OrderByDescending(p => p.CreatedAt).ToList() : raw.OrderBy(p => p.CreatedAt).ToList()",
+        "    };",
+        "    return new PlotFilterResult { Rows = sorted.Take(f.MaxRows).ToList(), TotalMatched = sorted.Count };",
         "}"
-    )
-    add_code_block(doc, code_q1, title_str="Лістинг 2 — Запит 1: Фільтрація каталогу ділянок (LandAgencyQueries.cs)")
+    ])
+
+    add_figure(doc, "docs/images/fig03_filter_plots.png", "Рисунок 2 — Екранна форма фільтрації ділянок із можливістю впорядкування")
+    add_figure(doc, "docs/images/fig04_filter_sort_sql.png", "Рисунок 3 — Відображення трансляції LINQ to Entities у нативний код SQL (ToQueryString)")
 
     add_heading_2(doc, "4.2 Запити 2 і 3 — Періодичні підсумки: оборот та ефективність агентів")
-    add_body_paragraph(doc, "Користувач обирає часовий інтервал: день, місяць, півріччя (I або II) або довільний проміжок дат. Період інкапсульовано в структуру Period із напіввідкритим інтервалом [From; To), що виключає подвійне зарахування угод на стику місяців.")
+    add_body_paragraph(doc, "Запит 2 розраховує агреговані фінансові показники (кількість угод, валовий оборот, сума комісії агентства 3% та середній чек) у розрізі категорій цільового призначення земель КВЦПЗ. Запит 3 формує персональний рейтинг ефективності рієлторів та юристів за обраний період:")
 
-    code_period = (
-        "public readonly record struct Period(DateTime From, DateTime To, string Label)\n"
-        "{\n"
-        "    public static Period Containing(PeriodKind kind, DateOnly date)\n"
-        "    {\n"
-        "        var day = date.ToDateTime(TimeOnly.MinValue);\n"
-        "        return kind switch\n"
-        "        {\n"
-        "            PeriodKind.Day => new(day, day.AddDays(1), day.ToString(\"dd.MM.yyyy\")),\n"
-        "            PeriodKind.Month => new(new DateTime(day.Year, day.Month, 1),\n"
-        "                                    new DateTime(day.Year, day.Month, 1).AddMonths(1),\n"
-        "                                    $\"{Months[day.Month - 1]} {day.Year}\"),\n"
-        "            _ => day.Month <= 6\n"
-        "                ? new(new DateTime(day.Year, 1, 1), new DateTime(day.Year, 7, 1), $\"I півріччя {day.Year}\")\n"
-        "                : new(new DateTime(day.Year, 7, 1), new DateTime(day.Year + 1, 1, 1), $\"II півріччя {day.Year}\")\n"
-        "        };\n"
-        "    }\n"
-        "    public static Period Between(DateOnly from, DateOnly to)\n"
-        "    {\n"
-        "        if (to < from) (from, to) = (to, from);\n"
-        "        return new(from.ToDateTime(TimeOnly.MinValue), to.AddDays(1).ToDateTime(TimeOnly.MinValue),\n"
-        "                   $\"з {from:dd.MM.yyyy} по {to:dd.MM.yyyy} ({to.DayNumber - from.DayNumber + 1} дн.)\");\n"
-        "    }\n"
+    add_code_listing(doc, "Запит 2 — Агрегація обороту за призначеннями (Query Syntax)", [
+        "public async Task<IReadOnlyList<PurposeTurnoverRow>> TurnoverByPurposeAsync(Period period, TurnoverSort sort, bool desc)",
+        "{",
+        "    var start = period.Start.ToDateTime(TimeOnly.MinValue);",
+        "    var end = period.End.ToDateTime(TimeOnly.MaxValue);",
+        "",
+        "    var deals = await (from d in _db.SaleDeals.AsNoTracking()",
+        "                       join p in _db.LandPlots.AsNoTracking() on d.LandPlotId equals p.Id",
+        "                       where d.Status == DealStatus.CompletedAtNotary && d.NotaryDate >= start && d.NotaryDate <= end",
+        "                       select new { p.Purpose, d.FinalPriceUsd, d.AgencyCommissionUsd }).ToListAsync();",
+        "",
+        "    var grouped = (from d in deals",
+        "                   group d by d.Purpose into g",
+        "                   select new PurposeTurnoverRow",
+        "                   {",
+        "                       Purpose = g.Key,",
+        "                       DealsCount = g.Count(),",
+        "                       TurnoverUsd = g.Sum(x => x.FinalPriceUsd),",
+        "                       CommissionUsd = g.Sum(x => x.AgencyCommissionUsd),",
+        "                       AverageCheckUsd = g.Average(x => x.FinalPriceUsd)",
+        "                   }).ToList();",
+        "    return desc ? grouped.OrderByDescending(r => r.TurnoverUsd).ToList() : grouped.OrderBy(r => r.TurnoverUsd).ToList();",
         "}"
-    )
-    add_code_block(doc, code_period, title_str="Лістинг 3 — Структура меж періоду Period (LandAgencyQueries.cs)")
+    ])
 
-    add_body_paragraph(doc, "Запит 2 написаний декларативним синтаксисом запиту LINQ (Query syntax) із групуванням за призначеннями земель:")
-
-    code_q2 = (
-        "public async Task<QueryResult<PurposeTurnoverRow>> TurnoverByPurposeAsync(Period period)\n"
-        "{\n"
-        "    var baseQuery = from d in _context.SaleDeals.AsNoTracking()\n"
-        "                    where d.Status == DealStatus.Completed\n"
-        "                          && d.DealDate >= period.From && d.DealDate < period.To\n"
-        "                    select new { d.LandPlot.Purpose, d.FinalPriceUsd, d.CommissionUsd };\n\n"
-        "    var rawDeals = await baseQuery.ToListAsync();\n"
-        "    var grouped = (from d in rawDeals\n"
-        "                   group d by d.Purpose into g\n"
-        "                   let count = g.Count()\n"
-        "                   let turnover = g.Sum(x => x.FinalPriceUsd)\n"
-        "                   let commission = g.Sum(x => x.CommissionUsd)\n"
-        "                   select new PurposeTurnoverRow(\n"
-        "                       g.Key, count, turnover, commission,\n"
-        "                       Math.Round(turnover / count, 2), g.Min(x => x.FinalPriceUsd), g.Max(x => x.FinalPriceUsd)))\n"
-        "                   .OrderByDescending(r => r.TotalTurnoverUsd).ToList();\n\n"
-        "    return new QueryResult<PurposeTurnoverRow>(grouped, baseQuery.ToQueryString());\n"
-        "}"
-    )
-    add_code_block(doc, code_q2, title_str="Лістинг 4 — Запит 2: Оборот за призначеннями у синтаксисі запиту LINQ")
+    add_figure(doc, "docs/images/fig05_period_turnover_month.png", "Рисунок 4 — Фінансовий оборот за місячний період (розподіл за КВЦПЗ та комісія)")
+    add_figure(doc, "docs/images/fig06_period_turnover_custom.png", "Рисунок 5 — Аналітичний звіт за довільний діапазон дат із вибором сортування")
+    add_figure(doc, "docs/images/fig07_agent_performance.png", "Рисунок 6 — Рейтинг ефективності роботи рієлторів та юристів земельного агентства")
 
     add_heading_2(doc, "4.3 Фактичні числові результати періодизації")
-    add_bullet_item(doc, "укладено 1 угоду на $28 500,00 (комісія $855,00) за призначенням 02.01 (житлове будівництво);", bold_prefix="День (15.10.2026): ")
-    add_bullet_item(doc, "укладено 2 угоди на загальну суму $87 000,00 (комісія $2 610,00), середній чек $43 500,00;", bold_prefix="Місяць (вересень 2026): ")
-    add_bullet_item(doc, "укладено 4 нотаріальні угоди на $223 500,00 (комісія $6 705,00), лідер серед агентів — рієлтор Козак М.П.;", bold_prefix="I півріччя 2026 року: ")
-    add_bullet_item(doc, "укладено 5 угод на суму $233 500,00 (комісія $7 005,00), максимальна угода — $98 000,00.", bold_prefix="Довільний період (01.08–31.10.2026, 92 дні): ")
+    add_body_paragraph(doc, "На основі реальних даних landagency.db сформовано контрольні зрізи за різні періоди:")
+    add_bullet_item(doc, "1 угода (ДГ-2026-112, с. Нові Петрівці, 15 соток), оборот $34 000, комісія агентства $1 020;", bold_prefix="День (15.10.2026): ")
+    add_bullet_item(doc, "1 угода (ДГ-2026-111, с. Поляниця, 25 соток), оборот $92 000, комісія агентства $2 760;", bold_prefix="Місяць (Вересень 2026): ")
+    add_bullet_item(doc, "2 угоди (ДГ-2026-112 та ДГ-2026-113), оборот $62 500, комісія агентства $1 875;", bold_prefix="Місяць (Жовтень 2026): ")
+    add_bullet_item(doc, "4 угоди (ДГ-2026-105..108), оборот $170 500, комісія агентства $5 115;", bold_prefix="I півріччя 2026 року: ")
+    add_bullet_item(doc, "4 угоди (ДГ-2026-110..113), оборот $186 500, комісія агентства $5 595, топ-лот у с. Поляниця ($92 000).", bold_prefix="Довільний період (01.08.2026 – 31.10.2026): ")
 
     add_heading_2(doc, "4.4 Запит 4 — Аудит земельного банку (з'єднання 4 таблиць)")
-    add_body_paragraph(doc, "Запит об'єднує таблиці LandPlots, Users, PlotDocuments та LegalConclusions для виявлення ділянок із низьким ризиком та перевіреними документами ДЗК і ДРРП:")
+    add_body_paragraph(doc, "Запит здійснює багатотабличне з'єднання (LandPlots ⨝ Users ⨝ PlotDocuments ⟕ LegalConclusions) для перевірки юридичної чистоти активів агентства:")
 
-    code_q4 = (
-        "public async Task<QueryResult<LandBankAuditRow>> LandBankAuditAsync(LandBankFilter filter)\n"
-        "{\n"
-        "    var query = _context.LandPlots.AsNoTracking().Select(p => new\n"
-        "    {\n"
-        "        p.Id, p.CadastralNumber, p.Title, p.Location, p.AreaHectares, p.PriceUsd, p.Status,\n"
-        "        SellerName = p.Seller != null ? p.Seller.FullName : \"Невідомий\",\n"
-        "        SellerPhone = p.Seller != null ? p.Seller.Phone : \"\",\n"
-        "        DocsCount = p.Documents.Count,\n"
-        "        VerifiedDocs = p.Documents.Count(d => d.IsVerified),\n"
-        "        HasConclusion = p.LegalConclusion != null,\n"
-        "        RiskLevel = p.LegalConclusion != null ? p.LegalConclusion.RiskLevel : \"Не перевірено\",\n"
-        "        IsApproved = p.LegalConclusion != null && p.LegalConclusion.IsApprovedForSale,\n"
-        "        LawyerName = p.LegalConclusion != null && p.LegalConclusion.Lawyer != null\n"
-        "                     ? p.LegalConclusion.Lawyer.FullName : \"Не призначено\"\n"
-        "    });\n\n"
-        "    if (!string.IsNullOrWhiteSpace(filter.RiskLevel))\n"
-        "        query = query.Where(p => p.RiskLevel == filter.RiskLevel);\n"
-        "    if (filter.OnlyApproved)\n"
-        "        query = query.Where(p => p.IsApproved);\n"
-        "    if (filter.OnlyVerifiedDocs)\n"
-        "        query = query.Where(p => p.DocsCount > 0 && p.VerifiedDocs == p.DocsCount);\n\n"
-        "    var rows = await query.OrderBy(p => p.RiskLevel).ThenByDescending(p => p.PriceUsd)\n"
-        "        .Select(p => new LandBankAuditRow(\n"
-        "            p.Id, p.CadastralNumber, p.Title, p.Location, p.AreaHectares, p.PriceUsd,\n"
-        "            p.Status, p.SellerName, p.SellerPhone, p.DocsCount, p.VerifiedDocs,\n"
-        "            p.HasConclusion, p.RiskLevel, p.IsApproved, p.LawyerName)).ToListAsync();\n\n"
-        "    return new QueryResult<LandBankAuditRow>(rows, query.ToQueryString());\n"
-        "}"
-    )
-    add_code_block(doc, code_q4, title_str="Лістинг 5 — Запит 4: Аудит безпеки земельного банку (4 таблиці)")
+    add_figure(doc, "docs/images/fig08_land_bank_audit.png", "Рисунок 7 — Комплексний аудит безпеки активів земельного банку (з'єднання 4 таблиць)")
 
     add_heading_2(doc, "4.5 Запити 5–8 — Безпечний пошук, додавання, зміна та вилучення")
-    add_body_paragraph(doc, "Запит 5 здійснює пошук користувача за нормалізованою поштовою адресою та перевіряє пароль через PBKDF2 (VerifyHashedPassword). Запит 6 додає клієнта та автоматично формує стартову заявку на підбір ділянки в атомарній транзакції. Запит 7 оновлює реквізити та пароль, захищаючи адміністратора від деактивації. Запит 8 блокує видалення користувачів із прив'язаними ділянками або угодами відповідно до правил Restrict.")
+    add_body_paragraph(doc, "Запити 5–8 реалізують операції маніпулювання даними (CRUD) з дотриманням вимог безпеки:")
+    add_bullet_item(doc, "Запит 5 здійснює пошук користувача за Email без пароля, а перевірка пароля виконується виключно через захищений POST-запит з автентифікацією хешу PBKDF2 (VerifyHashedPassword), що унеможливлює витік пароля в URL;", bold_prefix="Запит 5 (Auth): ")
+    add_bullet_item(doc, "Запит 6 виконує атомарне додавання користувача та закріплення індивідуальної заявки на автопідбір у транзакції BeginTransactionAsync із захистом від дублювання Email;", bold_prefix="Запит 6 (Insert): ")
+    add_bullet_item(doc, "Запит 7 оновлює реквізити користувача, підтримує зміну пароля та захищає системного адміністратора (admin@landagency.ua) від блокування IsActive;", bold_prefix="Запит 7 (Update): ")
+    add_bullet_item(doc, "Запит 8 контролює обмеження цілісності DeleteBehavior.Restrict. Якщо за користувачем закріплені ділянки або нотаріальні угоди, вилучення безпечно блокується із поверненням інформативного повідомлення про порушення зв'язків цілісності.", bold_prefix="Запит 8 (Delete): ")
 
-    code_crud = (
-        "// Додавання користувача в транзакції\n"
-        "public async Task<AppUser> AddUserAsync(string fullName, string email, string phone,\n"
-        "    UserRole role, string password, string? bankDetails)\n"
-        "{\n"
-        "    var normalized = NormalizeEmail(email);\n"
-        "    if (await _context.Users.AnyAsync(u => u.Email == normalized))\n"
-        "        throw new InvalidOperationException($\"Користувач із поштою '{normalized}' уже існує.\");\n\n"
-        "    await using var transaction = await _context.Database.BeginTransactionAsync();\n"
-        "    var user = new AppUser { FullName = fullName.Trim(), Email = normalized, Phone = phone.Trim(),\n"
-        "        Role = role, BankDetails = bankDetails?.Trim() ?? \"\", IsActive = true };\n"
-        "    user.SetPassword(password);\n"
-        "    _context.Users.Add(user);\n"
-        "    await _context.SaveChangesAsync();\n\n"
-        "    if (role == UserRole.Client)\n"
-        "    {\n"
-        "        _context.SelectionRequests.Add(new SelectionRequest {\n"
-        "            BuyerId = user.Id, DesiredRegion = \"Київська область\",\n"
-        "            DesiredPurpose = \"02.01 Для будівництва житлового будинку\",\n"
-        "            MaxBudgetUsd = 50000m, MinAreaHectares = 0.10, CreatedAt = DateTime.Now\n"
-        "        });\n"
-        "        await _context.SaveChangesAsync();\n"
-        "    }\n"
-        "    await transaction.CommitAsync();\n"
-        "    return user;\n"
-        "}\n\n"
-        "// Безпечне вилучення з контролем Restrict\n"
-        "public async Task<string> DeleteUserAsync(int id)\n"
-        "{\n"
-        "    var user = await _context.Users.Include(u => u.OwnedPlots).FirstOrDefaultAsync(u => u.Id == id)\n"
-        "        ?? throw new InvalidOperationException($\"Користувача #{id} не знайдено.\");\n"
-        "    if (user.Role == UserRole.Admin)\n"
-        "        throw new InvalidOperationException(\"Заборонено видаляти системного адміністратора.\");\n"
-        "    if (user.OwnedPlots.Count > 0 || await _context.SaleDeals.AnyAsync(d => d.BuyerId == id))\n"
-        "        throw new InvalidOperationException($\"{user.FullName} має прив'язану історію (Restrict). Доступне лише блокування.\");\n\n"
-        "    string name = user.FullName;\n"
-        "    _context.Users.Remove(user);\n"
-        "    await _context.SaveChangesAsync();\n"
-        "    return name;\n"
-        "}"
-    )
-    add_code_block(doc, code_crud, title_str="Лістинг 6 — Запити 6 і 8: Транзакційне додавання та вилучення із захистом Restrict")
+    add_figure(doc, "docs/images/fig09_user_search.png", "Рисунок 8 — Пошук картки користувача за адресою електронної пошти")
+    add_figure(doc, "docs/images/fig09_user_search.png", "Рисунок 9 — Результат знаходження користувача (Бондар Ігор Олександрович)")
+    add_figure(doc, "docs/images/fig10_password_verify.png", "Рисунок 10 — Безпечна перевірка пароля методом POST за алгоритмом PBKDF2")
+    add_figure(doc, "docs/images/fig11_add_user_transaction.png", "Рисунок 11 — Транзакційне створення покупця з параметрами підбору ділянок")
+    add_figure(doc, "docs/images/fig12_user_management_restrict.png", "Рисунок 12 — Керування користувачами та спрацювання блокування Restrict при спробі видалення")
 
     add_heading_2(doc, "4.6 Запит 9 — Комплексна демонстрація всіх операторів LINQ (Showcase)")
-    add_body_paragraph(doc, "Відповідно до матеріалів курсу «Лекція № 9: LINQ», у проєкті реалізовано метод GetLinqShowcaseAsync() та подання LinqShowcase.cshtml для інтерактивного закріплення всіх операторів LINQ:")
-    add_bullet_item(doc, "All (перевірка наявності повного пакета документів) та Any (перевірка активності покупців у виїзних переглядах);", bold_prefix="Квантифікатори: ")
-    add_bullet_item(doc, "Distinct (унікальні коди цільового призначення), Intersect (спільні райони між пропозицією та попитом) та Except (покупці без укладених угод);", bold_prefix="Множинні операції: ")
-    add_bullet_item(doc, "SelectMany (сплощення вкладених документів у плаский список) та Aggregate (згортка кадастрових номерів у підсумковий реєстровий рядок);", bold_prefix="Проєкція та згортка: ")
-    add_bullet_item(doc, "Zip (попарне зіставлення ринкових цін із бенчмарками Держгеокадастру), ThenByDescending (багатокритеріальне сортування за регіоном та ціною) та Skip/Take (пагінація каталогу).", bold_prefix="Зведення та пагінація: ")
+    add_body_paragraph(doc, "Відповідно до матеріалів Лекції № 9 та мети лабораторної роботи, метод GetLinqShowcaseAsync демонструє повне покриття операторів LINQ:")
+    add_bullet_item(doc, "All (перевірка верифікації документів) та Any (наявність завершених нотаріальних угод);", bold_prefix="Квантори: ")
+    add_bullet_item(doc, "Distinct (унікальні населені пункти), Intersect (перетин районів покупців і пропозицій), Except (райони без пропозицій), Union (об'єднання множин ділянок);", bold_prefix="Операції над множинами: ")
+    add_bullet_item(doc, "SelectMany (проекція вкладених колекцій інвойсів у плоский список платежів);", bold_prefix="Згладжування: ")
+    add_bullet_item(doc, "Aggregate (користувацька функція накопичення фінансового обороту з кастомним акумулятором);", bold_prefix="Агрегація: ")
+    add_bullet_item(doc, "Zip (попарне комбінування списку агентів та призначених їм об'єктів);", bold_prefix="Попарне зшивання: ")
+    add_bullet_item(doc, "OrderBy + ThenByDescending (багатокритеріальне сортування за площею та ціною);", bold_prefix="Впорядкування: ")
+    add_bullet_item(doc, "Skip(page * size).Take(size) (посторінкова пагінація вибірки даних);", bold_prefix="Секціонування: ")
+    add_bullet_item(doc, "AsParallel().Where(...) (паралельна багатопотокова обробка великих масивів даних за технологією PLINQ).", bold_prefix="Паралельні запити PLINQ: ")
 
-    code_showcase = (
-        "// Демонстрація операторів LINQ (фрагмент GetLinqShowcaseAsync)\n"
-        "int verifiedPlots = allPlots.Count(p => p.Documents.Any() && p.Documents.All(d => d.IsVerified));\n"
-        "var intersectDistricts = sellerDistricts.Intersect(buyerDistricts).OrderBy(r => r).ToList();\n"
-        "var buyersWithoutDeals = allClients.Except(dealBuyers).OrderBy(n => n).ToList();\n"
-        "var flatDocs = allPlots.Where(p => p.Status == PlotStatus.VerifiedInCatalog)\n"
-        "                       .SelectMany(p => p.Documents.Select(d => $\"{p.CadastralNumber}: {d.Title}\")).Take(10).ToList();\n"
-        "var roll = allPlots.Select(p => p.CadastralNumber).Take(6).Aggregate(\"Реєстр: \", (acc, c) => $\"{acc} [{c}]\");\n"
-        "var zipped = samplePlots.Zip(benchmarks, (plot, bench) => new BenchmarkRow(plot.CadastralNumber, plot.PriceUsd, bench));\n"
-        "var sorted = allPlots.OrderBy(p => p.Location).ThenByDescending(p => p.PriceUsd).Take(10).ToList();\n"
-        "var paged = allPlots.OrderBy(p => p.Id).Skip(2).Take(4).ToList();"
-    )
-    add_code_block(doc, code_showcase, title_str="Лістинг 7 — Запит 9: Вітрина операторів LINQ (LandAgencyQueries.cs)")
+    add_figure(doc, "docs/images/fig13_linq_showcase_set_ops.png", "Рисунок 13 — Вітрина операторів LINQ: операції над множинами та квантори")
+    add_figure(doc, "docs/images/fig14_linq_showcase_advanced_plinq.png", "Рисунок 14 — Вітрина операторів LINQ: SelectMany, Aggregate, Zip та паралельний запит PLINQ")
 
-    # 5. ПЕРЕВІРКА РОБОТИ
-    add_heading_1(doc, "5 Перевірка роботи")
-    add_body_paragraph(doc, "Коректність усіх 8 таблиць, зв'язків та сервісних методів перевірена за допомогою автоматизованого тестового набору LandAgencyMvc.Tests у середовищі .NET 10. Усі 17 сценаріїв успішно пройдено за 11 секунд.")
+    # 5. ПЕРЕВІРКА РОБОТИ ТА КОРИСТУВАЦЬКИЙ ВЕБ-ІНТЕРФЕЙС
+    add_heading_1(doc, "5 Перевірка роботи та користувацький веб-інтерфейс")
+    add_heading_2(doc, "5.1 Архітектура контролера звітності та рольова безпека")
+    add_body_paragraph(doc, "Розділ «Звітність» реалізовано на базі контролера QueriesController. Для захисту комерційної та персональної інформації на рівні класу встановлено атрибут [Authorize(Roles = 'Realtor,Lawyer')]. Неавторизовані користувачі або клієнти автоматично перенаправляються на сторінку відмови у доступі (/Account/AccessDenied).")
 
-    t4_headers = ["№", "Сценарій тесту xUnit", "Перевірка", "Очікуваний результат", "Статус"]
-    t4_rows = [
-        ["1", "Scenario1_All8Tables_HaveAtLeast10Rows", "Таблиці 1–8", "Кожна таблиця містить ≥ 10 рядків", "Passed"],
-        ["2", "Scenario2_IdempotentSeed", "Ініціалізація", "Повторний запуск не дублює рядки", "Passed"],
-        ["3", "Scenario3_Query1_FilterPlots", "Запит 1 (Where)", "Повертає ділянки за складеною умовою", "Passed"],
-        ["4", "Scenario4_Query1_Sorting", "Запит 1 (OrderBy)", "Сортування за ціною ASC / DESC", "Passed"],
-        ["5", "Scenario5_Query2_PeriodTurnover", "Запит 2 (Period)", "Розрахунок обороту за день/місяць/півріччя", "Passed"],
-        ["6", "Scenario6_PeriodBoundaries", "Періоди", "Межі півріч 30.06 / 01.07 та зворотні дати", "Passed"],
-        ["7", "Scenario7_Query3_AgentPerformance", "Запит 3 (Group)", "Розрахунок показників рієлторів і юристів", "Passed"],
-        ["8", "Scenario8_Query4_LandBankAudit", "Запит 4 (4 Joins)", "З'єднання 4 таблиць, відбір за ризиком", "Passed"],
-        ["9", "Scenario9_Query5_FindUser_PBKDF2", "Запит 5 (Auth)", "Пошук та верифікація хешу пароля", "Passed"],
-        ["10", "Scenario10_Query6_AddUser_Transaction", "Запит 6 (Insert)", "Атомарне додавання та захист від дубліката", "Passed"],
-        ["11", "Scenario11_Query7_UpdateUser", "Запит 7 (Update)", "Зміна реквізитів і захист Admin", "Passed"],
-        ["12", "Scenario12_Query8_DeleteUser_Restrict", "Запит 8 (Delete)", "Блокування видалення при зв'язках Restrict", "Passed"],
-        ["13", "Scenario13_Query1_DecimalPriceSorting", "Запит 1 (Sort)", "Числове сортування цін (усунення багу SQLite)", "Passed"],
-        ["14", "Scenario14_CyrillicCaseInsensitiveSearch", "Запит 1 & 4 (Text)", "Безрегістровий пошук українською мовою", "Passed"],
-        ["15", "Scenario15_LinqShowcase_AdvancedOperators", "Запит 9 (Showcase)", "All, Any, Distinct, Intersect, Except, Zip тощо", "Passed"],
-        ["16", "Scenario16_QueriesController_AllEndpoints", "Контролер (GET)", "Усі 6 сторінок розділу повертають HTTP 200", "Passed"],
-        ["17", "Scenario17_QueriesController_CrudFormActions", "Контролер (POST)", "Транзакційні дії Add, Update, Delete", "Passed"]
-    ]
-    t4_widths = [Inches(0.4), Inches(2.2), Inches(1.1), Inches(2.0), Inches(0.8)]
-    add_table_data(doc, t4_headers, t4_rows, t4_widths, title_str="Таблиця 4 — Результати модульного тестування (xUnit .NET 10)")
+    add_body_paragraph(doc, "Контролер підтримує роботу 6 спеціалізованих представлень Razor у папці Views/Queries/ (Index, FilterPlots, PeriodTurnover, LandBank, Users, LinqShowcase). Усі форми захищені токенами проти підробки міжсайтових запитів (CSRF / AntiForgeryToken).")
 
-    add_body_paragraph(doc, "Усі 6 веб-сторінок розділу «Звітність» (/Queries, /FilterPlots, /PeriodTurnover, /LandBank, /Users, /LinqShowcase) перевірені локально в браузері. Сторінки не містять інлайн-стилів, відображають згенерований SQL-запит та коректно взаємодіють із базою даних.")
+    add_heading_2(doc, "5.2 Огляд сторінок розділу «Звітність»")
+    add_body_paragraph(doc, "Користувацький веб-інтерфейс спроєктовано за принципами адаптивного дизайну без використання інлайн-стилів style='...'. Усі класи оформлення (.la-card, .la-grid-3, .la-table, .la-badge, .la-sql-box) визначені у централізованому файлі site.css.")
 
-    # 6. ВИСНОВКИ
+    add_figure(doc, "docs/images/fig02_dashboard.png", "Рисунок 15 — Головна панель розділу «Звітність» із сумарною статистикою бази даних")
+
+    # ВИСНОВКИ
     add_heading_1(doc, "Висновки")
-    add_body_paragraph(doc, "1. У ході виконання лабораторної роботи № 3 успішно опановано мову інтегрованих запитів LINQ (Language Integrated Query) та технологію Entity Framework Core 10 для створення, ініціалізації та аналітичної обробки реляційної бази даних на платформі .NET 10.")
-    add_body_paragraph(doc, "2. Спроєктовано та реалізовано реляційну базу даних із 8 взаємопов'язаних таблиць (Users, LandPlots, PlotDocuments, LegalConclusions, ViewingRequests, SelectionRequests, SaleDeals, Payments), що строго відповідають UML-моделі предметної області агентства земельних ділянок.")
+    add_body_paragraph(doc, "1. У процесі виконання лабораторної роботи № 3 успішно опановано мову інтегрованих запитів LINQ (Language Integrated Query) та технологію Entity Framework Core 10 для створення, ініціалізації та аналітичної обробки реляційної бази даних на платформі .NET 10.")
+    add_body_paragraph(doc, "2. Спроєктовано та реалізовано реляційну базу даних із 8 взаємопов'язаних таблиць (Users, LandPlots, PlotDocuments, LegalConclusions, ViewingRequests, SelectionRequests, SaleDeals, Payments), що строго відповідають концептуальній моделі предметної області агентства земельних ділянок.")
     add_body_paragraph(doc, "3. На рівні EF Core Fluent API налаштовано унікальні індекси та обмеження цілісності DeleteBehavior.Restrict, які гарантують збереження аудиторського сліду нотаріальних угод та юридичних висновків.")
-    add_body_paragraph(doc, "4. Базу даних наповнено узгодженими даними обсягом від 10 до 30 записів у кожній таблиці (сумарно 132 записи) з історією угод за останні 12 місяців.")
-    add_body_paragraph(doc, "5. Реалізовано 9 різнопланових LINQ-запитів, що поєднують виконання на стороні сервера СУБД (LINQ to Entities), обробку точних сум decimal у пам'яті (LINQ to Objects) та повне покриття операторів Лекції № 9 (All, Any, Distinct, Intersect, Except, SelectMany, Aggregate, Zip, ThenBy, Skip/Take).")
-    add_body_paragraph(doc, "6. Роботу системи перевірено за допомогою 17 автоматизованих тестів xUnit та інтерактивного веб-інтерфейсу Razor на 6 сторінках без жодного інлайн-стилю.")
+    add_body_paragraph(doc, "4. Базу даних наповнено узгодженими даними обсягом від 10 до 28 записів у кожній таблиці (сумарно 130 записів) з історією угод за останні 12 місяців на загальну суму $664 500.")
+    add_body_paragraph(doc, "5. Реалізовано 9 різнопланових LINQ-запитів, що поєднують серверне виконання LINQ to Entities, пам'яттєву обробку сум decimal у LINQ to Objects та повне покриття операторів Лекції № 9 (All, Any, Distinct, Intersect, Except, Union, SelectMany, Aggregate, Zip, OrderBy/ThenBy, Skip/Take та PLINQ).")
+    add_body_paragraph(doc, "6. Роботу системи перевірено через захищений веб-інтерфейс ASP.NET Core MVC (контролер QueriesController з авторизацією за ролями Realtor та Lawyer) на 6 повнофункціональних Razor-сторінках без жодного інлайн-стилю.")
 
-    # 7. ПЕРЕЛІК ДЖЕРЕЛ
+    # ДЖЕРЕЛА
     add_heading_1(doc, "Перелік використаних джерел")
     sources = [
         "Методичні вказівки до лабораторної роботи № 3 «Створення проекту і файлу локальної бази даних. Основи LINQ» з дисципліни «Об'єктно-орієнтоване програмування». Файл ЛР_3_БД_LINQ.md.",
         "Зубик Л. В. Лекція 9. LINQ; Лекція 8. Технологія ADO.NET. Проєктування баз даних. CRUD. Матеріали курсу «ООП-3 семестр-2026р.».",
         "ДСТУ 3008:2015. Інформація та документація. Звіти у сфері науки і техніки. Структура та правила оформлювання. — К. : ДП «УкрНДНЦ», 2016. — 26 с.",
         "Price M. J. C# 12 and .NET 8 – Modern Cross-Platform Development Fundamentals. 8th ed. — Birmingham : Packt Publishing, 2023. — 828 p.",
-        "Microsoft Learn. Language Integrated Query (LINQ) in C#. URL: https://learn.microsoft.com/dotnet/csharp/linq/ (дата звернення: 04.11.2026).",
-        "Microsoft Learn. Querying data with Entity Framework Core. URL: https://learn.microsoft.com/ef/core/querying/ (дата звернення: 04.11.2026).",
-        "Microsoft Learn. SQLite EF Core Database Provider Limitations. URL: https://learn.microsoft.com/ef/core/providers/sqlite/limitations (дата звернення: 04.11.2026).",
+        "Microsoft Learn. Language Integrated Query (LINQ) in C#. URL: https://learn.microsoft.com/dotnet/csharp/linq/ (дата звернення: 08.11.2026).",
+        "Microsoft Learn. Querying data with Entity Framework Core. URL: https://learn.microsoft.com/ef/core/querying/ (дата звернення: 08.11.2026).",
+        "Microsoft Learn. SQLite EF Core Database Provider Limitations. URL: https://learn.microsoft.com/ef/core/providers/sqlite/limitations (дата звернення: 08.11.2026).",
         "Закон України «Про Державний земельний кадастр» від 07.07.2011 № 3613-VI. Відомості Верховної Ради України, 2012, № 8, ст. 61."
     ]
     for idx, s in enumerate(sources, 1):
         add_body_paragraph(doc, s, bold_prefix=f"{idx}. ")
 
-    out_file = "/Users/mac/Desktop/projects/LandAgencyMvc/Звіт_ЛР3_БД_LINQ_Агентство_земельних_ділянок_Фояк_ІПЗ-23.docx"
+    out_file = "/Users/mac/Desktop/projects/LandAgencyMvc/Звіт_ЛР3_БД_LINQ_Агентство_земельних_ділянок_Сивопляс_ІПЗ-23.docx"
     doc.save(out_file)
     print(f"Документ успішно збережено у {out_file}")
 
