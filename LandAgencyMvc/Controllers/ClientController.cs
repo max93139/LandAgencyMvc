@@ -12,6 +12,7 @@ namespace LandAgencyMvc.Controllers;
 /// Забезпечує перегляд каталогу ділянок, подачу заявок на огляд, автоматизований підбір,
 /// публікацію власних ділянок на продаж з верифікацією КОАТУУ та подання платіжних реквізитів.
 /// </summary>
+[Authorize]
 public class ClientController : Controller
 {
     private readonly LandAgencyContext _db;

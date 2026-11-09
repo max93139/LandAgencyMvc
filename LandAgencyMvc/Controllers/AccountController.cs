@@ -89,6 +89,21 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult Register()
     {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            if (User.IsInRole(nameof(UserRole.Realtor)) || User.IsInRole("Admin"))
+            {
+                return RedirectToAction("Requests", "Realtor");
+            }
+
+            if (User.IsInRole(nameof(UserRole.Lawyer)))
+            {
+                return RedirectToAction("Queue", "Lawyer");
+            }
+
+            return RedirectToAction("Cabinet", "Client");
+        }
+
         return View();
     }
 
