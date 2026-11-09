@@ -12,7 +12,7 @@ namespace LandAgencyMvc.Controllers;
 /// Відповідає за правовий аудит земельних ділянок (КОАТУУ, ДЗК/ДРРП, цінові аномалії),
 /// формування юридичних висновків та правову експертизу проектів договорів для нотаріуса.
 /// </summary>
-[Authorize(Roles = nameof(UserRole.Lawyer))]
+[Authorize(Roles = "Lawyer,Admin")]
 public class LawyerController : Controller
 {
     private readonly LandAgencyContext _db;

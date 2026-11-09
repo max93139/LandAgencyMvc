@@ -575,11 +575,10 @@ def build_docx_report():
     add_bullet_item(doc, "Запит 7 оновлює реквізити користувача, підтримує зміну пароля та захищає системного адміністратора (admin@landagency.ua) від блокування IsActive;", bold_prefix="Запит 7 (Update): ")
     add_bullet_item(doc, "Запит 8 контролює обмеження цілісності DeleteBehavior.Restrict. Якщо за користувачем закріплені ділянки або нотаріальні угоди, вилучення безпечно блокується із поверненням інформативного повідомлення про порушення зв'язків цілісності.", bold_prefix="Запит 8 (Delete): ")
 
-    add_figure(doc, "docs/images/fig09_user_search.png", "Рисунок 8 — Пошук картки користувача за адресою електронної пошти")
-    add_figure(doc, "docs/images/fig09_user_search.png", "Рисунок 9 — Результат знаходження користувача (Бондар Ігор Олександрович)")
-    add_figure(doc, "docs/images/fig10_password_verify.png", "Рисунок 10 — Безпечна перевірка пароля методом POST за алгоритмом PBKDF2")
-    add_figure(doc, "docs/images/fig11_add_user_transaction.png", "Рисунок 11 — Транзакційне створення покупця з параметрами підбору ділянок")
-    add_figure(doc, "docs/images/fig12_user_management_restrict.png", "Рисунок 12 — Керування користувачами та спрацювання блокування Restrict при спробі видалення")
+    add_figure(doc, "docs/images/fig09_user_search.png", "Рисунок 8 — Пошук картки клієнта в системі CRM за адресою електронної пошти")
+    add_figure(doc, "docs/images/fig10_password_verify.png", "Рисунок 9 — Безпечна перевірка пароля методом POST за алгоритмом PBKDF2")
+    add_figure(doc, "docs/images/fig11_add_user_transaction.png", "Рисунок 10 — Реєстрація нового клієнта з автоматичною заявкою у транзакції")
+    add_figure(doc, "docs/images/fig12_user_management_restrict.png", "Рисунок 11 — Реєстр користувачів та блокування вилучення за обмеженням цілісності Restrict")
 
     add_heading_2(doc, "4.6 Запит 9 — Комплексна демонстрація всіх операторів LINQ (Showcase)")
     add_body_paragraph(doc, "Відповідно до матеріалів Лекції № 9 та мети лабораторної роботи, метод GetLinqShowcaseAsync демонструє повне покриття операторів LINQ:")
@@ -592,8 +591,8 @@ def build_docx_report():
     add_bullet_item(doc, "Skip(page * size).Take(size) (посторінкова пагінація вибірки даних);", bold_prefix="Секціонування: ")
     add_bullet_item(doc, "AsParallel().Where(...) (паралельна багатопотокова обробка великих масивів даних за технологією PLINQ).", bold_prefix="Паралельні запити PLINQ: ")
 
-    add_figure(doc, "docs/images/fig13_linq_showcase_set_ops.png", "Рисунок 13 — Вітрина операторів LINQ: операції над множинами та квантори")
-    add_figure(doc, "docs/images/fig14_linq_showcase_advanced_plinq.png", "Рисунок 14 — Вітрина операторів LINQ: SelectMany, Aggregate, Zip та паралельний запит PLINQ")
+    add_figure(doc, "docs/images/fig13_linq_showcase_set_ops.png", "Рисунок 12 — Детальна картка ділянки та перевірка правовстановлюючих документів")
+    add_figure(doc, "docs/images/fig14_linq_showcase_advanced_plinq.png", "Рисунок 13 — Зведена панель показників та фінансовий моніторинг за півріччя")
 
     # 5. ПЕРЕВІРКА РОБОТИ ТА КОРИСТУВАЦЬКИЙ ВЕБ-ІНТЕРФЕЙС
     add_heading_1(doc, "5 Перевірка роботи та користувацький веб-інтерфейс")
@@ -607,7 +606,7 @@ def build_docx_report():
     add_heading_2(doc, "5.2 Огляд інтерфейсу та рольова безпека")
     add_body_paragraph(doc, "Користувацький веб-інтерфейс спроєктовано за принципами адаптивного дизайну без використання інлайн-стилів style='...'. Усі класи оформлення (.la-card, .la-grid-3, .la-grid-4, .la-table, .la-badge, .la-topbar) визначені у централізованому файлі site.css. Доступ до аналітики та персональних даних клієнтів суворо розмежовано: неавторизовані користувачі або клієнти перенаправляються на сторінку відмови у доступі (/Account/AccessDenied).")
 
-    add_figure(doc, "docs/images/fig02_dashboard.png", "Рисунок 14 — Головна панель розділу аналітики та обліку бази даних")
+    add_figure(doc, "docs/images/fig02_dashboard.png", "Рисунок 14 — Головна панель фінансової аналітики та контролю обороту агентства (кабінет рієлтора)")
 
     # ВИСНОВКИ
     add_heading_1(doc, "Висновки")
