@@ -18,11 +18,16 @@ public class RealtorController : Controller
 {
     private readonly LandAgencyContext _db;
     private readonly IAutoMatchingService _autoMatchingService;
+    private readonly ILandAgencyQueries _queries;
 
-    public RealtorController(LandAgencyContext context, IAutoMatchingService autoMatchingService)
+    public RealtorController(
+        LandAgencyContext context,
+        IAutoMatchingService autoMatchingService,
+        ILandAgencyQueries queries)
     {
         _db = context;
         _autoMatchingService = autoMatchingService;
+        _queries = queries;
     }
 
     private async Task<AppUser?> GetCurrentRealtorAsync()
@@ -621,5 +626,202 @@ public class RealtorController : Controller
         }
 
         return View(deal);
+    }
+
+    /// <summary>
+    /// Фінансова аналітика та результативність агентства за обраний період (день, місяць, півріччя або довільний).
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpGet]
+    public async Task<IActionResult> Analytics(
+        PeriodKind kind = PeriodKind.Month,
+        DateOnly? date = null,
+        DateOnly? from = null,
+        DateOnly? to = null,
+        TurnoverSort sort = TurnoverSort.Turnover,
+        AgentSort? agentSort = null,
+        bool? desc = null)
+    {
+        bool isDescending = desc ?? true;
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var day = date ?? today;
+        var periodFrom = from ?? today.AddMonths(-3);
+        var periodTo = to ?? today;
+
+        var period = kind == PeriodKind.Custom
+            ? Period.Between(periodFrom, periodTo)
+            : Period.Containing(kind, day);
+
+        var actualAgentSort = agentSort ?? sort switch
+        {
+            TurnoverSort.Deals => AgentSort.Deals,
+            TurnoverSort.Name => AgentSort.Name,
+            _ => AgentSort.Turnover
+        };
+
+        var byPurpose = await _queries.TurnoverByPurposeAsync(period, sort, isDescending);
+        var byAgent = await _queries.AgentPerformanceAsync(period, actualAgentSort, isDescending);
+
+        var viewModel = new PeriodTurnoverViewModel
+        {
+            Kind = kind,
+            Date = day,
+            From = DateOnly.FromDateTime(period.From),
+            To = DateOnly.FromDateTime(period.To).AddDays(-1),
+            Sort = sort,
+            Descending = isDescending,
+            Period = period,
+            ByPurpose = byPurpose,
+            ByAgent = byAgent
+        };
+
+        ViewData["ActiveNav"] = "Analytics";
+        return View(viewModel);
+    }
+
+    /// <summary>
+    /// Реєстр клієнтів та персоналу агентства (CRM).
+    /// Забезпечує пошук за email, перевірку пароля, додавання, редагування та безпечне вилучення.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpGet]
+    public async Task<IActionResult> Clients(string? searchEmail = null)
+    {
+        var allUsers = await _db.Users
+            .Include(u => u.OwnedPlots)
+            .Include(u => u.ViewingRequests)
+            .AsNoTracking()
+            .OrderBy(u => u.Id)
+            .ToListAsync();
+
+        AppUser? foundUser = null;
+        if (!string.IsNullOrWhiteSpace(searchEmail))
+        {
+            foundUser = await _queries.FindUserAsync(searchEmail);
+            if (foundUser == null)
+            {
+                TempData["ErrorMessage"] = $"Користувача з адресою '{searchEmail}' не знайдено.";
+            }
+        }
+
+        var model = new UsersManagementViewModel
+        {
+            Users = allUsers,
+            SearchEmail = searchEmail,
+            FoundUser = foundUser,
+            CheckPasswordEmail = TempData?["CheckPasswordEmail"] as string,
+            PasswordCheckResult = TempData?["PasswordCheckResult"] as bool?
+        };
+
+        ViewData["ActiveNav"] = "Clients";
+        return View(model);
+    }
+
+    /// <summary>
+    /// Безпечна перевірка пароля користувача (PBKDF2) методом POST.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> VerifyClientPassword(string checkEmail, string password)
+    {
+        if (string.IsNullOrWhiteSpace(checkEmail) || string.IsNullOrWhiteSpace(password))
+        {
+            TempData["ErrorMessage"] = "Вкажіть email та пароль для перевірки.";
+            return RedirectToAction(nameof(Clients));
+        }
+
+        var user = await _queries.FindUserAsync(checkEmail);
+        TempData["CheckPasswordEmail"] = checkEmail;
+
+        if (user != null)
+        {
+            bool checkResult = _queries.CheckPassword(user, password);
+            TempData["PasswordCheckResult"] = checkResult;
+            if (checkResult)
+            {
+                TempData["SuccessMessage"] = $"Пароль для користувача {user.FullName} ({user.Email}) успішно підтверджено (PBKDF2).";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = $"Невірний пароль для облікового запису {user.Email}.";
+            }
+        }
+        else
+        {
+            TempData["ErrorMessage"] = $"Користувача з адресою '{checkEmail}' не знайдено.";
+        }
+
+        return RedirectToAction(nameof(Clients), new { searchEmail = checkEmail });
+    }
+
+    /// <summary>
+    /// Додавання нового клієнта/співробітника з початковою заявкою в одній транзакції.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddClient(AddUserFormModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.FullName) || string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.Password))
+        {
+            TempData["ErrorMessage"] = "Заповніть усі обов'язкові поля: ПІБ, Email та пароль.";
+            return RedirectToAction(nameof(Clients));
+        }
+
+        try
+        {
+            var user = await _queries.AddUserAsync(
+                model.FullName, model.Email, model.Phone, model.Role, model.Password, model.BankDetails);
+            TempData["SuccessMessage"] = $"Успішно створено користувача {user.FullName} ({user.Email}) з роллю {user.Role}.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Clients));
+    }
+
+    /// <summary>
+    /// Оновлення персональних даних, статусу активності та зміна пароля.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateClient(UpdateUserFormModel model)
+    {
+        try
+        {
+            await _queries.UpdateUserAsync(model.Id, model.FullName, model.Phone, model.IsActive, model.NewPassword);
+            TempData["SuccessMessage"] = $"Дані користувача #{model.Id} ({model.FullName}) успішно оновлено.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Clients));
+    }
+
+    /// <summary>
+    /// Безпечне вилучення користувача з контролем обмеження цілісності Restrict.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteClient(int id)
+    {
+        try
+        {
+            string name = await _queries.DeleteUserAsync(id);
+            TempData["SuccessMessage"] = $"Користувача {name} (ID={id}) успішно вилучено з бази даних.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Clients));
     }
 }
