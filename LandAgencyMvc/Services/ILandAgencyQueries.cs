@@ -175,12 +175,28 @@ public sealed record LinqShowcaseResult(
     IReadOnlyList<PlotRow> PaginatedPlots,
     IReadOnlyList<string> PlinqHighValuePlots);
 
+public sealed record RealtorClosedDealRow(
+    int DealId,
+    string ContractNumber,
+    string NotarialRegistryNumber,
+    DateTime NotaryDate,
+    string CadastralNumber,
+    string PlotTitle,
+    string Purpose,
+    double AreaHectares,
+    string BuyerName,
+    decimal FinalPriceUsd,
+    decimal CommissionUsd);
+
 public interface ILandAgencyQueries
 {
     Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter);
 
     Task<QueryResult<PurposeTurnoverRow>> TurnoverByPurposeAsync(
-        Period period, TurnoverSort sort = TurnoverSort.Turnover, bool descending = true);
+        Period period, TurnoverSort sort = TurnoverSort.Turnover, bool descending = true, int? realtorId = null);
+
+    Task<QueryResult<RealtorClosedDealRow>> RealtorClosedDealsAsync(
+        Period period, int? realtorId = null, bool descending = true);
 
     Task<QueryResult<AgentPerformanceRow>> AgentPerformanceAsync(
         Period period, AgentSort sort = AgentSort.Turnover, bool descending = true);

@@ -691,7 +691,7 @@ public class RealtorController : Controller
     }
 
     /// <summary>
-    /// Фінансова аналітика та результативність агентства за обраний період (день, місяць, півріччя або довільний).
+    /// Особиста фінансова аналітика та результативність поточного рієлтора за обраний період (день, місяць, півріччя або довільний).
     /// </summary>
     [Authorize(Roles = "Realtor,Admin")]
     [HttpGet]
@@ -701,9 +701,9 @@ public class RealtorController : Controller
         DateOnly? from = null,
         DateOnly? to = null,
         TurnoverSort sort = TurnoverSort.Turnover,
-        AgentSort? agentSort = null,
         bool? desc = null)
     {
+        var currentUser = await GetCurrentRealtorAsync();
         bool isDescending = desc ?? true;
         var today = DateOnly.FromDateTime(DateTime.Today);
         var day = date ?? today;
@@ -724,18 +724,12 @@ public class RealtorController : Controller
             ? Period.Between(periodFrom, periodTo)
             : defaultMonthPeriod;
 
-        var actualAgentSort = agentSort ?? sort switch
-        {
-            TurnoverSort.Deals => AgentSort.Deals,
-            TurnoverSort.Name => AgentSort.Name,
-            _ => AgentSort.Turnover
-        };
-
-        var byPurpose = await _queries.TurnoverByPurposeAsync(period, sort, isDescending);
-        var byAgent = await _queries.AgentPerformanceAsync(period, actualAgentSort, isDescending);
+        var byPurpose = await _queries.TurnoverByPurposeAsync(period, sort, isDescending, currentUser?.Id);
+        var closedDeals = await _queries.RealtorClosedDealsAsync(period, currentUser?.Id, isDescending);
 
         var viewModel = new PeriodTurnoverViewModel
         {
+            CurrentUser = currentUser,
             Kind = kind,
             Date = day,
             From = DateOnly.FromDateTime(period.From),
@@ -744,7 +738,7 @@ public class RealtorController : Controller
             Descending = isDescending,
             Period = period,
             ByPurpose = byPurpose,
-            ByAgent = byAgent
+            ClosedDeals = closedDeals
         };
 
         ViewData["ActiveNav"] = "Analytics";

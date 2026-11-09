@@ -129,11 +129,18 @@ public class LandAgencyQueries : ILandAgencyQueries
     }
 
     public async Task<QueryResult<PurposeTurnoverRow>> TurnoverByPurposeAsync(
-        Period period, TurnoverSort sort = TurnoverSort.Turnover, bool descending = true)
+        Period period, TurnoverSort sort = TurnoverSort.Turnover, bool descending = true, int? realtorId = null)
     {
-        var query = from d in _db.SaleDeals.AsNoTracking()
-                    where d.NotaryDate >= period.From && d.NotaryDate < period.To
-                    where d.Status == DealStatus.SignedAtNotary || d.Status == DealStatus.CompletedAtNotary
+        var baseQuery = _db.SaleDeals.AsNoTracking()
+            .Where(d => d.NotaryDate >= period.From && d.NotaryDate < period.To)
+            .Where(d => d.Status == DealStatus.SignedAtNotary || d.Status == DealStatus.CompletedAtNotary);
+
+        if (realtorId.HasValue)
+        {
+            baseQuery = baseQuery.Where(d => d.RealtorId == realtorId.Value);
+        }
+
+        var query = from d in baseQuery
                     select new
                     {
                         d.LandPlotId,
@@ -174,6 +181,41 @@ public class LandAgencyQueries : ILandAgencyQueries
         };
 
         return new QueryResult<PurposeTurnoverRow>(rows.ToList(), sql);
+    }
+
+    public async Task<QueryResult<RealtorClosedDealRow>> RealtorClosedDealsAsync(
+        Period period, int? realtorId = null, bool descending = true)
+    {
+        var baseQuery = _db.SaleDeals.AsNoTracking()
+            .Where(d => d.NotaryDate >= period.From && d.NotaryDate < period.To)
+            .Where(d => d.Status == DealStatus.SignedAtNotary || d.Status == DealStatus.CompletedAtNotary);
+
+        if (realtorId.HasValue)
+        {
+            baseQuery = baseQuery.Where(d => d.RealtorId == realtorId.Value);
+        }
+
+        baseQuery = descending
+            ? baseQuery.OrderByDescending(d => d.NotaryDate)
+            : baseQuery.OrderBy(d => d.NotaryDate);
+
+        var projected = baseQuery.Select(d => new RealtorClosedDealRow(
+            d.Id,
+            d.DraftContractNumber,
+            d.NotarialRegistryNumber ?? "—",
+            d.NotaryDate,
+            d.LandPlot != null ? d.LandPlot.CadastralNumber : "—",
+            d.LandPlot != null ? d.LandPlot.Title : "Земельна ділянка",
+            d.LandPlot != null ? d.LandPlot.Purpose : "Інше призначення",
+            d.LandPlot != null ? d.LandPlot.AreaHectares : 0.0,
+            d.Buyer != null ? d.Buyer.FullName : "Покупець",
+            d.FinalPriceUsd,
+            d.AgencyCommissionUsd));
+
+        string sql = projected.ToQueryString();
+        var rows = await projected.ToListAsync();
+
+        return new QueryResult<RealtorClosedDealRow>(rows, sql);
     }
 
     public async Task<QueryResult<AgentPerformanceRow>> AgentPerformanceAsync(

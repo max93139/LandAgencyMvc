@@ -4,6 +4,7 @@ namespace LandAgencyMvc.Models;
 
 public class PeriodTurnoverViewModel
 {
+    public AppUser? CurrentUser { get; set; }
     public PeriodKind Kind { get; set; } = PeriodKind.Month;
     public DateOnly Date { get; set; }
     public DateOnly From { get; set; }
@@ -12,7 +13,7 @@ public class PeriodTurnoverViewModel
     public bool Descending { get; set; } = true;
     public Period Period { get; set; }
     public QueryResult<PurposeTurnoverRow> ByPurpose { get; set; } = new(new List<PurposeTurnoverRow>(), string.Empty);
-    public QueryResult<AgentPerformanceRow> ByAgent { get; set; } = new(new List<AgentPerformanceRow>(), string.Empty);
+    public QueryResult<RealtorClosedDealRow> ClosedDeals { get; set; } = new(new List<RealtorClosedDealRow>(), string.Empty);
 
     public int TotalDeals => ByPurpose.Rows.Sum(r => r.DealsCount);
     public double TotalAreaHa => ByPurpose.Rows.Sum(r => r.TotalAreaHectares);

@@ -1,7 +1,11 @@
 @model LandAgencyMvc.Models.PeriodTurnoverViewModel
 @{
-    ViewData["Title"] = "Фінансова аналітика та оборот — LandAgency UA";
+    ViewData["Title"] = "Моя фінансова аналітика — LandAgency UA";
     ViewData["ActiveNav"] = "Analytics";
+    var agentName = Model.CurrentUser?.FullName ?? (User.Identity?.Name ?? "Рієлтор");
+    var license = !string.IsNullOrEmpty(Model.CurrentUser?.LicenseNumber)
+        ? $" ({Model.CurrentUser.LicenseNumber})"
+        : "";
 }
 
 <div class="la-window">
@@ -13,9 +17,9 @@
         <div class="la-card">
             <div class="la-row-between mb-3">
                 <div>
-                    <h3 class="mb-1">Фінансова аналітика та результативність агентства</h3>
+                    <h3 class="mb-1">Моя фінансова аналітика: @agentName@license</h3>
                     <p class="la-meta mb-0">
-                        Обраний період звітності: <strong>@Model.Period.Label</strong> (з @Model.Period.From.ToString("dd.MM.yyyy") по @Model.Period.To.AddDays(-1).ToString("dd.MM.yyyy"))
+                        Особисті результати за звітний період: <strong>@Model.Period.Label</strong> (з @Model.Period.From.ToString("dd.MM.yyyy") по @Model.Period.To.AddDays(-1).ToString("dd.MM.yyyy"))
                     </p>
                 </div>
                 <span class="la-badge la-badge-indigo">Звітний інтервал: @Model.Period.Label</span>
@@ -70,37 +74,37 @@
 
         <div class="la-grid-4 mb-3">
             <div class="la-card">
-                <span class="la-badge la-badge-green mb-2">Оборот угод</span>
+                <span class="la-badge la-badge-green mb-2">Мій оборот угод</span>
                 <div class="la-price-lg">$@Model.TotalTurnoverUsd.ToString("N0")</div>
-                <span class="la-meta">Сумарна сума продажів у USD</span>
+                <span class="la-meta">Сумарна вартість моїх продажів у USD</span>
             </div>
             <div class="la-card">
-                <span class="la-badge la-badge-amber mb-2">Дохід агентства</span>
+                <span class="la-badge la-badge-amber mb-2">Моя комісія (3%)</span>
                 <div class="la-price-lg">$@Model.TotalCommissionUsd.ToString("N2")</div>
-                <span class="la-meta">Отримана комісія 3% за договорами</span>
+                <span class="la-meta">Особиста винагорода за закритими договорами</span>
             </div>
             <div class="la-card">
-                <span class="la-badge la-badge-indigo mb-2">Обсяг продажів</span>
+                <span class="la-badge la-badge-indigo mb-2">Закрито мною угод</span>
                 <div class="la-price-lg">@Model.TotalDeals угод</div>
-                <span class="la-meta">@Model.TotalAreaHa.ToString("F2") га відчуженої землі</span>
+                <span class="la-meta">@Model.TotalAreaHa.ToString("F2") га реалізованої землі</span>
             </div>
             <div class="la-card">
-                <span class="la-badge la-badge-green mb-2">Середній чек</span>
+                <span class="la-badge la-badge-green mb-2">Мій середній чек</span>
                 <div class="la-price-lg">$@Model.AvgDealPriceUsd.ToString("N0")</div>
-                <span class="la-meta">Середня вартість однієї ділянки</span>
+                <span class="la-meta">Середня вартість однієї моєї угоди</span>
             </div>
         </div>
 
         <div class="la-card mb-3">
             <div class="la-row-between mb-2">
-                <h4 class="mb-0">Оборот агентства за категоріями земель</h4>
+                <h4 class="mb-0">Мій оборот за категоріями земель</h4>
                 <span class="la-badge la-badge-green">Категорій у звіті: @Model.ByPurpose.Rows.Count</span>
             </div>
-            <p class="la-meta mb-3">Узагальнення нотаріально посвідчених договорів купівлі-продажу у розрізі цільового призначення</p>
+            <p class="la-meta mb-3">Узагальнення особисто супроводжених та нотаріально посвідчених договорів у розрізі цільового призначення</p>
 
             @if (!Model.ByPurpose.Rows.Any())
             {
-                <p class="la-meta mb-0">За обраний період закритих угод у базі даних не зафіксовано. Змініть часовий проміжок або оберіть ширший інтервал.</p>
+                <p class="la-meta mb-0">За обраний період закритих вами угод у базі даних не зафіксовано. Змініть часовий проміжок або оберіть ширший інтервал.</p>
             }
             else
             {
@@ -111,7 +115,7 @@
                             <th class="text-center">К-ть угод</th>
                             <th class="text-end">Площа (га)</th>
                             <th class="text-end">Сумарний оборот ($)</th>
-                            <th class="text-end">Комісія 3% ($)</th>
+                            <th class="text-end">Моя комісія 3% ($)</th>
                             <th class="text-end">Сер. ціна ($)</th>
                             <th class="text-end">Мін. ціна ($)</th>
                             <th class="text-end">Макс. ціна ($)</th>
@@ -149,49 +153,46 @@
 
         <div class="la-card">
             <div class="la-row-between mb-2">
-                <h4 class="mb-0">Результативність персоналу агентства</h4>
-                <span class="la-badge la-badge-indigo">Співробітників задіяно: @Model.ByAgent.Rows.Count</span>
+                <h4 class="mb-0">Мої закриті угоди за обраний період</h4>
+                <span class="la-badge la-badge-indigo">Договорів: @Model.ClosedDeals.Rows.Count</span>
             </div>
-            <p class="la-meta mb-3">Оцінка персонального внеску спеціалістів у супровід та юридичну експертизу угод</p>
+            <p class="la-meta mb-3">Деталізація нотаріально посвідчених договорів купівлі-продажу, супроводжених вами у звітному періоді</p>
 
-            @if (!Model.ByAgent.Rows.Any())
+            @if (!Model.ClosedDeals.Rows.Any())
             {
-                <p class="la-meta mb-0">За обраний період немає активності персоналу за укладеними договорами.</p>
+                <p class="la-meta mb-0">За обраний період у вас немає закритих нотаріальних угод.</p>
             }
             else
             {
                 <table class="la-table">
                     <thead>
                         <tr>
-                            <th>Спеціаліст</th>
-                            <th>Посада / Роль в агентстві</th>
-                            <th>Контактний телефон</th>
-                            <th class="text-center">К-ть угод</th>
+                            <th>№ Договору / Реєстр</th>
+                            <th>Дата посвідчення</th>
+                            <th>Земельна ділянка</th>
+                            <th>Покупець</th>
                             <th class="text-end">Площа (га)</th>
-                            <th class="text-end">Загальний оборот ($)</th>
-                            <th class="text-end">Зароблена комісія ($)</th>
+                            <th class="text-end">Сума угоди ($)</th>
+                            <th class="text-end">Моя комісія ($)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var a in Model.ByAgent.Rows)
+                        @foreach (var d in Model.ClosedDeals.Rows)
                         {
                             <tr>
-                                <td><strong>@a.AgentName</strong></td>
                                 <td>
-                                    @if (a.RoleTitle.Contains("Рієлтор"))
-                                    {
-                                        <span class="la-badge la-badge-amber">@a.RoleTitle</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="la-badge la-badge-indigo">@a.RoleTitle</span>
-                                    }
+                                    <strong>@d.ContractNumber</strong>
+                                    <div class="la-meta">@d.NotarialRegistryNumber</div>
                                 </td>
-                                <td>@(string.IsNullOrEmpty(a.Phone) ? "—" : a.Phone)</td>
-                                <td class="text-center"><span class="la-badge la-badge-green">@a.DealsCount</span></td>
-                                <td class="text-end">@a.TotalAreaHectares.ToString("F2")</td>
-                                <td class="text-end"><strong>$@a.TotalTurnoverUsd.ToString("N2")</strong></td>
-                                <td class="text-end text-success">+$@a.TotalCommissionUsd.ToString("N2")</td>
+                                <td>@d.NotaryDate.ToString("dd.MM.yyyy")</td>
+                                <td>
+                                    <strong>@d.CadastralNumber</strong>
+                                    <div class="la-meta">@d.PlotTitle</div>
+                                </td>
+                                <td>@d.BuyerName</td>
+                                <td class="text-end">@d.AreaHectares.ToString("F2")</td>
+                                <td class="text-end"><strong>$@d.FinalPriceUsd.ToString("N2")</strong></td>
+                                <td class="text-end text-success">+$@d.CommissionUsd.ToString("N2")</td>
                             </tr>
                         }
                     </tbody>
