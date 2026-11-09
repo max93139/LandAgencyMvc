@@ -15,14 +15,11 @@
         <partial name="_AlertMessages" />
 
         <div class="la-card">
-            <div class="la-row-between mb-3">
-                <div>
-                    <h3 class="mb-1">Моя фінансова аналітика: @agentName@license</h3>
-                    <p class="la-meta mb-0">
-                        Особисті результати за звітний період: <strong>@Model.Period.Label</strong> (з @Model.Period.From.ToString("dd.MM.yyyy") по @Model.Period.To.AddDays(-1).ToString("dd.MM.yyyy"))
-                    </p>
-                </div>
-                <span class="la-badge la-badge-indigo">Звітний інтервал: @Model.Period.Label</span>
+            <div class="mb-3">
+                <h3 class="mb-1">Моя фінансова аналітика: @agentName@license</h3>
+                <p class="la-meta mb-0">
+                    Особисті результати за звітний період: <strong>@Model.Period.Label</strong> (з @Model.Period.From.ToString("dd.MM.yyyy") по @Model.Period.To.AddDays(-1).ToString("dd.MM.yyyy"))
+                </p>
             </div>
 
             <form method="get" asp-controller="Realtor" asp-action="Analytics">
