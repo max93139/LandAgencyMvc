@@ -5,14 +5,7 @@
 }
 
 <div class="la-window">
-    @if (User.IsInRole("Realtor") || User.IsInRole("Admin"))
-    {
-        <partial name="_RealtorNavbar" />
-    }
-    else
-    {
-        <partial name="_LawyerNavbar" />
-    }
+    <partial name="_LawyerNavbar" />
 
     <div class="la-body">
         <partial name="_AlertMessages" />

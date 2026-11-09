@@ -48,6 +48,7 @@ public class ClientController : Controller
     /// Підтримує відбір за довільним поєднанням критеріїв (призначення, діапазон бюджету,
     /// площа, дати публікації, текстовий пошук) та багатоваріантне впорядкування (LINQ to Entities + LINQ to Objects).
     /// </summary>
+    [Authorize(Roles = nameof(UserRole.Client))]
     [HttpGet("/Catalog")]
     [HttpGet("/Client/Catalog")]
     public async Task<IActionResult> Catalog(
@@ -376,7 +377,7 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize]
+    [Authorize(Roles = nameof(UserRole.Client))]
     [HttpGet("/Plots/Create")]
     [HttpGet("/Client/CreatePlot")]
     public async Task<IActionResult> CreatePlot()
@@ -756,7 +757,7 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize]
+    [Authorize(Roles = nameof(UserRole.Client))]
     [HttpGet("/Cabinet")]
     [HttpGet("/Client/Cabinet")]
     public async Task<IActionResult> Cabinet()

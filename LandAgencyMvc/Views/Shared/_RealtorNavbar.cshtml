@@ -12,13 +12,11 @@
 <div class="la-topbar la-topbar-realtor">
     <div class="la-nav-links">
         <span class="la-badge la-badge-amber me-2">РІЄЛТОР</span>
-        <a class="@(activeNav == "Catalog" ? "active" : "")" asp-controller="Client" asp-action="Catalog">Каталог ділянок</a>
-        <a class="@(activeNav == "LandBank" ? "active" : "")" asp-controller="Lawyer" asp-action="LandBank">Земельний банк</a>
-        <a class="@(activeNav == "Analytics" ? "active" : "")" asp-controller="Realtor" asp-action="Analytics">Фінансова аналітика</a>
-        <a class="@(activeNav == "Clients" ? "active" : "")" asp-controller="Realtor" asp-action="Clients">Клієнти</a>
         <a class="@(activeNav == "Requests" ? "active" : "")" asp-controller="Realtor" asp-action="Requests">Запити на підбір</a>
         <a class="@(activeNav == "Viewings" ? "active" : "")" asp-controller="Realtor" asp-action="Viewings">Черга оглядів</a>
         <a class="@(activeNav == "Deals" ? "active" : "")" asp-controller="Realtor" asp-action="Deals">Угоди та нотаріат</a>
+        <a class="@(activeNav == "Analytics" ? "active" : "")" asp-controller="Realtor" asp-action="Analytics">Фінансова аналітика</a>
+        <a class="@(activeNav == "Clients" ? "active" : "")" asp-controller="Realtor" asp-action="Clients">Клієнти</a>
     </div>
     <div class="la-topbar-user">
         <span>@fullName@license</span>
