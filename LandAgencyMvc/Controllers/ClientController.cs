@@ -708,11 +708,21 @@ public class ClientController : Controller
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string? bankDetails, string? taxId)
+    public async Task<IActionResult> ChangePassword(string? fullName, string? phone, string currentPassword, string newPassword, string? bankDetails, string? taxId)
     {
         var currentUser = await GetCurrentUserAsync();
         if (currentUser != null)
         {
+            if (!string.IsNullOrWhiteSpace(fullName))
+            {
+                currentUser.FullName = fullName.Trim();
+            }
+
+            if (phone != null)
+            {
+                currentUser.Phone = phone.Trim();
+            }
+
             if (!string.IsNullOrWhiteSpace(bankDetails))
             {
                 var ibanClean = bankDetails.Trim().ToUpperInvariant();

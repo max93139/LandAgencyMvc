@@ -2,19 +2,6 @@ using LandAgencyMvc.Services;
 
 namespace LandAgencyMvc.Models;
 
-public class QueriesDashboardViewModel
-{
-    public List<TableStatsRow> TableStats { get; set; } = new();
-    public int TotalTables => TableStats.Count;
-    public int TotalRows => TableStats.Sum(t => t.RowCount);
-}
-
-public class PlotsFilterViewModel
-{
-    public PlotFilter Filter { get; set; } = new();
-    public QueryResult<PlotRow> Result { get; set; } = new(new List<PlotRow>(), string.Empty);
-}
-
 public class PeriodTurnoverViewModel
 {
     public PeriodKind Kind { get; set; } = PeriodKind.Month;
@@ -50,8 +37,6 @@ public class UsersManagementViewModel
     public List<AppUser> Users { get; set; } = new();
     public string? SearchEmail { get; set; }
     public AppUser? FoundUser { get; set; }
-    public string? CheckPasswordEmail { get; set; }
-    public bool? PasswordCheckResult { get; set; }
 }
 
 public class AddUserFormModel
@@ -75,9 +60,4 @@ public class UpdateUserFormModel
     public double MaxBudget { get; set; }
     public string? TargetPurpose { get; set; }
     public bool IsActive { get; set; }
-}
-
-public class LinqShowcaseViewModel
-{
-    public LinqShowcaseResult Showcase { get; set; } = null!;
 }

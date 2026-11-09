@@ -5,7 +5,18 @@
 }
 
 <div class="la-window">
-    <partial name="_ClientNavbar" />
+    @if (User.IsInRole("Realtor") || User.IsInRole("Admin"))
+    {
+        <partial name="_RealtorNavbar" />
+    }
+    else if (User.IsInRole("Lawyer"))
+    {
+        <partial name="_LawyerNavbar" />
+    }
+    else
+    {
+        <partial name="_ClientNavbar" />
+    }
 
     <div class="la-body">
         <partial name="_AlertMessages" />
@@ -85,18 +96,14 @@
                             <div class="la-subcard-green la-row-between py-2 px-3 mb-2">
                                 <div class="la-text-xs">
                                     <strong>@doc.Title</strong> (@doc.DocType №@doc.DocumentNumber від @doc.IssueDate.ToString("dd.MM.yyyy"))<br />
-                                    @if (!string.IsNullOrWhiteSpace(doc.FileHash))
-                                    {
-                                        <span class="text-muted">SHA-256: <code class="la-code">@doc.ShortFileHash</code></span>
-                                    }
                                     @if (doc.IsVerified)
                                     {
-                                        <span class="la-badge la-badge-green ms-1">✓ Верифіковано в ДРРП</span>
+                                        <span class="la-badge la-badge-green mt-1">✓ Перевірено юристом у ДРРП</span>
                                     }
                                 </div>
                                 @if (!string.IsNullOrEmpty(doc.FileUrl))
                                 {
-                                    <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути файл ↗</a>
+                                    <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути витяг ↗</a>
                                 }
                             </div>
                         }
@@ -105,37 +112,89 @@
             </div>
 
             <div class="la-card">
-                <h5>Записатися на виїзний огляд</h5>
-                @if (Model.IsOwnedBy(User))
+                @if (User.IsInRole("Realtor") || User.IsInRole("Admin"))
                 {
-                    <div class="la-subcard la-text-sm">
-                        Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" class="fw-bold">Мій кабінет</a>.
-                    </div>
+                    <h5>Редагування об'єкта (Панель рієлтора)</h5>
+                    <p class="la-meta mb-3">Оновлення ціни, площі, адреси, цільового призначення або опису земельної ділянки</p>
+
+                    @if (Model.Status != LandAgencyMvc.Models.PlotStatus.Sold)
+                    {
+                        <form asp-controller="Realtor" asp-action="UpdatePlot" method="post" class="mb-3">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="plotId" value="@Model.Id" />
+
+                            <label class="la-label">Назва оголошення</label>
+                            <input name="title" value="@Model.Title" class="la-input" required />
+
+                            <div class="la-grid-2">
+                                <div>
+                                    <label class="la-label">Ціна продажу ($)</label>
+                                    <input name="priceUsd" type="number" step="100" min="1" value="@Model.PriceUsd" class="la-input" required />
+                                </div>
+                                <div>
+                                    <label class="la-label">Площа (га)</label>
+                                    <input name="areaHectares" type="number" step="0.01" min="0.01" value="@Model.AreaHectares" class="la-input" required />
+                                </div>
+                            </div>
+
+                            <label class="la-label">Адреса розташування</label>
+                            <input name="location" value="@Model.Location" class="la-input" required />
+
+                            <label class="la-label">Цільове призначення</label>
+                            <input name="purpose" value="@Model.Purpose" class="la-input" required />
+
+                            <label class="la-label">Комерційний опис ділянки</label>
+                            <textarea name="description" rows="3" class="la-input" required>@Model.Description</textarea>
+
+                            <button type="submit" class="la-btn la-btn-dark la-btn-full">Зберегти зміни об'єкта</button>
+                        </form>
+                    }
+
+                    @if (Model.Status == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)
+                    {
+                        <a asp-controller="Realtor" asp-action="Deals" asp-route-plotId="@Model.Id" class="la-btn la-btn-green la-btn-full">Підготувати договір купівлі-продажу →</a>
+                    }
                 }
-                else if (Model.Status != LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)
+                else if (User.IsInRole("Lawyer"))
                 {
-                    <div class="la-subcard la-text-sm">
-                        Запис на виїзний огляд наразі недоступний: ділянка перебуває у статусі <strong>«@Model.StatusDisplayName»</strong>.
-                    </div>
+                    <h5>Правовий аудит об'єкта</h5>
+                    <p class="la-meta mb-3">Перехід до картки юридичної експертизи ділянки в реєстрах ДЗК та ДРРП</p>
+                    <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@Model.Id" class="la-btn la-btn-indigo la-btn-full">Відкрити юридичний висновок →</a>
                 }
                 else
                 {
-                    <p class="la-meta mb-3">Оберіть зручний час виїзду на ділянку для огляду межових знаків, комунікацій та оригіналів документів з рієлтором</p>
+                    <h5>Записатися на виїзний огляд</h5>
+                    @if (Model.IsOwnedBy(User))
+                    {
+                        <div class="la-subcard la-text-sm">
+                            Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" class="fw-bold">Мій кабінет</a>.
+                        </div>
+                    }
+                    else if (Model.Status != LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)
+                    {
+                        <div class="la-subcard la-text-sm">
+                            Запис на виїзний огляд наразі недоступний: ділянка перебуває у статусі <strong>«@Model.StatusDisplayName»</strong>.
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="la-meta mb-3">Оберіть зручний час виїзду на ділянку для огляду межових знаків, комунікацій та оригіналів документів з рієлтором</p>
 
-                    <form asp-controller="Client" asp-action="CreateViewing" method="post">
-                        <input type="hidden" name="landPlotId" value="@Model.Id" />
+                        <form asp-controller="Client" asp-action="CreateViewing" method="post">
+                            <input type="hidden" name="landPlotId" value="@Model.Id" />
 
-                        <label class="la-label">Бажана дата огляду</label>
-                        <input type="date" name="preferredDate" class="la-input" required />
+                            <label class="la-label">Бажана дата огляду</label>
+                            <input type="date" name="preferredDate" class="la-input" required />
 
-                        <label class="la-label">Бажаний час</label>
-                        <input name="timeSlot" type="time" class="la-input" required />
+                            <label class="la-label">Бажаний час</label>
+                            <input name="timeSlot" type="time" class="la-input" required />
 
-                        <label class="la-label">Коментар для рієлтора</label>
-                        <textarea name="comment" rows="3" class="la-input" placeholder="Вкажіть побажання щодо огляду межових знаків, під'їзної дороги чи комунікацій"></textarea>
+                            <label class="la-label">Коментар для рієлтора</label>
+                            <textarea name="comment" rows="3" class="la-input" placeholder="Вкажіть побажання щодо огляду межових знаків, під'їзної дороги чи комунікацій"></textarea>
 
-                        <button type="submit" class="la-btn la-btn-blue la-btn-full">Подати заявку на огляд</button>
-                    </form>
+                            <button type="submit" class="la-btn la-btn-blue la-btn-full">Подати заявку на огляд</button>
+                        </form>
+                    }
                 }
             </div>
         </div>

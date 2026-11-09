@@ -14,21 +14,6 @@ public class LandAgencyQueries : ILandAgencyQueries
         _db = db;
     }
 
-    public async Task<List<TableStatsRow>> GetTableStatsAsync()
-    {
-        return new List<TableStatsRow>
-        {
-            new("Users", "AppUser", await _db.Users.CountAsync(), "Користувачі системи (клієнти-продавці, покупці, рієлтори, юристи, адміністратор)"),
-            new("LandPlots", "LandPlot", await _db.LandPlots.CountAsync(), "Земельні ділянки з кадастровими номерами, площами, цінами та статусами лістингу"),
-            new("PlotDocuments", "PlotDocument", await _db.PlotDocuments.CountAsync(), "Правовстановлюючі документи (витяги ДРРП, державні акти) з SHA-256 хешами"),
-            new("LegalConclusions", "LegalConclusion", await _db.LegalConclusions.CountAsync(), "Юридичні висновки Due Diligence перевірки у реєстрах ДЗК та ДРРП"),
-            new("ViewingRequests", "ViewingRequest", await _db.ViewingRequests.CountAsync(), "Заявки на виїзний огляд межових знаків земельних ділянок на місцевості"),
-            new("SelectionRequests", "SelectionRequest", await _db.SelectionRequests.CountAsync(), "Заявки покупців на автоматичний підбір ділянок за параметрами пошуку"),
-            new("SaleDeals", "SaleDeal", await _db.SaleDeals.CountAsync(), "Нотаріальні договори купівлі-продажу ділянок з розрахунком 3% комісії"),
-            new("Payments", "Payment", await _db.Payments.CountAsync(), "Безготівкові платіжні інструкції та квитанції IBAN на оплату вартості та депозитів")
-        };
-    }
-
     public async Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter)
     {
         var query = _db.LandPlots.AsNoTracking();

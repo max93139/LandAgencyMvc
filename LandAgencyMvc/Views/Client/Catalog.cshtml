@@ -115,33 +115,36 @@
             </div>
         }
 
-        <div class="la-card mt-3">
-            <h5>Замовити індивідуальний підбір ділянки</h5>
-            <p class="la-meta mb-3">Вкажіть бажані параметри земельної ділянки — інтелектуальний двигун AutoMatching миттєво підбере найкращі перевірені варіанти</p>
-            <form asp-controller="Client" asp-action="SubmitSelectionRequest" method="post">
-                <div class="la-grid-3">
-                    <div>
-                        <label class="la-label">Бажаний район або громада</label>
-                        <input name="desiredDistrict" class="la-input" placeholder="Вкажіть район або населений пункт" required />
+        @if (!User.IsInRole("Realtor") && !User.IsInRole("Lawyer") && !User.IsInRole("Admin"))
+        {
+            <div class="la-card mt-3">
+                <h5>Замовити індивідуальний підбір ділянки</h5>
+                <p class="la-meta mb-3">Вкажіть бажані параметри земельної ділянки — інтелектуальний двигун AutoMatching миттєво підбере найкращі перевірені варіанти</p>
+                <form asp-controller="Client" asp-action="SubmitSelectionRequest" method="post">
+                    <div class="la-grid-3">
+                        <div>
+                            <label class="la-label">Бажаний район або громада</label>
+                            <input name="desiredDistrict" class="la-input" placeholder="Вкажіть район або населений пункт" required />
+                        </div>
+                        <div>
+                            <label class="la-label">Мінімальна площа (га)</label>
+                            <input name="minAreaHa" type="number" step="0.01" class="la-input" placeholder="0.00" required />
+                        </div>
+                        <div>
+                            <label class="la-label">Максимальний бюджет (USD)</label>
+                            <input name="maxBudgetUsd" type="number" class="la-input" placeholder="0" required />
+                        </div>
                     </div>
-                    <div>
-                        <label class="la-label">Мінімальна площа (га)</label>
-                        <input name="minAreaHa" type="number" step="0.01" class="la-input" placeholder="0.00" required />
-                    </div>
-                    <div>
-                        <label class="la-label">Максимальний бюджет (USD)</label>
-                        <input name="maxBudgetUsd" type="number" class="la-input" placeholder="0" required />
-                    </div>
-                </div>
-                <label class="la-label">Цільове призначення</label>
-                <select name="purpose" class="la-input" required>
-                    @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
-                    {
-                        <option value="@item.FullValue">@item.FullValue</option>
-                    }
-                </select>
-                <button type="submit" class="la-btn la-btn-green">Подати запит на автопідбір ділянок</button>
-            </form>
-        </div>
+                    <label class="la-label">Цільове призначення</label>
+                    <select name="purpose" class="la-input" required>
+                        @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
+                        {
+                            <option value="@item.FullValue">@item.FullValue</option>
+                        }
+                    </select>
+                    <button type="submit" class="la-btn la-btn-green">Подати запит на автопідбір ділянок</button>
+                </form>
+            </div>
+        }
     </div>
 </div>

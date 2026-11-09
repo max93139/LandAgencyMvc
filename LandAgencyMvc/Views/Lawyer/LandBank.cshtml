@@ -124,6 +124,7 @@
                             <th class="text-center">Документи ДРРП</th>
                             <th>Юридичний висновок ДЗК</th>
                             <th class="text-center">Статус лістингу</th>
+                            <th class="text-end">Дії</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -131,7 +132,7 @@
                         {
                             <tr>
                                 <td>
-                                    <strong>@r.CadastralNumber</strong>
+                                    <a asp-controller="Client" asp-action="Details" asp-route-id="@r.PlotId" class="fw-bold text-dark text-decoration-none">@r.CadastralNumber</a>
                                     <br />
                                     <span class="la-meta">@r.Title</span>
                                 </td>
@@ -183,6 +184,16 @@
                                         default:
                                             <span class="la-badge la-badge-red">Відхилено</span>
                                             break;
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (User.IsInRole("Lawyer"))
+                                    {
+                                        <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@r.PlotId" class="la-btn la-btn-outline-dark la-btn-sm">Висновок</a>
+                                    }
+                                    else
+                                    {
+                                        <a asp-controller="Client" asp-action="Details" asp-route-id="@r.PlotId" class="la-btn la-btn-outline-dark la-btn-sm">Керувати</a>
                                     }
                                 </td>
                             </tr>

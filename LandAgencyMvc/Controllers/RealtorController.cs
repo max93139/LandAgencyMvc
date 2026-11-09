@@ -111,6 +111,68 @@ public class RealtorController : Controller
     [Authorize(Roles = nameof(UserRole.Realtor))]
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdatePlot(
+        int plotId,
+        string? title,
+        string? location,
+        double? areaHectares,
+        string? purpose,
+        decimal? priceUsd,
+        string? description)
+    {
+        var currentUser = await GetCurrentRealtorAsync();
+        var plot = await _db.LandPlots.FindAsync(plotId);
+        if (plot != null)
+        {
+            if (plot.Status == PlotStatus.Sold)
+            {
+                TempData["RealtorError"] = $"Ділянку {plot.CadastralNumber} вже продано. Редагування параметрів об'єкта заблоковано.";
+                return RedirectToAction("Details", "Client", new { id = plotId });
+            }
+
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                plot.Title = title.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(location))
+            {
+                plot.Location = location.Trim();
+            }
+
+            if (areaHectares.HasValue && areaHectares.Value > 0)
+            {
+                plot.AreaHectares = areaHectares.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(purpose))
+            {
+                plot.Purpose = purpose.Trim();
+            }
+
+            if (priceUsd.HasValue && priceUsd.Value > 0)
+            {
+                plot.PriceUsd = priceUsd.Value;
+            }
+
+            if (description != null)
+            {
+                plot.Description = description.Trim();
+            }
+
+            plot.AssignedRealtorId = currentUser?.Id;
+            await _db.SaveChangesAsync();
+            await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+
+            TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} успішно оновлено.";
+        }
+
+        return RedirectToAction("Details", "Client", new { id = plotId });
+    }
+
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePlotDescription(int plotId, string description)
     {
         var currentUser = await GetCurrentRealtorAsync();
@@ -724,44 +786,6 @@ public class RealtorController : Controller
 
         ViewData["ActiveNav"] = "Clients";
         return View(model);
-    }
-
-    /// <summary>
-    /// Безпечна перевірка пароля користувача (PBKDF2) методом POST.
-    /// </summary>
-    [Authorize(Roles = "Realtor,Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> VerifyClientPassword(string checkEmail, string password)
-    {
-        if (string.IsNullOrWhiteSpace(checkEmail) || string.IsNullOrWhiteSpace(password))
-        {
-            TempData["ErrorMessage"] = "Вкажіть email та пароль для перевірки.";
-            return RedirectToAction(nameof(Clients));
-        }
-
-        var user = await _queries.FindUserAsync(checkEmail);
-        TempData["CheckPasswordEmail"] = checkEmail;
-
-        if (user != null)
-        {
-            bool checkResult = _queries.CheckPassword(user, password);
-            TempData["PasswordCheckResult"] = checkResult;
-            if (checkResult)
-            {
-                TempData["SuccessMessage"] = $"Пароль для користувача {user.FullName} ({user.Email}) успішно підтверджено (PBKDF2).";
-            }
-            else
-            {
-                TempData["ErrorMessage"] = $"Невірний пароль для облікового запису {user.Email}.";
-            }
-        }
-        else
-        {
-            TempData["ErrorMessage"] = $"Користувача з адресою '{checkEmail}' не знайдено.";
-        }
-
-        return RedirectToAction(nameof(Clients), new { searchEmail = checkEmail });
     }
 
     /// <summary>

@@ -177,8 +177,6 @@ public sealed record LinqShowcaseResult(
 
 public interface ILandAgencyQueries
 {
-    Task<List<TableStatsRow>> GetTableStatsAsync();
-
     Task<QueryResult<PlotRow>> FilterPlotsAsync(PlotFilter filter);
 
     Task<QueryResult<PurposeTurnoverRow>> TurnoverByPurposeAsync(
