@@ -27,17 +27,17 @@
                     </div>
 
                     <div>
-                        <label class="la-label">Рівень юридичного ризику (ДЗК/ДРРП)</label>
+                        <label class="la-label">Рівень юридичного ризику</label>
                         <select class="la-input mb-0" name="RiskLevel">
                             <option value="">Усі рівні ризику</option>
-                            <option value="Низький" selected="@(Model.Filter.RiskLevel == "Низький")">Низький (Юридично чисто)</option>
-                            <option value="Середній" selected="@(Model.Filter.RiskLevel == "Середній")">Середній (Сервітут / Охоронна зона)</option>
-                            <option value="Високий" selected="@(Model.Filter.RiskLevel == "Високий")">Високий (Судовий спір / Обтяження)</option>
+                            <option value="Низький" selected="@(Model.Filter.RiskLevel == "Низький")">Низький</option>
+                            <option value="Середній" selected="@(Model.Filter.RiskLevel == "Середній")">Середній</option>
+                            <option value="Високий" selected="@(Model.Filter.RiskLevel == "Високий")">Високий</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="la-label">Цільове призначення (КВЦПЗ)</label>
+                        <label class="la-label">Цільове призначення</label>
                         <input class="la-input mb-0" name="Purpose" value="@Model.Filter.Purpose" placeholder="02.01, 01.03, 03.07..." />
                     </div>
 
@@ -47,7 +47,7 @@
                             <option value="">Усі статуси лістингу</option>
                             <option value="VerifiedInCatalog" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)">Опубліковано в каталозі</option>
                             <option value="PendingLegalCheck" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)">Очікує перевірки ДЗК</option>
-                            <option value="Sold" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.Sold)">Реалізовано (Нотаріат)</option>
+                            <option value="Sold" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.Sold)">Реалізовано</option>
                         </select>
                     </div>
                 </div>
@@ -56,7 +56,7 @@
                     <div>
                         <label class="la-meta mb-0">
                             <input type="checkbox" name="OnlyVerifiedDocs" value="true" checked="@Model.Filter.OnlyVerifiedDocs" />
-                            Тільки об'єкти з верифікованими документами (SHA-256)
+                            Тільки об'єкти з перевіреними документами
                         </label>
                     </div>
                     <div class="la-action-row">
@@ -140,7 +140,7 @@
                                 <td class="text-center">
                                     @if (r.DocumentsCount > 0)
                                     {
-                                        <span class="la-badge la-badge-green">@r.DocumentsCount витяг(и)</span>
+                                        <span class="la-badge la-badge-green">@r.DocumentsCount витяг.</span>
                                     }
                                     else
                                     {

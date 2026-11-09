@@ -27,7 +27,7 @@
                         <label class="la-label">Тип звітного періоду</label>
                         <select class="la-input mb-0" name="kind">
                             <option value="Month" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Month)">Поточний / обраний місяць</option>
-                            <option value="HalfYear" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.HalfYear)">Півріччя (I або II)</option>
+                            <option value="HalfYear" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.HalfYear)">Півріччя</option>
                             <option value="Day" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Day)">Один звітний день</option>
                             <option value="Custom" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Custom)">Довільний період «з … по …»</option>
                         </select>
@@ -93,7 +93,7 @@
 
         <div class="la-card mb-3">
             <div class="la-row-between mb-2">
-                <h4 class="mb-0">Оборот агентства за категоріями земель (КВЦПЗ)</h4>
+                <h4 class="mb-0">Оборот агентства за категоріями земель</h4>
                 <span class="la-badge la-badge-green">Категорій у звіті: @Model.ByPurpose.Rows.Count</span>
             </div>
             <p class="la-meta mb-3">Узагальнення нотаріально посвідчених договорів купівлі-продажу у розрізі цільового призначення</p>
@@ -107,7 +107,7 @@
                 <table class="la-table">
                     <thead>
                         <tr>
-                            <th>Цільове призначення ділянки (КВЦПЗ)</th>
+                            <th>Цільове призначення ділянки</th>
                             <th class="text-center">К-ть угод</th>
                             <th class="text-end">Площа (га)</th>
                             <th class="text-end">Сумарний оборот ($)</th>
@@ -149,7 +149,7 @@
 
         <div class="la-card">
             <div class="la-row-between mb-2">
-                <h4 class="mb-0">Результативність персоналу агентства (Рієлтори та Юристи)</h4>
+                <h4 class="mb-0">Результативність персоналу агентства</h4>
                 <span class="la-badge la-badge-indigo">Співробітників задіяно: @Model.ByAgent.Rows.Count</span>
             </div>
             <p class="la-meta mb-3">Оцінка персонального внеску спеціалістів у супровід та юридичну експертизу угод</p>
@@ -163,7 +163,7 @@
                 <table class="la-table">
                     <thead>
                         <tr>
-                            <th>Спеціаліст (ПІБ)</th>
+                            <th>Спеціаліст</th>
                             <th>Посада / Роль в агентстві</th>
                             <th>Контактний телефон</th>
                             <th class="text-center">К-ть угод</th>

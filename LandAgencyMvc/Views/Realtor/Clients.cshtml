@@ -1,6 +1,6 @@
 @model LandAgencyMvc.Models.UsersManagementViewModel
 @{
-    ViewData["Title"] = "Клієнти та персонал (CRM) — LandAgency UA";
+    ViewData["Title"] = "Клієнти та персонал — LandAgency UA";
     ViewData["ActiveNav"] = "Clients";
 }
 
@@ -12,7 +12,7 @@
 
         <div class="la-grid-2 mb-3">
             <div class="la-card">
-                <h4 class="mb-2">Швидка верифікація пароля (PBKDF2)</h4>
+                <h4 class="mb-2">Перевірка пароля</h4>
                 <p class="la-meta mb-3">Безпечна перевірка облікових даних користувача методом POST без збереження відкритого тексту пароля</p>
 
                 <form method="post" asp-controller="Realtor" asp-action="VerifyClientPassword">
@@ -31,7 +31,7 @@
 
             <div class="la-card">
                 <h4 class="mb-2">Реєстрація нового клієнта в агентстві</h4>
-                <p class="la-meta mb-3">Атомарне створення картки клієнта та його початкової заявки на пошук у межах єдиної транзакції БД</p>
+                <p class="la-meta mb-3">Створення картки клієнта та його початкової заявки на пошук у межах єдиної транзакції БД</p>
 
                 <form method="post" asp-controller="Realtor" asp-action="AddClient">
                     @Html.AntiForgeryToken()
@@ -41,7 +41,7 @@
                             <input name="FullName" class="la-input mb-0" placeholder="Шевченко Тарас Григорович" required />
                         </div>
                         <div>
-                            <label class="la-label">Email (Логін)</label>
+                            <label class="la-label">Електронна пошта</label>
                             <input name="Email" type="email" class="la-input mb-0" placeholder="taras@shevchenko.ua" required />
                         </div>
                     </div>
@@ -59,17 +59,17 @@
                         <div>
                             <label class="la-label">Роль у системі</label>
                             <select name="Role" class="la-input mb-0">
-                                <option value="Client" selected>Клієнт (Покупець / Продавець)</option>
-                                <option value="Realtor">Рієлтор (Координатор)</option>
-                                <option value="Lawyer">Юрист (Експерт)</option>
+                                <option value="Client" selected>Клієнт</option>
+                                <option value="Realtor">Рієлтор</option>
+                                <option value="Lawyer">Юрист</option>
                             </select>
                         </div>
                         <div>
-                            <label class="la-label">Банківські реквізити (IBAN)</label>
+                            <label class="la-label">Банківські реквізити IBAN</label>
                             <input name="BankDetails" class="la-input mb-0" placeholder="UA..." />
                         </div>
                     </div>
-                    <button type="submit" class="la-btn la-btn-green la-btn-full">+ Зареєструвати клієнта (Транзакція)</button>
+                    <button type="submit" class="la-btn la-btn-green la-btn-full">+ Зареєструвати клієнта</button>
                 </form>
             </div>
         </div>
@@ -99,7 +99,7 @@
                         <th>Контакти та IBAN</th>
                         <th class="text-center">Ділянки</th>
                         <th class="text-center">Стан</th>
-                        <th class="text-end">Управління (CRUD & Restrict)</th>
+                        <th class="text-end">Дії</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -175,8 +175,8 @@
                                     }
                                     else if (hasHistory)
                                     {
-                                        <span class="la-badge la-badge-amber ms-2" title="Обмеження цілісності Restrict: фінансову історію угод та об'єктів не можна видаляти">
-                                            Restrict (історія)
+                                        <span class="la-badge la-badge-amber ms-2" title="Неможливо вилучити: користувач має історію угод або ділянок">
+                                            Має історію
                                         </span>
                                     }
                                     else

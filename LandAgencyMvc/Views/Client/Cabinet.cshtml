@@ -294,11 +294,11 @@
                 </div>
 
                 <div class="la-card">
-                    <h6>Налаштування профілю, РНОКПП (ІПН), IBAN та пароль</h6>
+                    <h6>Налаштування профілю та банківських реквізитів</h6>
                     <form asp-controller="Client" asp-action="ChangePassword" method="post">
                         <div class="la-grid-2">
                             <div>
-                                <label class="la-label">РНОКПП (ІПН) для угод</label>
+                                <label class="la-label">РНОКПП для угод</label>
                                 <input name="taxId" value="@Model.CurrentUser?.TaxId" class="la-input" placeholder="10 цифр" />
                             </div>
                             <div>

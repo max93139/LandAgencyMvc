@@ -37,7 +37,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="la-label">Пошук (локація / кадастр / власник)</label>
+                        <label class="la-label">Пошук за локацією, кадастром або власником</label>
                         <input name="search" value="@Model.FilterSearch" class="la-input mb-0" placeholder="Київ, Макарів, кадастр або ПІБ" />
                     </div>
                 </div>
@@ -105,7 +105,7 @@
         }
 
         <div class="la-card mt-3">
-            <h5>Замовити індивідуальний підбір ділянки (Автоматичний пошук)</h5>
+            <h5>Замовити індивідуальний підбір ділянки</h5>
             <p class="la-meta mb-3">Вкажіть бажані параметри земельної ділянки — інтелектуальний двигун AutoMatching миттєво підбере найкращі перевірені варіанти</p>
             <form asp-controller="Client" asp-action="SubmitSelectionRequest" method="post">
                 <div class="la-grid-3">
