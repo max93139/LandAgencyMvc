@@ -710,9 +710,19 @@ public class RealtorController : Controller
         var periodFrom = from ?? today.AddMonths(-3);
         var periodTo = to ?? today;
 
+        var defaultMonthPeriod = Period.Containing(kind, day);
+        bool customRangeChanged = from.HasValue && to.HasValue &&
+            (from.Value != DateOnly.FromDateTime(defaultMonthPeriod.From) ||
+             to.Value != DateOnly.FromDateTime(defaultMonthPeriod.To).AddDays(-1));
+
+        if (customRangeChanged && kind != PeriodKind.Custom)
+        {
+            kind = PeriodKind.Custom;
+        }
+
         var period = kind == PeriodKind.Custom
             ? Period.Between(periodFrom, periodTo)
-            : Period.Containing(kind, day);
+            : defaultMonthPeriod;
 
         var actualAgentSort = agentSort ?? sort switch
         {

@@ -25,7 +25,7 @@
                 <div class="la-grid-4 mb-3">
                     <div>
                         <label class="la-label">Тип звітного періоду</label>
-                        <select class="la-input mb-0" name="kind">
+                        <select class="la-input mb-0" name="kind" id="periodKindSelect">
                             <option value="Month" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Month)">Поточний / обраний місяць</option>
                             <option value="HalfYear" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.HalfYear)">Півріччя</option>
                             <option value="Day" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Day)">Один звітний день</option>
@@ -33,19 +33,19 @@
                         </select>
                     </div>
 
-                    <div>
+                    <div id="anchorDateGroup">
                         <label class="la-label">Опорна дата періоду</label>
-                        <input type="date" class="la-input mb-0" name="date" value="@Model.Date.ToString("yyyy-MM-dd")" />
+                        <input type="date" class="la-input mb-0" name="date" id="anchorDateInput" value="@Model.Date.ToString("yyyy-MM-dd")" />
                     </div>
 
-                    <div>
+                    <div id="customFromGroup">
                         <label class="la-label">Довільний період: з дати</label>
-                        <input type="date" class="la-input mb-0" name="from" value="@Model.From.ToString("yyyy-MM-dd")" />
+                        <input type="date" class="la-input mb-0" name="from" id="customFromInput" value="@Model.From.ToString("yyyy-MM-dd")" />
                     </div>
 
-                    <div>
+                    <div id="customToGroup">
                         <label class="la-label">Довільний період: по дату</label>
-                        <input type="date" class="la-input mb-0" name="to" value="@Model.To.ToString("yyyy-MM-dd")" />
+                        <input type="date" class="la-input mb-0" name="to" id="customToInput" value="@Model.To.ToString("yyyy-MM-dd")" />
                     </div>
                 </div>
 
@@ -200,3 +200,32 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const kindSelect = document.getElementById("periodKindSelect");
+            const fromInput = document.getElementById("customFromInput");
+            const toInput = document.getElementById("customToInput");
+            const anchorInput = document.getElementById("anchorDateInput");
+
+            if (fromInput && kindSelect) {
+                fromInput.addEventListener("change", function () {
+                    kindSelect.value = "Custom";
+                });
+            }
+            if (toInput && kindSelect) {
+                toInput.addEventListener("change", function () {
+                    kindSelect.value = "Custom";
+                });
+            }
+            if (anchorInput && kindSelect) {
+                anchorInput.addEventListener("change", function () {
+                    if (kindSelect.value === "Custom") {
+                        kindSelect.value = "Month";
+                    }
+                });
+            }
+        });
+    </script>
+}
