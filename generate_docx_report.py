@@ -576,9 +576,9 @@ def build_docx_report():
     add_bullet_item(doc, "Запит 8 контролює обмеження цілісності DeleteBehavior.Restrict. Якщо за користувачем закріплені ділянки або нотаріальні угоди, вилучення безпечно блокується із поверненням інформативного повідомлення про порушення зв'язків цілісності.", bold_prefix="Запит 8 (Delete): ")
 
     add_figure(doc, "docs/images/fig09_user_search.png", "Рисунок 8 — Пошук картки клієнта в системі CRM за адресою електронної пошти")
-    add_figure(doc, "docs/images/fig10_password_verify.png", "Рисунок 9 — Безпечна перевірка пароля методом POST за алгоритмом PBKDF2")
-    add_figure(doc, "docs/images/fig11_add_user_transaction.png", "Рисунок 10 — Реєстрація нового клієнта з автоматичною заявкою у транзакції")
-    add_figure(doc, "docs/images/fig12_user_management_restrict.png", "Рисунок 11 — Реєстр користувачів та блокування вилучення за обмеженням цілісності Restrict")
+    add_figure(doc, "docs/images/fig10_password_verify.png", "Рисунок 9 — Модальне вікно редагування даних клієнта та оновлення пароля")
+    add_figure(doc, "docs/images/fig11_add_user_transaction.png", "Рисунок 10 — Реєстрація нового клієнта з внесенням до бази агентства")
+    add_figure(doc, "docs/images/fig12_user_management_restrict.png", "Рисунок 11 — Реєстр клієнтів та блокування вилучення за обмеженням цілісності Restrict")
 
     add_heading_2(doc, "4.6 Запит 9 — Комплексна демонстрація всіх операторів LINQ (Showcase)")
     add_body_paragraph(doc, "Відповідно до матеріалів Лекції № 9 та мети лабораторної роботи, метод GetLinqShowcaseAsync демонструє повне покриття операторів LINQ:")

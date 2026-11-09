@@ -315,17 +315,12 @@ async function captureViews(browser) {
     await page.waitForTimeout(600);
     await page.screenshot({ path: path.join(outDir, 'fig09_user_search.png'), fullPage: false });
 
-    // Fig 10: Password Verify POST
-    console.log('Capturing Fig 10: Password Verify POST in CRM...');
+    // Fig 10: Edit Client Modal (with password change field)
+    console.log('Capturing Fig 10: Edit Client Modal in CRM...');
     await page.goto('http://127.0.0.1:5099/Realtor/Clients');
     await page.waitForTimeout(400);
-    await page.fill('input[name="checkEmail"]', 'seller@landagency.ua');
-    await page.fill('input[name="password"]', 'client123');
-    await Promise.all([
-        page.waitForNavigation({ waitUntil: 'networkidle' }).catch(() => {}),
-        page.click('button:has-text("Перевірити автентичність пароля")')
-    ]);
-    await page.waitForTimeout(600);
+    await page.locator('button:has-text("Редагувати")').first().click();
+    await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(outDir, 'fig10_password_verify.png'), fullPage: false });
 
     // Fig 11: Add user form

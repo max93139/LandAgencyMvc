@@ -1,6 +1,6 @@
 @model LandAgencyMvc.Models.UsersManagementViewModel
 @{
-    ViewData["Title"] = "Клієнти та персонал — LandAgency UA";
+    ViewData["Title"] = "Клієнти — LandAgency UA";
     ViewData["ActiveNav"] = "Clients";
 }
 
@@ -10,78 +10,50 @@
     <div class="la-body">
         <partial name="_AlertMessages" />
 
-        <div class="la-grid-2 mb-3">
-            <div class="la-card">
-                <h4 class="mb-2">Перевірка пароля</h4>
-                <p class="la-meta mb-3">Безпечна перевірка облікових даних користувача методом POST без збереження відкритого тексту пароля</p>
+        <div class="la-card mb-3">
+            <h4 class="mb-2">Реєстрація нового клієнта в агентстві</h4>
+            <p class="la-meta mb-3">Створення облікового запису клієнта (покупця чи продавця) та внесення його даних у систему</p>
 
-                <form method="post" asp-controller="Realtor" asp-action="VerifyClientPassword">
-                    @Html.AntiForgeryToken()
-                    <div class="mb-2">
-                        <label class="la-label">Електронна пошта клієнта</label>
-                        <input name="checkEmail" type="email" class="la-input mb-0" placeholder="client@example.com" value="@(Model.SearchEmail ?? Model.CheckPasswordEmail)" required />
+            <form method="post" asp-controller="Realtor" asp-action="AddClient">
+                @Html.AntiForgeryToken()
+                <div class="la-grid-3 mb-2">
+                    <div>
+                        <label class="la-label">ПІБ клієнта</label>
+                        <input name="FullName" class="la-input mb-0" placeholder="Шевченко Тарас Григорович" required />
                     </div>
-                    <div class="mb-3">
-                        <label class="la-label">Введений пароль</label>
-                        <input name="password" type="password" class="la-input mb-0" placeholder="Введіть пароль для перевірки хешу" required />
+                    <div>
+                        <label class="la-label">Електронна пошта</label>
+                        <input name="Email" type="email" class="la-input mb-0" placeholder="taras@shevchenko.ua" required />
                     </div>
-                    <button type="submit" class="la-btn la-btn-dark la-btn-full">Перевірити автентичність пароля</button>
-                </form>
-            </div>
+                    <div>
+                        <label class="la-label">Контактний телефон</label>
+                        <input name="Phone" class="la-input mb-0" placeholder="+380..." />
+                    </div>
+                </div>
 
-            <div class="la-card">
-                <h4 class="mb-2">Реєстрація нового клієнта в агентстві</h4>
-                <p class="la-meta mb-3">Створення картки клієнта та його початкової заявки на пошук у межах єдиної транзакції БД</p>
+                <div class="la-grid-2 mb-3">
+                    <div>
+                        <label class="la-label">Початковий пароль облікового запису</label>
+                        <input name="Password" type="password" class="la-input mb-0" placeholder="Мінімум 4 символи" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Банківські реквізити IBAN (за наявності)</label>
+                        <input name="BankDetails" class="la-input mb-0" placeholder="UA..." />
+                    </div>
+                </div>
 
-                <form method="post" asp-controller="Realtor" asp-action="AddClient">
-                    @Html.AntiForgeryToken()
-                    <div class="la-grid-2 mb-2">
-                        <div>
-                            <label class="la-label">ПІБ клієнта</label>
-                            <input name="FullName" class="la-input mb-0" placeholder="Шевченко Тарас Григорович" required />
-                        </div>
-                        <div>
-                            <label class="la-label">Електронна пошта</label>
-                            <input name="Email" type="email" class="la-input mb-0" placeholder="taras@shevchenko.ua" required />
-                        </div>
-                    </div>
-                    <div class="la-grid-2 mb-2">
-                        <div>
-                            <label class="la-label">Контактний телефон</label>
-                            <input name="Phone" class="la-input mb-0" placeholder="+380..." />
-                        </div>
-                        <div>
-                            <label class="la-label">Пароль облікового запису</label>
-                            <input name="Password" type="password" class="la-input mb-0" placeholder="Мінімум 4 символи" required />
-                        </div>
-                    </div>
-                    <div class="la-grid-2 mb-3">
-                        <div>
-                            <label class="la-label">Роль у системі</label>
-                            <select name="Role" class="la-input mb-0">
-                                <option value="Client" selected>Клієнт</option>
-                                <option value="Realtor">Рієлтор</option>
-                                <option value="Lawyer">Юрист</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="la-label">Банківські реквізити IBAN</label>
-                            <input name="BankDetails" class="la-input mb-0" placeholder="UA..." />
-                        </div>
-                    </div>
-                    <button type="submit" class="la-btn la-btn-green la-btn-full">+ Зареєструвати клієнта</button>
-                </form>
-            </div>
+                <button type="submit" class="la-btn la-btn-green">+ Зареєструвати клієнта</button>
+            </form>
         </div>
 
         <div class="la-card">
             <div class="la-row-between mb-3">
                 <div>
-                    <h4 class="mb-1">База клієнтів та персоналу агентства</h4>
-                    <span class="la-meta">Всього облікових записів у системі: <strong>@Model.Users.Count</strong></span>
+                    <h4 class="mb-1">Клієнтська база агентства</h4>
+                    <span class="la-meta">Всього клієнтів у базі даних: <strong>@Model.Users.Count</strong></span>
                 </div>
                 <form method="get" asp-controller="Realtor" asp-action="Clients" class="la-action-row">
-                    <input name="searchEmail" type="email" class="la-input mb-0" placeholder="Пошук за Email..." value="@Model.SearchEmail" />
+                    <input name="searchEmail" type="email" class="la-input mb-0" placeholder="Пошук клієнта за Email..." value="@Model.SearchEmail" />
                     <button type="submit" class="la-btn la-btn-dark la-btn-sm">Знайти</button>
                     @if (!string.IsNullOrEmpty(Model.SearchEmail))
                     {
@@ -94,10 +66,9 @@
                 <thead>
                     <tr>
                         <th class="text-center">ID</th>
-                        <th>Користувач / Співробітник</th>
-                        <th>Роль</th>
+                        <th>Клієнт</th>
                         <th>Контакти та IBAN</th>
-                        <th class="text-center">Ділянки</th>
+                        <th class="text-center">Нерухомість</th>
                         <th class="text-center">Стан</th>
                         <th class="text-end">Дії</th>
                     </tr>
@@ -105,8 +76,7 @@
                 <tbody>
                     @foreach (var u in Model.Users)
                     {
-                        var hasHistory = u.OwnedPlots.Any();
-                        var isAdmin = u.Email.Contains("admin", StringComparison.OrdinalIgnoreCase);
+                        var hasHistory = u.OwnedPlots.Any() || u.ViewingRequests.Any();
 
                         <tr>
                             <td class="text-center">#@u.Id</td>
@@ -114,27 +84,6 @@
                                 <strong>@u.FullName</strong>
                                 <br />
                                 <span class="la-meta">@u.Email</span>
-                            </td>
-                            <td>
-                                @if (isAdmin)
-                                {
-                                    <span class="la-badge la-badge-red">Адміністратор</span>
-                                }
-                                else
-                                {
-                                    @switch (u.Role)
-                                    {
-                                        case LandAgencyMvc.Models.UserRole.Realtor:
-                                            <span class="la-badge la-badge-amber">Рієлтор</span>
-                                            break;
-                                        case LandAgencyMvc.Models.UserRole.Lawyer:
-                                            <span class="la-badge la-badge-indigo">Юрист</span>
-                                            break;
-                                        default:
-                                            <span class="la-badge la-badge-green">Клієнт</span>
-                                            break;
-                                    }
-                                }
                             </td>
                             <td>
                                 <div>@(string.IsNullOrEmpty(u.Phone) ? "—" : u.Phone)</div>
@@ -164,61 +113,25 @@
                                 }
                             </td>
                             <td class="text-end">
-                                <div class="la-action-row justify-content-end mb-2">
-                                    <button class="la-btn la-btn-outline la-btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#editUser_@u.Id">
-                                        Редагувати ▾
+                                <div class="la-action-row justify-content-end">
+                                    <button type="button" class="la-btn la-btn-outline la-btn-sm" data-bs-toggle="modal" data-bs-target="#editClientModal_@u.Id">
+                                        Редагувати
                                     </button>
 
-                                    @if (isAdmin)
+                                    @if (hasHistory)
                                     {
-                                        <span class="la-meta ms-2">Системний</span>
-                                    }
-                                    else if (hasHistory)
-                                    {
-                                        <span class="la-badge la-badge-amber ms-2" title="Неможливо вилучити: користувач має історію угод або ділянок">
+                                        <span class="la-badge la-badge-amber ms-2" title="Неможливо вилучити: клієнт має історію угод, оглядів або закріплених ділянок">
                                             Має історію
                                         </span>
                                     }
                                     else
                                     {
-                                        <form method="post" asp-controller="Realtor" asp-action="DeleteClient" onsubmit="return confirm('Вилучити користувача @u.FullName з бази даних?');" class="d-inline ms-2">
+                                        <form method="post" asp-controller="Realtor" asp-action="DeleteClient" onsubmit="return confirm('Вилучити клієнта @u.FullName з бази даних?');" class="d-inline ms-2">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="id" value="@u.Id" />
                                             <button type="submit" class="la-btn la-btn-danger la-btn-sm">Вилучити</button>
                                         </form>
                                     }
-                                </div>
-
-                                <div class="collapse text-start" id="editUser_@u.Id">
-                                    <div class="la-card p-3 mb-0 bg-light">
-                                        <h6>Редагування користувача #@u.Id</h6>
-                                        <form method="post" asp-controller="Realtor" asp-action="UpdateClient">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="Id" value="@u.Id" />
-                                            <div class="mb-2">
-                                                <label class="la-label">ПІБ</label>
-                                                <input name="FullName" value="@u.FullName" class="la-input mb-0" required />
-                                            </div>
-                                            <div class="mb-2">
-                                                <label class="la-label">Телефон</label>
-                                                <input name="Phone" value="@u.Phone" class="la-input mb-0" />
-                                            </div>
-                                            <div class="mb-2">
-                                                <label class="la-label">Новий пароль (за потреби)</label>
-                                                <input name="NewPassword" type="password" class="la-input mb-0" placeholder="Залиште порожнім, щоб не змінювати" />
-                                            </div>
-                                            <div class="mb-2">
-                                                <label>
-                                                    <input type="checkbox" name="IsActive" value="true" @(u.IsActive ? "checked" : "") />
-                                                    Активний обліковий запис
-                                                </label>
-                                            </div>
-                                            <div class="la-action-row">
-                                                <button type="submit" class="la-btn la-btn-dark la-btn-sm">Зберегти зміни</button>
-                                                <button class="la-btn la-btn-gray la-btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#editUser_@u.Id">Скасувати</button>
-                                            </div>
-                                        </form>
-                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -228,3 +141,45 @@
         </div>
     </div>
 </div>
+
+@foreach (var u in Model.Users)
+{
+    <div class="modal fade" id="editClientModal_@u.Id" tabindex="-1" aria-labelledby="modalLabel_@u.Id" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel_@u.Id">Редагування картки клієнта #@u.Id</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                </div>
+                <form method="post" asp-controller="Realtor" asp-action="UpdateClient">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Id" value="@u.Id" />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="la-label">ПІБ клієнта</label>
+                            <input name="FullName" value="@u.FullName" class="la-input mb-0" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="la-label">Контактний телефон</label>
+                            <input name="Phone" value="@u.Phone" class="la-input mb-0" placeholder="+380..." />
+                        </div>
+                        <div class="mb-3">
+                            <label class="la-label">Новий пароль (за потреби)</label>
+                            <input name="NewPassword" type="password" class="la-input mb-0" placeholder="Залиште порожнім, щоб не змінювати" />
+                        </div>
+                        <div class="mb-0">
+                            <label class="d-flex align-items-center gap-2">
+                                <input type="checkbox" name="IsActive" value="true" @(u.IsActive ? "checked" : "") />
+                                <span>Активний обліковий запис</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="la-btn la-btn-gray la-btn-sm" data-bs-dismiss="modal">Скасувати</button>
+                        <button type="submit" class="la-btn la-btn-dark la-btn-sm">Зберегти зміни</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}

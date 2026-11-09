@@ -680,37 +680,46 @@ public class RealtorController : Controller
     }
 
     /// <summary>
-    /// Реєстр клієнтів та персоналу агентства (CRM).
-    /// Забезпечує пошук за email, перевірку пароля, додавання, редагування та безпечне вилучення.
+    /// Реєстр клієнтів агентства (CRM).
+    /// Забезпечує пошук за email, додавання, редагування та безпечне вилучення клієнтів.
     /// </summary>
     [Authorize(Roles = "Realtor,Admin")]
     [HttpGet]
     public async Task<IActionResult> Clients(string? searchEmail = null)
     {
-        var allUsers = await _db.Users
+        var clientsQuery = _db.Users
+            .Where(u => u.Role == UserRole.Client)
             .Include(u => u.OwnedPlots)
             .Include(u => u.ViewingRequests)
-            .AsNoTracking()
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(searchEmail))
+        {
+            var cleanSearch = searchEmail.Trim().ToLower();
+            clientsQuery = clientsQuery.Where(u => u.Email.ToLower().Contains(cleanSearch));
+        }
+
+        var clients = await clientsQuery
             .OrderBy(u => u.Id)
             .ToListAsync();
 
         AppUser? foundUser = null;
         if (!string.IsNullOrWhiteSpace(searchEmail))
         {
-            foundUser = await _queries.FindUserAsync(searchEmail);
+            foundUser = clients.FirstOrDefault(u => u.Email.Equals(searchEmail.Trim(), StringComparison.OrdinalIgnoreCase))
+                ?? await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Client && u.Email == searchEmail.Trim());
+
             if (foundUser == null)
             {
-                TempData["ErrorMessage"] = $"Користувача з адресою '{searchEmail}' не знайдено.";
+                TempData["ErrorMessage"] = $"Клієнта з адресою '{searchEmail}' не знайдено.";
             }
         }
 
         var model = new UsersManagementViewModel
         {
-            Users = allUsers,
+            Users = clients,
             SearchEmail = searchEmail,
-            FoundUser = foundUser,
-            CheckPasswordEmail = TempData?["CheckPasswordEmail"] as string,
-            PasswordCheckResult = TempData?["PasswordCheckResult"] as bool?
+            FoundUser = foundUser
         };
 
         ViewData["ActiveNav"] = "Clients";
@@ -756,7 +765,7 @@ public class RealtorController : Controller
     }
 
     /// <summary>
-    /// Додавання нового клієнта/співробітника з початковою заявкою в одній транзакції.
+    /// Додавання нового клієнта з початковою заявкою в одній транзакції.
     /// </summary>
     [Authorize(Roles = "Realtor,Admin")]
     [HttpPost]
@@ -772,8 +781,8 @@ public class RealtorController : Controller
         try
         {
             var user = await _queries.AddUserAsync(
-                model.FullName, model.Email, model.Phone, model.Role, model.Password, model.BankDetails);
-            TempData["SuccessMessage"] = $"Успішно створено користувача {user.FullName} ({user.Email}) з роллю {user.Role}.";
+                model.FullName, model.Email, model.Phone, UserRole.Client, model.Password, model.BankDetails);
+            TempData["SuccessMessage"] = $"Успішно створено картку клієнта {user.FullName} ({user.Email}).";
         }
         catch (Exception ex)
         {
