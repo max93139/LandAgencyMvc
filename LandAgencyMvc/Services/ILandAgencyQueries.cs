@@ -195,7 +195,16 @@ public interface ILandAgencyQueries
 
     Task<AppUser> AddUserAsync(string fullName, string email, string phone, UserRole role, string password, string? bankDetails);
 
-    Task UpdateUserAsync(int id, string fullName, string phone, bool isActive, string? newPassword);
+    Task UpdateUserAsync(
+        int id,
+        string fullName,
+        string email,
+        string phone,
+        string? taxId,
+        string? bankDetails,
+        double maxBudget,
+        string? targetPurpose,
+        bool isActive);
 
     Task<string> DeleteUserAsync(int id);
 

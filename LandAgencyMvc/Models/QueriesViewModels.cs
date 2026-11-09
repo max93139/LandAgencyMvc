@@ -68,9 +68,13 @@ public class UpdateUserFormModel
 {
     public int Id { get; set; }
     public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
+    public string? TaxId { get; set; }
+    public string? BankDetails { get; set; }
+    public double MaxBudget { get; set; }
+    public string? TargetPurpose { get; set; }
     public bool IsActive { get; set; }
-    public string? NewPassword { get; set; }
 }
 
 public class LinqShowcaseViewModel

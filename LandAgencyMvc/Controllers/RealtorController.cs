@@ -793,7 +793,7 @@ public class RealtorController : Controller
     }
 
     /// <summary>
-    /// Оновлення персональних даних, статусу активності та зміна пароля.
+    /// Оновлення персональних даних, контактів, бюджету та статусу активності клієнта.
     /// </summary>
     [Authorize(Roles = "Realtor,Admin")]
     [HttpPost]
@@ -802,8 +802,17 @@ public class RealtorController : Controller
     {
         try
         {
-            await _queries.UpdateUserAsync(model.Id, model.FullName, model.Phone, model.IsActive, model.NewPassword);
-            TempData["SuccessMessage"] = $"Дані користувача #{model.Id} ({model.FullName}) успішно оновлено.";
+            await _queries.UpdateUserAsync(
+                model.Id,
+                model.FullName,
+                model.Email,
+                model.Phone,
+                model.TaxId,
+                model.BankDetails,
+                model.MaxBudget,
+                model.TargetPurpose,
+                model.IsActive);
+            TempData["SuccessMessage"] = $"Дані клієнта #{model.Id} ({model.FullName}) успішно оновлено.";
         }
         catch (Exception ex)
         {

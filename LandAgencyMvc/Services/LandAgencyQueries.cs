@@ -372,7 +372,16 @@ public class LandAgencyQueries : ILandAgencyQueries
         return user;
     }
 
-    public async Task UpdateUserAsync(int id, string fullName, string phone, bool isActive, string? newPassword)
+    public async Task UpdateUserAsync(
+        int id,
+        string fullName,
+        string email,
+        string phone,
+        string? taxId,
+        string? bankDetails,
+        double maxBudget,
+        string? targetPurpose,
+        bool isActive)
     {
         var user = await _db.Users.FindAsync(id)
             ?? throw new InvalidOperationException($"Користувача з ID={id} не знайдено.");
@@ -382,14 +391,26 @@ public class LandAgencyQueries : ILandAgencyQueries
             throw new InvalidOperationException("Обліковий запис головного адміністратора не можна заблокувати.");
         }
 
-        user.FullName = fullName.Trim();
-        user.Phone = (phone ?? string.Empty).Trim();
-        user.IsActive = isActive;
-
-        if (!string.IsNullOrWhiteSpace(newPassword))
+        var normalizedEmail = NormalizeEmail(email);
+        if (string.IsNullOrWhiteSpace(normalizedEmail))
         {
-            user.SetPassword(newPassword.Trim());
+            throw new InvalidOperationException("Електронна пошта не може бути порожньою.");
         }
+
+        if (user.Email.ToLower() != normalizedEmail &&
+            await _db.Users.AnyAsync(u => u.Id != id && u.Email.ToLower() == normalizedEmail))
+        {
+            throw new InvalidOperationException($"Користувач з поштою '{email}' вже існує.");
+        }
+
+        user.FullName = fullName.Trim();
+        user.Email = normalizedEmail;
+        user.Phone = (phone ?? string.Empty).Trim();
+        user.TaxId = (taxId ?? string.Empty).Trim();
+        user.BankDetails = (bankDetails ?? string.Empty).Trim();
+        user.MaxBudget = maxBudget < 0 ? 0 : maxBudget;
+        user.TargetPurpose = string.IsNullOrWhiteSpace(targetPurpose) ? null : targetPurpose.Trim();
+        user.IsActive = isActive;
 
         await _db.SaveChangesAsync();
     }

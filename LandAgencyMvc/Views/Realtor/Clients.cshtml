@@ -159,13 +159,33 @@
                             <label class="la-label">ПІБ клієнта</label>
                             <input name="FullName" value="@u.FullName" class="la-input mb-0" required />
                         </div>
-                        <div class="mb-3">
-                            <label class="la-label">Контактний телефон</label>
-                            <input name="Phone" value="@u.Phone" class="la-input mb-0" placeholder="+380..." />
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="la-label">Електронна пошта (Email)</label>
+                                <input name="Email" type="email" value="@u.Email" class="la-input mb-0" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="la-label">Контактний телефон</label>
+                                <input name="Phone" value="@u.Phone" class="la-input mb-0" placeholder="+380..." />
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="la-label">РНОКПП / ІПН</label>
+                                <input name="TaxId" value="@u.TaxId" class="la-input mb-0" placeholder="10 цифр" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="la-label">Бюджет купівлі ($)</label>
+                                <input name="MaxBudget" type="number" step="1000" min="0" value="@u.MaxBudget" class="la-input mb-0" placeholder="0" />
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label class="la-label">Новий пароль (за потреби)</label>
-                            <input name="NewPassword" type="password" class="la-input mb-0" placeholder="Залиште порожнім, щоб не змінювати" />
+                            <label class="la-label">Банківські реквізити (IBAN)</label>
+                            <input name="BankDetails" value="@u.BankDetails" class="la-input mb-0" placeholder="UA..." />
+                        </div>
+                        <div class="mb-3">
+                            <label class="la-label">Бажане цільове призначення</label>
+                            <input name="TargetPurpose" value="@u.TargetPurpose" class="la-input mb-0" placeholder="Наприклад: 01.03 Для ведення ОСГ або 02.01 Для будівництва" />
                         </div>
                         <div class="mb-0">
                             <label class="d-flex align-items-center gap-2">
