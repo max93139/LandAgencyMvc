@@ -13,7 +13,7 @@
         <div class="la-card">
             <div class="la-row-between mb-2">
                 <h5 class="mb-0">Клієнтські запити на підбір ділянок</h5>
-                <span class="la-badge la-badge-green">AI/AutoMatching Активний ✓</span>
+                <span class="la-badge la-badge-indigo">Запитів у черзі: @Model.SelectionRequests.Count</span>
             </div>
             @if (!Model.SelectionRequests.Any())
             {
@@ -28,7 +28,7 @@
                             <th>РАЙОН / МІН. ПЛОЩА</th>
                             <th>ЦІЛЬОВЕ ПРИЗНАЧЕННЯ</th>
                             <th>БЮДЖЕТ</th>
-                            <th>СТАТУС / ДІЯ</th>
+                            <th>ПІДІБРАНІ ВАРІАНТИ</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -43,17 +43,13 @@
                                     <div class="la-action-row">
                                         @if (r.EffectiveMatchedCount > 0)
                                         {
-                                            <span class="la-badge la-badge-green">Підібрано автоматично ✓ (@r.EffectiveMatchedCount)</span>
-                                            <a asp-controller="Realtor" asp-action="Requests" asp-route-matchedRequestId="@r.Id" class="la-btn la-btn-warning la-btn-xs">Показати</a>
+                                            <span class="la-badge la-badge-green">Знайдено варіантів: @r.EffectiveMatchedCount</span>
+                                            <a asp-controller="Realtor" asp-action="Requests" asp-route-matchedRequestId="@r.Id" class="la-btn la-btn-outline-dark la-btn-xs">Переглянути</a>
                                         }
                                         else
                                         {
-                                            <span class="la-badge la-badge-amber">В обробці (0 збігів)</span>
+                                            <span class="la-badge la-badge-amber">Немає збігів (0)</span>
                                         }
-                                        <form asp-controller="Realtor" asp-action="MatchPlotsForRequest" method="post" class="la-inline-form">
-                                            <input type="hidden" name="requestId" value="@r.Id" />
-                                            <button type="submit" class="la-btn la-btn-gray la-btn-xs">Перерахувати збіги</button>
-                                        </form>
                                     </div>
                                     @if (!string.IsNullOrWhiteSpace(r.RealtorNotes))
                                     {
@@ -75,7 +71,6 @@
                         {
                             <li class="mb-1">
                                 <strong>@mp.CadastralNumber</strong> — @mp.Title (@mp.AreaHectares га, @mp.Location) — <strong>$@mp.PriceUsd.ToString("N0")</strong>
-                                <a href="@mp.KadastrLiveUrl" target="_blank" class="la-btn la-btn-kadastr la-btn-xs ms-2">Карта ↗</a>
                             </li>
                         }
                     </ul>
@@ -84,24 +79,37 @@
         </div>
 
         <div class="la-card">
-            <h5>Редагування комерційного опису ділянки для каталогу</h5>
+            <h5>Оновлення даних земельної ділянки</h5>
             @if (!Model.AllPlots.Any())
             {
                 <p class="la-meta mb-0">У базі ще немає зареєстрованих ділянок.</p>
             }
             else
             {
-                <form asp-controller="Realtor" asp-action="UpdatePlotDescription" method="post">
-                    <label class="la-label">Обрана ділянка</label>
-                    <select name="plotId" class="la-input">
-                        @foreach (var p in Model.AllPlots)
-                        {
-                            <option value="@p.Id">@p.CadastralNumber (@p.AreaHectares га, @p.Title — $@p.PriceUsd.ToString("N0"))</option>
-                        }
-                    </select>
-                    <label class="la-label">Комерційний опис ділянки для каталогу</label>
-                    <textarea name="description" rows="3" class="la-input" placeholder="Введіть комерційний опис ділянки, під'їзних шляхів та інженерних мереж" required></textarea>
-                    <button type="submit" class="la-btn la-btn-dark">Зберегти опис ділянки</button>
+                <form asp-controller="Realtor" asp-action="UpdatePlot" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="la-grid-3">
+                        <div>
+                            <label class="la-label">Обрана ділянка</label>
+                            <select name="plotId" class="la-input">
+                                @foreach (var p in Model.AllPlots.Where(p => p.Status != LandAgencyMvc.Models.PlotStatus.Sold))
+                                {
+                                    <option value="@p.Id">@p.CadastralNumber (@p.Title — $@p.PriceUsd.ToString("N0"))</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="la-label">Нова ціна продажу ($) (за потреби)</label>
+                            <input name="priceUsd" type="number" step="100" min="1" class="la-input" placeholder="Залиште порожнім, щоб не змінювати" />
+                        </div>
+                        <div>
+                            <label class="la-label">Нова назва оголошення (за потреби)</label>
+                            <input name="title" class="la-input" placeholder="Залиште порожнім, щоб не змінювати" />
+                        </div>
+                    </div>
+                    <label class="la-label">Комерційний опис ділянки для каталогу (за потреби)</label>
+                    <textarea name="description" rows="2" class="la-input" placeholder="Оновлений опис ділянки, під'їзних шляхів та комунікацій"></textarea>
+                    <button type="submit" class="la-btn la-btn-dark">Зберегти зміни ділянки</button>
                 </form>
             }
         </div>

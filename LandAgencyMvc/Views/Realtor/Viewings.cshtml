@@ -55,11 +55,6 @@
                             </form>
                             <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
-                                <input type="hidden" name="status" value="Completed" />
-                                <button type="submit" class="la-btn la-btn-amber la-btn-sm">Огляд проведено</button>
-                            </form>
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
-                                <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Cancelled" />
                                 <button type="submit" class="la-btn la-btn-red la-btn-sm">✕ Скасувати</button>
                             </form>

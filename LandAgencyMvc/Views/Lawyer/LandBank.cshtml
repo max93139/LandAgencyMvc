@@ -125,7 +125,7 @@
                         {
                             <tr>
                                 <td>
-                                    <a asp-controller="Client" asp-action="Details" asp-route-id="@r.PlotId" class="fw-bold text-dark text-decoration-none">@r.CadastralNumber</a>
+                                    <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@r.PlotId" class="fw-bold text-dark text-decoration-none">@r.CadastralNumber</a>
                                     <br />
                                     <span class="la-meta">@r.Title</span>
                                 </td>
@@ -180,14 +180,7 @@
                                     }
                                 </td>
                                 <td class="text-end">
-                                    @if (User.IsInRole("Lawyer"))
-                                    {
-                                        <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@r.PlotId" class="la-btn la-btn-outline-dark la-btn-sm">Висновок</a>
-                                    }
-                                    else
-                                    {
-                                        <a asp-controller="Client" asp-action="Details" asp-route-id="@r.PlotId" class="la-btn la-btn-outline-dark la-btn-sm">Керувати</a>
-                                    }
+                                    <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@r.PlotId" class="la-btn la-btn-outline-dark la-btn-sm">Висновок</a>
                                 </td>
                             </tr>
                         }

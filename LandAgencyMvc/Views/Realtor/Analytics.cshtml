@@ -15,7 +15,7 @@
                 <div>
                     <h3 class="mb-1">Фінансова аналітика та результативність агентства</h3>
                     <p class="la-meta mb-0">
-                        Обраний період звітності: <strong>@Model.Period.Label</strong> (з @Model.Period.From.ToString("dd.MM.yyyy HH:mm") по @Model.Period.To.ToString("dd.MM.yyyy HH:mm"))
+                        Обраний період звітності: <strong>@Model.Period.Label</strong> (з @Model.Period.From.ToString("dd.MM.yyyy") по @Model.Period.To.AddDays(-1).ToString("dd.MM.yyyy"))
                     </p>
                 </div>
                 <span class="la-badge la-badge-indigo">Звітний інтервал: @Model.Period.Label</span>

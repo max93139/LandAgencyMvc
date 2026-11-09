@@ -155,7 +155,7 @@ public class RealtorController : Controller
                 plot.PriceUsd = priceUsd.Value;
             }
 
-            if (description != null)
+            if (!string.IsNullOrWhiteSpace(description))
             {
                 plot.Description = description.Trim();
             }
@@ -167,7 +167,7 @@ public class RealtorController : Controller
             TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} успішно оновлено.";
         }
 
-        return RedirectToAction("Details", "Client", new { id = plotId });
+        return RedirectToAction(nameof(Requests));
     }
 
     [Authorize(Roles = nameof(UserRole.Realtor))]
