@@ -44,11 +44,22 @@ public class ClientController : Controller
 
     /// <summary>
     /// Каталог перевірених земельних ділянок, схвалених юридичним аудитом ДЗК/ДРРП.
-    /// Підтримує фільтрацію за кодом КВЦПЗ, максимальним бюджетом, мінімальною площею та текстом.
+    /// Підтримує відбір за довільним поєднанням критеріїв (призначення, діапазон бюджету,
+    /// площа, дати публікації, текстовий пошук) та багатоваріантне впорядкування (LINQ to Entities + LINQ to Objects).
     /// </summary>
     [HttpGet("/Catalog")]
     [HttpGet("/Client/Catalog")]
-    public async Task<IActionResult> Catalog(string? purpose, decimal? maxBudget, double? minArea, string? search)
+    public async Task<IActionResult> Catalog(
+        string? purpose,
+        decimal? minBudget,
+        decimal? maxBudget,
+        double? minArea,
+        double? maxArea,
+        string? search,
+        DateOnly? from,
+        DateOnly? to,
+        PlotSort sort = PlotSort.Date,
+        bool desc = true)
     {
         var query = _db.LandPlots
             .Include(p => p.Seller)
@@ -56,7 +67,12 @@ public class ClientController : Controller
             .Include(p => p.LegalConclusion)
             .Include(p => p.Documents)
             .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
-            .AsQueryable();
+            .AsNoTracking();
+
+        if (minBudget.HasValue && minBudget.Value > 0)
+        {
+            query = query.Where(p => p.PriceUsd >= minBudget.Value);
+        }
 
         if (maxBudget.HasValue && maxBudget.Value > 0)
         {
@@ -68,34 +84,75 @@ public class ClientController : Controller
             query = query.Where(p => p.AreaHectares >= minArea.Value);
         }
 
+        if (maxArea.HasValue && maxArea.Value > 0)
+        {
+            query = query.Where(p => p.AreaHectares <= maxArea.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(purpose))
         {
             var cleanPurpose = purpose.Trim();
             query = query.Where(p => p.Purpose.Contains(cleanPurpose));
         }
 
-        var plots = await query.OrderByDescending(p => p.Id).ToListAsync();
+        if (from.HasValue)
+        {
+            var fromDt = from.Value.ToDateTime(TimeOnly.MinValue);
+            query = query.Where(p => p.CreatedAt >= fromDt);
+        }
+
+        if (to.HasValue)
+        {
+            var toDt = to.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            query = query.Where(p => p.CreatedAt < toDt);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var searchTerms = search.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            plots = plots.Where(p =>
-                searchTerms.All(term =>
-                    p.Title.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    p.Location.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    p.CadastralNumber.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    (!string.IsNullOrEmpty(p.Description) && p.Description.Contains(term, StringComparison.OrdinalIgnoreCase))
-                )
-            ).ToList();
+            var text = search.Trim();
+            var textCap = char.ToUpper(text[0]) + (text.Length > 1 ? text.Substring(1) : "");
+            var textLower = char.ToLower(text[0]) + (text.Length > 1 ? text.Substring(1) : "");
+            query = query.Where(p => p.Title.Contains(text) || p.Title.Contains(textCap) || p.Title.Contains(textLower)
+                                  || p.Location.Contains(text) || p.Location.Contains(textCap) || p.Location.Contains(textLower)
+                                  || p.CadastralNumber.Contains(text)
+                                  || (p.Seller != null && (p.Seller.FullName.Contains(text) || p.Seller.FullName.Contains(textCap) || p.Seller.FullName.Contains(textLower))));
+        }
+
+        query = sort switch
+        {
+            PlotSort.Area => desc ? query.OrderByDescending(p => p.AreaHectares).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.AreaHectares).ThenBy(p => p.CreatedAt),
+            PlotSort.Title => desc ? query.OrderByDescending(p => p.Title).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Title).ThenBy(p => p.CreatedAt),
+            PlotSort.Location => desc ? query.OrderByDescending(p => p.Location).ThenByDescending(p => p.CreatedAt) : query.OrderBy(p => p.Location).ThenBy(p => p.CreatedAt),
+            PlotSort.Price or PlotSort.PricePerSotka => query,
+            _ => desc ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)
+        };
+
+        var plots = await query.ToListAsync();
+
+        if (sort == PlotSort.Price)
+        {
+            plots = desc ? plots.OrderByDescending(p => p.PriceUsd).ThenByDescending(p => p.CreatedAt).ToList()
+                         : plots.OrderBy(p => p.PriceUsd).ThenBy(p => p.CreatedAt).ToList();
+        }
+        else if (sort == PlotSort.PricePerSotka)
+        {
+            plots = desc ? plots.OrderByDescending(p => p.AreaHectares > 0 ? p.PriceUsd / (decimal)(p.AreaHectares * 100.0) : 0m).ThenByDescending(p => p.CreatedAt).ToList()
+                         : plots.OrderBy(p => p.AreaHectares > 0 ? p.PriceUsd / (decimal)(p.AreaHectares * 100.0) : 0m).ThenBy(p => p.CreatedAt).ToList();
         }
 
         var viewModel = new CatalogViewModel
         {
             Plots = plots,
             FilterPurpose = purpose,
+            FilterMinBudget = minBudget,
             FilterMaxBudget = maxBudget,
             FilterMinArea = minArea,
-            FilterSearch = search
+            FilterMaxArea = maxArea,
+            FilterSearch = search,
+            FilterFrom = from,
+            FilterTo = to,
+            Sort = sort,
+            Descending = desc
         };
 
         return View(viewModel);

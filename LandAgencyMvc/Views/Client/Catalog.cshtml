@@ -10,34 +10,71 @@
     <div class="la-body">
         <partial name="_AlertMessages" />
         <div class="la-card">
-            <form asp-controller="Client" asp-action="Catalog" method="get" class="la-grid-4">
-                <div>
-                    <label class="la-label">Цільове призначення</label>
-                    <select name="purpose" class="la-input mb-0">
-                        <option value="">Усі цільові призначення</option>
-                        @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
-                        {
-                            <option value="@item.Code" selected="@(Model.FilterPurpose == item.Code || Model.FilterPurpose == item.FullValue)">@item.ShortLabel</option>
-                        }
-                    </select>
+            <form asp-controller="Client" asp-action="Catalog" method="get">
+                <div class="la-grid-4 mb-2">
+                    <div>
+                        <label class="la-label">Цільове призначення</label>
+                        <select name="purpose" class="la-input mb-0">
+                            <option value="">Усі цільові призначення</option>
+                            @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
+                            {
+                                <option value="@item.Code" selected="@(Model.FilterPurpose == item.Code || Model.FilterPurpose == item.FullValue)">@item.ShortLabel</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="la-label">Бюджет ($): від / до</label>
+                        <div class="la-action-row">
+                            <input name="minBudget" type="number" value="@Model.FilterMinBudget" class="la-input mb-0" placeholder="Від $" />
+                            <input name="maxBudget" type="number" value="@Model.FilterMaxBudget" class="la-input mb-0" placeholder="До $" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="la-label">Площа (га): від / до</label>
+                        <div class="la-action-row">
+                            <input name="minArea" type="number" step="0.01" value="@Model.FilterMinArea" class="la-input mb-0" placeholder="Від га" />
+                            <input name="maxArea" type="number" step="0.01" value="@Model.FilterMaxArea" class="la-input mb-0" placeholder="До га" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="la-label">Пошук (локація / кадастр / власник)</label>
+                        <input name="search" value="@Model.FilterSearch" class="la-input mb-0" placeholder="Київ, Макарів, кадастр або ПІБ" />
+                    </div>
                 </div>
-                <div>
-                    <label class="la-label">Макс. бюджет ($)</label>
-                    <input name="maxBudget" type="number" value="@Model.FilterMaxBudget" class="la-input mb-0" placeholder="Без обмежень" />
-                </div>
-                <div>
-                    <label class="la-label">Мін. площа (га)</label>
-                    <input name="minArea" type="number" step="0.01" value="@Model.FilterMinArea" class="la-input mb-0" placeholder="Від 0.01" />
-                </div>
-                <div>
-                    <label class="la-label">Пошук за локацією / кадастром</label>
-                    <div class="la-action-row">
-                        <input name="search" value="@Model.FilterSearch" class="la-input mb-0" placeholder="Населений пункт або кадастр" />
-                        <button type="submit" class="la-btn la-btn-dark">Знайти</button>
-                        @if (Model.HasActiveFilters)
-                        {
-                            <a class="la-btn la-btn-gray" asp-controller="Client" asp-action="Catalog">Скинути</a>
-                        }
+
+                <div class="la-grid-4 mb-3">
+                    <div>
+                        <label class="la-label">Дата лістингу з</label>
+                        <input name="from" type="date" value="@(Model.FilterFrom?.ToString("yyyy-MM-dd"))" class="la-input mb-0" />
+                    </div>
+                    <div>
+                        <label class="la-label">Дата лістингу по</label>
+                        <input name="to" type="date" value="@(Model.FilterTo?.ToString("yyyy-MM-dd"))" class="la-input mb-0" />
+                    </div>
+                    <div>
+                        <label class="la-label">Впорядкування</label>
+                        <select name="sort" class="la-input mb-0">
+                            <option value="Date" selected="@(Model.Sort == LandAgencyMvc.Services.PlotSort.Date)">За датою додавання</option>
+                            <option value="Price" selected="@(Model.Sort == LandAgencyMvc.Services.PlotSort.Price)">За загальною ціною ($)</option>
+                            <option value="PricePerSotka" selected="@(Model.Sort == LandAgencyMvc.Services.PlotSort.PricePerSotka)">За ціною за сотку ($/сот.)</option>
+                            <option value="Area" selected="@(Model.Sort == LandAgencyMvc.Services.PlotSort.Area)">За площею (га)</option>
+                            <option value="Title" selected="@(Model.Sort == LandAgencyMvc.Services.PlotSort.Title)">За назвою ділянки</option>
+                            <option value="Location" selected="@(Model.Sort == LandAgencyMvc.Services.PlotSort.Location)">За населеним пунктом</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="la-label">Напрямок сортування</label>
+                        <div class="la-action-row">
+                            <select name="desc" class="la-input mb-0">
+                                <option value="true" selected="@Model.Descending">За спаданням (↓)</option>
+                                <option value="false" selected="@(!Model.Descending)">За зростанням (↑)</option>
+                            </select>
+                            <button type="submit" class="la-btn la-btn-dark">Фільтрувати</button>
+                            @if (Model.HasActiveFilters)
+                            {
+                                <a class="la-btn la-btn-gray" asp-controller="Client" asp-action="Catalog">Скинути</a>
+                            }
+                        </div>
                     </div>
                 </div>
             </form>
