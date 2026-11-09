@@ -24,6 +24,26 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            if (User.IsInRole(nameof(UserRole.Realtor)) || User.IsInRole("Admin"))
+            {
+                return RedirectToAction("Requests", "Realtor");
+            }
+
+            if (User.IsInRole(nameof(UserRole.Lawyer)))
+            {
+                return RedirectToAction("Queue", "Lawyer");
+            }
+
+            return RedirectToAction("Cabinet", "Client");
+        }
+
         ViewData["ReturnUrl"] = returnUrl;
         return View();
     }

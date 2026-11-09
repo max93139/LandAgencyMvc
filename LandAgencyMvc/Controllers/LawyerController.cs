@@ -308,7 +308,9 @@ public class LawyerController : Controller
 
     /// <summary>
     /// Реєстр земельного банку та аудит власників ділянок (з'єднання 4 таблиць: LandPlots, Users, PlotDocuments, LegalConclusions).
+    /// Доступно юристу, адміністратору та рієлтору для демонстрації складного JOIN запиту.
     /// </summary>
+    [Authorize(Roles = "Lawyer,Admin,Realtor")]
     [HttpGet]
     public async Task<IActionResult> LandBank(LandBankFilter filter)
     {
