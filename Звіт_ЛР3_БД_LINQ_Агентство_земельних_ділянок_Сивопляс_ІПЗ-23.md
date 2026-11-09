@@ -205,44 +205,67 @@ public async Task<PlotFilterResult> FilterPlotsAsync(PlotFilter f)
 ![Рисунок 3 — Відображення трансляції LINQ to Entities у нативний код SQL (ToQueryString)](docs/images/fig04_filter_sort_sql.png)  
 *Рисунок 3 — Відображення трансляції LINQ to Entities у нативний код SQL (ToQueryString)*
 
-### 4.2 Запити 2 і 3 — Періодичні підсумки: оборот та ефективність агентів
+### 4.2 Запити 2 і 3 — Персональна фінансова аналітика рієлтора за звітний період
 
-Запит 2 розраховує агреговані фінансові показники (кількість угод, валовий оборот, сума комісії агентства 3% та середній чек) у розрізі категорій цільового призначення земель КВЦПЗ. Запит 3 формує персональний рейтинг ефективності рієлторів та юристів за обраний період:
+Запит 2 розраховує агреговані фінансові показники (кількість угод, валовий оборот, сума комісії агентства 3%, середній чек, мінімальна та максимальна ціна) у розрізі категорій цільового призначення земель КВЦПЗ. Відповідно до вимог комерційної таємниці та персональної підзвітності агентів, запит параметризовано ідентифікатором поточного авторизованого рієлтора (`d.RealtorId == currentUser.Id`), що унеможливлює несанкціонований перегляд чужої фінансової аналітики іншими співробітниками. Запит 3 формує реєстр особисто супроводжених та нотаріально посвідчених угод рієлтора за обраний період (`RealtorClosedDealsAsync`):
 
 ```csharp
 // LandAgencyQueries.cs
-public async Task<IReadOnlyList<PurposeTurnoverRow>> TurnoverByPurposeAsync(Period period, TurnoverSort sort, bool desc)
+public async Task<QueryResult<PurposeTurnoverRow>> TurnoverByPurposeAsync(
+    Period period, TurnoverSort sort = TurnoverSort.Turnover, bool descending = true, int? realtorId = null)
 {
-    var start = period.Start.ToDateTime(TimeOnly.MinValue);
-    var end = period.End.ToDateTime(TimeOnly.MaxValue);
+    var baseQuery = _db.SaleDeals.AsNoTracking()
+        .Where(d => d.NotaryDate >= period.From && d.NotaryDate < period.To)
+        .Where(d => d.Status == DealStatus.SignedAtNotary || d.Status == DealStatus.CompletedAtNotary);
 
-    var deals = await (from d in _db.SaleDeals.AsNoTracking()
-                       join p in _db.LandPlots.AsNoTracking() on d.LandPlotId equals p.Id
-                       where d.Status == DealStatus.CompletedAtNotary && d.NotaryDate >= start && d.NotaryDate <= end
-                       select new { p.Purpose, d.FinalPriceUsd, d.AgencyCommissionUsd }).ToListAsync();
+    if (realtorId.HasValue)
+    {
+        baseQuery = baseQuery.Where(d => d.RealtorId == realtorId.Value);
+    }
 
-    var grouped = (from d in deals
-                   group d by d.Purpose into g
-                   select new PurposeTurnoverRow
-                   {
-                       Purpose = g.Key,
-                       DealsCount = g.Count(),
-                       TurnoverUsd = g.Sum(x => x.FinalPriceUsd),
-                       CommissionUsd = g.Sum(x => x.AgencyCommissionUsd),
-                       AverageCheckUsd = g.Average(x => x.FinalPriceUsd)
-                   }).ToList();
-    return desc ? grouped.OrderByDescending(r => r.TurnoverUsd).ToList() : grouped.OrderBy(r => r.TurnoverUsd).ToList();
+    var query = from d in baseQuery
+                select new
+                {
+                    d.LandPlotId,
+                    Purpose = d.LandPlot != null ? d.LandPlot.Purpose : "Інше призначення",
+                    Area = d.LandPlot != null ? d.LandPlot.AreaHectares : 0.0,
+                    Price = d.FinalPriceUsd,
+                    Commission = d.AgencyCommissionUsd
+                };
+
+    var rawDeals = await query.ToListAsync();
+
+    var grouped = from d in rawDeals
+                  group d by d.Purpose into g
+                  let count = g.Count()
+                  let totalArea = g.Sum(x => x.Area)
+                  let totalTurnover = g.Sum(x => x.Price)
+                  let totalCommission = g.Sum(x => x.Commission)
+                  let avgPrice = count > 0 ? totalTurnover / count : 0m
+                  select new PurposeTurnoverRow(
+                      g.Key, count, Math.Round(totalArea, 2), totalTurnover,
+                      totalCommission, Math.Round(avgPrice, 2), g.Min(x => x.Price), g.Max(x => x.Price));
+
+    var rows = sort switch
+    {
+        TurnoverSort.Deals => descending ? grouped.OrderByDescending(r => r.DealsCount) : grouped.OrderBy(r => r.DealsCount),
+        TurnoverSort.Area => descending ? grouped.OrderByDescending(r => r.TotalAreaHectares) : grouped.OrderBy(r => r.TotalAreaHectares),
+        TurnoverSort.Name => descending ? grouped.OrderByDescending(r => r.Purpose) : grouped.OrderBy(r => r.Purpose),
+        _ => descending ? grouped.OrderByDescending(r => r.TotalTurnoverUsd) : grouped.OrderBy(r => r.TotalTurnoverUsd)
+    };
+
+    return new QueryResult<PurposeTurnoverRow>(rows.ToList(), query.ToQueryString());
 }
 ```
 
-![Рисунок 4 — Фінансовий оборот за місячний період (розподіл за КВЦПЗ та комісія)](docs/images/fig05_period_turnover_month.png)  
-*Рисунок 4 — Фінансовий оборот за місячний період (розподіл за КВЦПЗ та комісія)*
+![Рисунок 4 — Персональна фінансова аналітика рієлтора за місячний період (оборот, комісія 3% та категорії)](docs/images/fig05_period_turnover_month.png)  
+*Рисунок 4 — Персональна фінансова аналітика рієлтора за місячний період (оборот, комісія 3% та категорії)*
 
-![Рисунок 5 — Аналітичний звіт за довільний діапазон дат із вибором сортування](docs/images/fig06_period_turnover_custom.png)  
-*Рисунок 5 — Аналітичний звіт за довільний діапазон дат із вибором сортування*
+![Рисунок 5 — Аналітичний звіт рієлтора за довільний діапазон дат із вибором сортування](docs/images/fig06_period_turnover_custom.png)  
+*Рисунок 5 — Аналітичний звіт рієлтора за довільний діапазон дат із вибором сортування*
 
-![Рисунок 6 — Рейтинг ефективності роботи рієлторів та юристів земельного агентства](docs/images/fig07_agent_performance.png)  
-*Рисунок 6 — Рейтинг ефективності роботи рієлторів та юристів земельного агентства*
+![Рисунок 6 — Реєстр особисто закритих нотаріальних угод та персональної результативності](docs/images/fig07_agent_performance.png)  
+*Рисунок 6 — Реєстр особисто закритих нотаріальних угод та персональної результативності*
 
 ### 4.3 Фактичні числові результати періодизації
 
@@ -302,33 +325,40 @@ public async Task<IReadOnlyList<PurposeTurnoverRow>> TurnoverByPurposeAsync(Peri
 
 ## 5 Перевірка роботи та користувацький веб-інтерфейс
 
-### 5.1 Органічна інтеграція LINQ-запитів у бізнес-модулі платформи
+### 5.1 Бізнес-модулі платформи та строго розділена навігація
 
 Усі розроблені запити LINQ та транзакційні операції CRUD не винесені у штучну навчальну вкладку, а органічно інтегровані безпосередньо у функціональні модулі платформи «Агентство земельних ділянок»:
-1. **Каталог ділянок (`ClientController.Catalog`)**: Реалізує Запит 1 (відбір за довільним поєднанням 6 критеріїв — цільове призначення, діапазон бюджету, площа, дати публікації, текстовий пошук у ДЗК та сортування з точною decimal-обробкою).
-2. **Фінансова аналітика рієлтора (`RealtorController.Analytics`)**: Реалізує Запити 2 та 3 (узагальнення фінансового обороту за день, місяць, півріччя або довільний період `[From; To)` у розрізі категорій земель КВЦПЗ та оцінка ефективності персоналу з розрахунком 3% винагороди). Доступ захищено атрибутом `[Authorize(Roles = "Realtor,Admin")]`.
+1. **Каталог ділянок (`ClientController.Catalog`)**: Реалізує Запит 1 (відбір за довільним поєднанням 6 критеріїв — цільове призначення, діапазон бюджету, площа, дати публікації, текстовий пошук у ДЗК та точне сортування). Доступ до каталогу захищено авторизацією `[Authorize]`, що виключає перегляд бази без облікового запису.
+2. **Фінансова аналітика рієлтора (`RealtorController.Analytics`)**: Реалізує Запити 2 та 3 (узагальнення фінансового обороту за день, місяць, півріччя або довільний період `[From; To)` у розрізі категорій земель КВЦПЗ та реєстр особисто закритих нотаріальних угод рієлтора). Доступ захищено атрибутом `[Authorize(Roles = "Realtor,Admin")]`.
 3. **Реєстр земельного банку юриста (`LawyerController.LandBank`)**: Реалізує Запит 4 (реляційне з'єднання 4 таблиць `LandPlots` ⨝ `Users` ⨝ `PlotDocuments` ⟕ `LegalConclusions` для комплексного аудиту безпеки активів, перевірки витягів ДРРП та ризиків ДЗК). Доступ захищено атрибутом `[Authorize(Roles = "Lawyer,Admin")]`.
 4. **Управління клієнтами та персоналом CRM (`RealtorController.Clients`)**: Реалізує Запити 5–8 (безпечна перевірка пароля методом POST за алгоритмом PBKDF2, атомарне транзакційне створення клієнта із заявкою, редагування профілю та вилучення з гарантією `DeleteBehavior.Restrict`).
 
-Для забезпечення зворотної сумісності контролер `QueriesController` виступає внутрішнім маршрутизатором, який перенаправляє прямі запити у відповідні бізнес-модулі.
+### 5.2 Очищення інтерфейсу від нелогічних і надлишкових елементів
 
-### 5.2 Огляд інтерфейсу та рольова безпека
+У процесі підготовки фінального продукту веб-застосунок очищено від усіх надлишкових та нелогічних елементів, що спотворювали користувацький досвід:
+* **Ізоляція навігації за ролями:** у верхньому меню кожного користувача відображаються лише релевантні розділи його ролі (клієнт бачить каталог, кабінет та контакти; рієлтор — запити на підбір, огляди, угоди, аналітику та клієнтів; юрист — чергу перевірок ДЗК, правові висновки, договори та земельний банк);
+* **Захист каталогу:** каталог ділянок закрито для неавторизованих користувачів, посилання приховано з екранів входу та реєстрації;
+* **Персоналізація аналітики:** рієлтор бачить виключно власні закриті договори, персональний оборот та зароблену комісію (3%), що захищає комерційну таємницю агентства;
+* **Ліквідація псевдо-елементів:** вилучено декоративні бейджі «AI/AutoMatching Активний», надлишкові кнопки повторного перерахунку збігів та передчасні кнопки зміни статусу оглядів;
+* **Безпека персональних даних:** з публічних форм кабінету клієнта прибрано показ сирих SHA-256 хеш-рядків та впроваджено повноцінне редагування контактних даних клієнта.
 
-Користувацький веб-інтерфейс спроєктовано за принципами адаптивного дизайну без використання інлайн-стилів `style="..."`. Усі класи оформлення (`.la-card`, `.la-grid-3`, `.la-grid-4`, `.la-table`, `.la-badge`, `.la-topbar`) визначені у централізованому файлі `site.css`. Доступ до аналітики та персональних даних клієнтів суворо розмежовано: неавторизовані користувачі або клієнти перенаправляються на сторінку відмови у доступі (`/Account/AccessDenied`).
+### 5.3 Компонентна архітектура та захист від витоку даних
 
-![Рисунок 14 — Головна панель фінансової аналітики та контролю обороту агентства (кабінет рієлтора)](docs/images/fig02_dashboard.png)  
-*Рисунок 14 — Головна панель фінансової аналітики та контролю обороту агентства (кабінет рієлтора)*
+Користувацький веб-інтерфейс спроєктовано за принципами адаптивного дизайну без використання інлайн-стилів `style="..."`. Усі класи оформлення (`.la-card`, `.la-grid-3`, `.la-grid-4`, `.la-table`, `.la-badge`, `.la-topbar`) визначені у централізованому файлі `site.css`. Доступ до аналітики та персональних даних суворо розмежовано: неавторизовані користувачі або клієнти перенаправляються на сторінку відмови у доступі (`/Account/AccessDenied`).
+
+![Рисунок 14 — Головна панель персональної фінансової аналітики рієлтора](docs/images/fig02_dashboard.png)  
+*Рисунок 14 — Головна панель персональної фінансової аналітики рієлтора*
 
 ---
 
 ## Висновки
 
-1. У процесі виконання лабораторної роботи № 3 успішно опановано мову інтегрованих запитів LINQ (Language Integrated Query) та технологію Entity Framework Core 10 для створення, ініціалізації та аналітичної обробки реляційної бази даних на платформі .NET 10.
+1. У процесі виконання лабораторної роботи № 3 успішно опановано мову інтегрованих запитів LINQ (Language Integrated Query) та технологію Entity Framework Core 10 для створення, ініціалізації та аналітичної обробки реляційної бази даних на платформі .NET 10 за підходом Code First.
 2. Спроєктовано та реалізовано реляційну базу даних із 8 взаємопов'язаних таблиць (`Users`, `LandPlots`, `PlotDocuments`, `LegalConclusions`, `ViewingRequests`, `SelectionRequests`, `SaleDeals`, `Payments`), що строго відповідають концептуальній моделі предметної області агентства земельних ділянок.
 3. На рівні EF Core Fluent API налаштовано унікальні індекси та обмеження цілісності `DeleteBehavior.Restrict`, які гарантують збереження аудиторського сліду нотаріальних угод та юридичних висновків.
 4. Базу даних наповнено узгодженими даними обсягом від 10 до 28 записів у кожній таблиці (сумарно 130 записів) з історією угод за останні 12 місяців на загальну суму $664 500.
-5. Реалізовано 9 різнопланових LINQ-запитів, що поєднують серверне виконання LINQ to Entities, пам'яттєву обробку сум decimal у LINQ to Objects та повне покриття операторів Лекції № 9 (`All`, `Any`, `Distinct`, `Intersect`, `Except`, `Union`, `SelectMany`, `Aggregate`, `Zip`, `OrderBy`/`ThenBy`, `Skip`/`Take` та PLINQ).
-6. Роботу системи перевірено через органічно інтегрований веб-інтерфейс ASP.NET Core MVC (Каталог ділянок клієнта, Фінансова аналітика та CRM рієлтора, Реєстр земельного банку юриста) з надійною авторизацією за ролями без жодного інлайн-стилю.
+5. Реалізовано 9 різнопланових LINQ-запитів, що поєднують серверне виконання LINQ to Entities, обробку сум decimal у LINQ to Objects та повне покриття сімейств операторів Лекції № 9 (`All`, `Any`, `Distinct`, `Intersect`, `Except`, `Union`, `SelectMany`, `Aggregate`, `Zip`, `OrderBy`/`ThenBy`, `Skip`/`Take` та PLINQ).
+6. Забезпечено органічну інтеграцію аналітики у функціональні модулі платформи (Каталог ділянок, Персональна фінансова аналітика рієлтора, Реєстр земельного банку юриста, CRM клієнтів), суворе рольове розділення прав доступу та повну ліквідацію штучних чи нелогічних елементів інтерфейсу.
 
 ---
 
