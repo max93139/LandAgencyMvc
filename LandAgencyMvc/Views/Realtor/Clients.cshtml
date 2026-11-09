@@ -114,19 +114,19 @@
                             </td>
                             <td class="text-end">
                                 <div class="la-action-row justify-content-end">
-                                    <button type="button" class="la-btn la-btn-outline la-btn-sm" data-bs-toggle="modal" data-bs-target="#editClientModal_@u.Id">
+                                    <button type="button" class="la-btn la-btn-outline-dark la-btn-sm" data-bs-toggle="modal" data-bs-target="#editClientModal_@u.Id">
                                         Редагувати
                                     </button>
 
                                     @if (hasHistory)
                                     {
-                                        <span class="la-badge la-badge-amber ms-2" title="Неможливо вилучити: клієнт має історію угод, оглядів або закріплених ділянок">
+                                        <span class="la-badge la-badge-amber" title="Неможливо вилучити: клієнт має історію угод, оглядів або закріплених ділянок">
                                             Має історію
                                         </span>
                                     }
                                     else
                                     {
-                                        <form method="post" asp-controller="Realtor" asp-action="DeleteClient" onsubmit="return confirm('Вилучити клієнта @u.FullName з бази даних?');" class="d-inline ms-2">
+                                        <form method="post" asp-controller="Realtor" asp-action="DeleteClient" onsubmit="return confirm('Вилучити клієнта @u.FullName з бази даних?');" class="d-inline">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="id" value="@u.Id" />
                                             <button type="submit" class="la-btn la-btn-danger la-btn-sm">Вилучити</button>
