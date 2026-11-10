@@ -29,6 +29,8 @@ public class AppUser
 
     public UserRole Role { get; set; } = UserRole.Client;
 
+    public bool IsActive { get; set; } = true;
+
     public string BankDetails { get; set; } = string.Empty;
 
     public string? OwnershipDoc { get; set; }

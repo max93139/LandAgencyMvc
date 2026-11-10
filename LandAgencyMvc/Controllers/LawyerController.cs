@@ -12,21 +12,24 @@ namespace LandAgencyMvc.Controllers;
 /// Відповідає за правовий аудит земельних ділянок (КОАТУУ, ДЗК/ДРРП, цінові аномалії),
 /// формування юридичних висновків та правову експертизу проектів договорів для нотаріуса.
 /// </summary>
-[Authorize(Roles = nameof(UserRole.Lawyer))]
+[Authorize(Roles = "Lawyer,Admin")]
 public class LawyerController : Controller
 {
     private readonly LandAgencyContext _db;
     private readonly ICadastralValidationService _cadastralService;
     private readonly IAutoMatchingService _autoMatchingService;
+    private readonly ILandAgencyQueries _queries;
 
     public LawyerController(
         LandAgencyContext context,
         ICadastralValidationService cadastralService,
-        IAutoMatchingService autoMatchingService)
+        IAutoMatchingService autoMatchingService,
+        ILandAgencyQueries queries)
     {
         _db = context;
         _cadastralService = cadastralService;
         _autoMatchingService = autoMatchingService;
+        _queries = queries;
     }
 
     private async Task<AppUser?> GetCurrentLawyerAsync()
@@ -301,5 +304,23 @@ public class LawyerController : Controller
         }
 
         return RedirectToAction(nameof(Contracts));
+    }
+
+    /// <summary>
+    /// Реєстр земельного банку та аудит власників ділянок (з'єднання 4 таблиць: LandPlots, Users, PlotDocuments, LegalConclusions).
+    /// </summary>
+    [Authorize(Roles = "Lawyer,Admin")]
+    [HttpGet]
+    public async Task<IActionResult> LandBank(LandBankFilter filter)
+    {
+        var result = await _queries.LandBankAuditAsync(filter);
+        var model = new LandBankViewModel
+        {
+            Filter = filter,
+            Result = result
+        };
+
+        ViewData["ActiveNav"] = "LandBank";
+        return View(model);
     }
 }

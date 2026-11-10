@@ -25,7 +25,7 @@
                 <table class="la-table mb-3">
                     <tbody>
                         <tr>
-                            <td class="text-muted">Власник (Продавець):</td>
+                            <td class="text-muted">Власник:</td>
                             <td><strong>@Model.Seller?.FullName</strong> (@Model.Seller?.Phone)</td>
                         </tr>
                         <tr>
@@ -79,24 +79,20 @@
                 @if (Model.Documents.Any())
                 {
                     <div>
-                        <strong class="la-text-sm d-block mb-2">Правовстановлюючі документи ділянки (Контроль цілісності):</strong>
+                        <strong class="la-text-sm d-block mb-2">Правовстановлюючі документи ділянки:</strong>
                         @foreach (var doc in Model.Documents)
                         {
                             <div class="la-subcard-green la-row-between py-2 px-3 mb-2">
                                 <div class="la-text-xs">
                                     <strong>@doc.Title</strong> (@doc.DocType №@doc.DocumentNumber від @doc.IssueDate.ToString("dd.MM.yyyy"))<br />
-                                    @if (!string.IsNullOrWhiteSpace(doc.FileHash))
-                                    {
-                                        <span class="text-muted">SHA-256: <code class="la-code">@doc.ShortFileHash</code></span>
-                                    }
                                     @if (doc.IsVerified)
                                     {
-                                        <span class="la-badge la-badge-green ms-1">✓ Верифіковано в ДРРП</span>
+                                        <span class="la-badge la-badge-green mt-1">✓ Перевірено юристом у ДРРП</span>
                                     }
                                 </div>
                                 @if (!string.IsNullOrEmpty(doc.FileUrl))
                                 {
-                                    <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути файл ↗</a>
+                                    <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути витяг ↗</a>
                                 }
                             </div>
                         }

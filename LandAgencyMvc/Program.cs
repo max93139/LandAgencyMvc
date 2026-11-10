@@ -23,6 +23,7 @@ builder.Services.AddDbContext<LandAgencyContext>(options =>
 
 builder.Services.AddScoped<ICadastralValidationService, CadastralValidationService>();
 builder.Services.AddScoped<IAutoMatchingService, AutoMatchingService>();
+builder.Services.AddScoped<ILandAgencyQueries, LandAgencyQueries>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

@@ -186,30 +186,5 @@
                 </div>
             </div>
         }
-
-        <div class="la-card">
-            <h5>Реєстр угод агентства</h5>
-            <table class="la-table">
-                <thead>
-                    <tr>
-                        <th>№ ДОГОВОРУ</th>
-                        <th>КАДАСТРОВИЙ №</th>
-                        <th>СУМА / КОМІСІЯ</th>
-                        <th>СТАТУС УГОДИ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var d in Model.Deals)
-                    {
-                        <tr>
-                            <td><strong>@d.DraftContractNumber</strong></td>
-                            <td>@d.LandPlot?.CadastralNumber</td>
-                            <td><strong>$@d.FinalPriceUsd.ToString("N0")</strong> (комісія $@d.AgencyCommissionUsd.ToString("N0"))</td>
-                            <td><span class="la-badge @d.StatusBadgeClass">@d.StatusDisplayName</span></td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
     </div>
 </div>

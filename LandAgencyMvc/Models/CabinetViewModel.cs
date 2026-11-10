@@ -31,19 +31,37 @@ public class CatalogViewModel
 
     public string? FilterPurpose { get; set; }
 
+    public decimal? FilterMinBudget { get; set; }
+
     public decimal? FilterMaxBudget { get; set; }
 
     public double? FilterMinArea { get; set; }
 
+    public double? FilterMaxArea { get; set; }
+
     public string? FilterSearch { get; set; }
+
+    public DateOnly? FilterFrom { get; set; }
+
+    public DateOnly? FilterTo { get; set; }
+
+    public LandAgencyMvc.Services.PlotSort Sort { get; set; } = LandAgencyMvc.Services.PlotSort.Date;
+
+    public bool Descending { get; set; } = true;
 
     public int TotalCount => Plots.Count;
 
     public bool HasActiveFilters =>
         !string.IsNullOrWhiteSpace(FilterPurpose) ||
+        FilterMinBudget.HasValue ||
         FilterMaxBudget.HasValue ||
         FilterMinArea.HasValue ||
-        !string.IsNullOrWhiteSpace(FilterSearch);
+        FilterMaxArea.HasValue ||
+        !string.IsNullOrWhiteSpace(FilterSearch) ||
+        FilterFrom.HasValue ||
+        FilterTo.HasValue ||
+        Sort != LandAgencyMvc.Services.PlotSort.Date ||
+        !Descending;
 }
 
 public class RealtorDealsViewModel

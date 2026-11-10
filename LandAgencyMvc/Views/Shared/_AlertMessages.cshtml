@@ -1,5 +1,6 @@
 @{
     var errorMessage = TempData["Error"] 
+        ?? TempData["ErrorMessage"]
         ?? TempData["CabinetError"] 
         ?? TempData["PlotError"] 
         ?? TempData["DetailsError"] 
@@ -10,6 +11,7 @@
         ?? ViewData["ErrorMessage"];
 
     var successMessage = TempData["Success"] 
+        ?? TempData["SuccessMessage"]
         ?? TempData["CabinetMessage"] 
         ?? TempData["RealtorMessage"] 
         ?? TempData["LawyerMessage"] 

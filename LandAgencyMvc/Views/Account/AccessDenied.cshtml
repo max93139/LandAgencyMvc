@@ -13,8 +13,19 @@
                 Цей розділ доступний виключно співробітникам відповідної ролі (рієлтор або юрист).
             </p>
             <div class="la-action-row justify-content-center">
-                <a asp-controller="Client" asp-action="Catalog" class="la-btn la-btn-green">До каталогу ділянок</a>
-                <a asp-controller="Account" asp-action="Login" class="la-btn la-btn-dark">Змінити акаунт</a>
+                @if (User.IsInRole("Realtor") || User.IsInRole("Admin"))
+                {
+                    <a asp-controller="Realtor" asp-action="Requests" class="la-btn la-btn-green">До робочого місця рієлтора</a>
+                }
+                else if (User.IsInRole("Lawyer"))
+                {
+                    <a asp-controller="Lawyer" asp-action="Queue" class="la-btn la-btn-green">До робочого місця юриста</a>
+                }
+                else
+                {
+                    <a asp-controller="Client" asp-action="Catalog" class="la-btn la-btn-green">До каталогу ділянок</a>
+                }
+                <a asp-controller="Account" asp-action="Logout" class="la-btn la-btn-dark">Змінити акаунт</a>
             </div>
         </div>
     </div>

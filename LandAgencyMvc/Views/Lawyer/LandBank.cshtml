@@ -1,0 +1,192 @@
+@model LandAgencyMvc.Models.LandBankViewModel
+@{
+    ViewData["Title"] = "Реєстр земельного банку — LandAgency UA";
+    ViewData["ActiveNav"] = "LandBank";
+}
+
+<div class="la-window">
+    <partial name="_LawyerNavbar" />
+
+    <div class="la-body">
+        <partial name="_AlertMessages" />
+
+        <div class="la-card">
+            <div class="la-row-between mb-3">
+                <div>
+                    <h3 class="mb-1">Реєстр земельного банку та правовий аудит власників</h3>
+                    <p class="la-meta mb-0">Зведена база земельних активів, продавців, правовстановлюючих документів ДРРП та юридичних висновків ДЗК</p>
+                </div>
+                <span class="la-badge la-badge-indigo">Об'єктів у реєстрі: @Model.TotalPlots</span>
+            </div>
+
+            <form method="get" asp-controller="Lawyer" asp-action="LandBank">
+                <div class="la-grid-4 mb-3">
+                    <div>
+                        <label class="la-label">Область / Населений пункт</label>
+                        <input class="la-input mb-0" name="Region" value="@Model.Filter.Region" placeholder="Київ, Макарів, Обухів..." />
+                    </div>
+
+                    <div>
+                        <label class="la-label">Рівень юридичного ризику</label>
+                        <select class="la-input mb-0" name="RiskLevel">
+                            <option value="">Усі рівні ризику</option>
+                            <option value="Низький" selected="@(Model.Filter.RiskLevel == "Низький")">Низький</option>
+                            <option value="Середній" selected="@(Model.Filter.RiskLevel == "Середній")">Середній</option>
+                            <option value="Високий" selected="@(Model.Filter.RiskLevel == "Високий")">Високий</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="la-label">Цільове призначення</label>
+                        <input class="la-input mb-0" name="Purpose" value="@Model.Filter.Purpose" placeholder="02.01, 01.03, 03.07..." />
+                    </div>
+
+                    <div>
+                        <label class="la-label">Статус ділянки</label>
+                        <select class="la-input mb-0" name="Status">
+                            <option value="">Усі статуси лістингу</option>
+                            <option value="VerifiedInCatalog" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)">Опубліковано в каталозі</option>
+                            <option value="PendingLegalCheck" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)">Очікує перевірки ДЗК</option>
+                            <option value="Sold" selected="@(Model.Filter.Status == LandAgencyMvc.Models.PlotStatus.Sold)">Реалізовано</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="la-row-between">
+                    <div>
+                        <label class="la-meta mb-0">
+                            <input type="checkbox" name="OnlyVerifiedDocs" value="true" checked="@Model.Filter.OnlyVerifiedDocs" />
+                            Тільки об'єкти з перевіреними документами
+                        </label>
+                    </div>
+                    <div class="la-action-row">
+                        <button type="submit" class="la-btn la-btn-dark">Застосувати фільтр аудиту</button>
+                        @if (!string.IsNullOrEmpty(Model.Filter.Region) || !string.IsNullOrEmpty(Model.Filter.RiskLevel) || !string.IsNullOrEmpty(Model.Filter.Purpose) || Model.Filter.Status.HasValue || Model.Filter.OnlyVerifiedDocs)
+                        {
+                            <a class="la-btn la-btn-gray" asp-controller="Lawyer" asp-action="LandBank">Скинути</a>
+                        }
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="la-grid-4 mb-3">
+            <div class="la-card">
+                <span class="la-badge la-badge-indigo mb-2">Земельний банк</span>
+                <div class="la-price-lg">@Model.TotalPlots об'єктів</div>
+                <span class="la-meta">У поточному фільтрі аудиту</span>
+            </div>
+            <div class="la-card">
+                <span class="la-badge la-badge-green mb-2">Сумарна площа</span>
+                <div class="la-price-lg">@Model.TotalAreaHa.ToString("F2") га</div>
+                <span class="la-meta">@((Model.TotalAreaHa * 100).ToString("N0")) соток землі</span>
+            </div>
+            <div class="la-card">
+                <span class="la-badge la-badge-amber mb-2">Оціночна вартість</span>
+                <div class="la-price-lg">$@Model.TotalValueUsd.ToString("N0")</div>
+                <span class="la-meta">Сукупна вартість активів</span>
+            </div>
+            <div class="la-card">
+                <span class="la-badge la-badge-green mb-2">Правова чистота</span>
+                <div class="la-price-lg">@Model.TotalCleanPlots ділянок</div>
+                <span class="la-meta">Схвалено експертизою юриста</span>
+            </div>
+        </div>
+
+        <div class="la-card">
+            <div class="la-row-between mb-3">
+                <h4 class="mb-0">Зведена відомість земельних ділянок та власників</h4>
+                <span class="la-badge la-badge-green">Знайдено: @Model.Result.Rows.Count</span>
+            </div>
+
+            @if (!Model.Result.Rows.Any())
+            {
+                <p class="la-meta mb-0">За вказаними критеріями пошуку земельних ділянок не знайдено.</p>
+            }
+            else
+            {
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>Кадастровий номер та назва</th>
+                            <th>Локація</th>
+                            <th>Призначення</th>
+                            <th class="text-end">Площа (га)</th>
+                            <th class="text-end">Вартість ($)</th>
+                            <th>Власник ділянки</th>
+                            <th class="text-center">Документи ДРРП</th>
+                            <th>Юридичний висновок ДЗК</th>
+                            <th class="text-center">Статус лістингу</th>
+                            <th class="text-end">Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Result.Rows)
+                        {
+                            <tr>
+                                <td>
+                                    <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@r.PlotId" class="fw-bold text-dark text-decoration-none">@r.CadastralNumber</a>
+                                    <br />
+                                    <span class="la-meta">@r.Title</span>
+                                </td>
+                                <td>@r.Location</td>
+                                <td><span class="la-meta">@r.Purpose</span></td>
+                                <td class="text-end">@r.AreaHectares.ToString("F2")</td>
+                                <td class="text-end"><strong>$@r.PriceUsd.ToString("N0")</strong></td>
+                                <td>
+                                    <strong>@r.SellerName</strong>
+                                    <br />
+                                    <span class="la-meta">@(string.IsNullOrEmpty(r.SellerPhone) ? "—" : r.SellerPhone)</span>
+                                </td>
+                                <td class="text-center">
+                                    @if (r.DocumentsCount > 0)
+                                    {
+                                        <span class="la-badge la-badge-green">@r.DocumentsCount витяг.</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="la-badge la-badge-amber">Не завантажено</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (r.RiskLevel.Contains("Низький"))
+                                    {
+                                        <span class="la-badge la-badge-green">Чисто: @r.RiskLevel</span>
+                                    }
+                                    else if (r.RiskLevel.Contains("Середній"))
+                                    {
+                                        <span class="la-badge la-badge-amber">@r.RiskLevel</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="la-badge la-badge-red">@r.RiskLevel</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @switch (r.Status)
+                                    {
+                                        case LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog:
+                                            <span class="la-badge la-badge-green">Опубліковано</span>
+                                            break;
+                                        case LandAgencyMvc.Models.PlotStatus.PendingLegalCheck:
+                                            <span class="la-badge la-badge-amber">На перевірці</span>
+                                            break;
+                                        case LandAgencyMvc.Models.PlotStatus.Sold:
+                                            <span class="la-badge la-badge-indigo">Продано</span>
+                                            break;
+                                        default:
+                                            <span class="la-badge la-badge-red">Відхилено</span>
+                                            break;
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@r.PlotId" class="la-btn la-btn-outline-dark la-btn-sm">Висновок</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>

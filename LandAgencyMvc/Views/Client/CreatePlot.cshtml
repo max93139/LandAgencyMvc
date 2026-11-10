@@ -16,7 +16,7 @@
             <form asp-controller="Client" asp-action="CreatePlot" method="post" enctype="multipart/form-data">
                 <div class="la-grid-3">
                     <div>
-                        <label class="la-label">Кадастровий номер (КОАТУУ)</label>
+                        <label class="la-label">Кадастровий номер</label>
                         <input asp-for="CadastralNumber" class="la-input" placeholder="XXXXXXXXXX:XX:XXX:XXXX" required />
                     </div>
                     <div>
@@ -35,7 +35,7 @@
                         <input asp-for="Title" class="la-input" placeholder="Коротка назва земельної ділянки" required />
                     </div>
                     <div>
-                        <label class="la-label">Цільове призначення (за КВЦПЗ)</label>
+                        <label class="la-label">Цільове призначення</label>
                         <select asp-for="Purpose" class="la-input" required>
                             @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
                             {
@@ -51,13 +51,13 @@
                         <input asp-for="Location" class="la-input" placeholder="Область, район, населений пункт, вулиця" required />
                     </div>
                     <div>
-                        <label class="la-label">Банківський рахунок IBAN (для отримання коштів від покупця)</label>
+                        <label class="la-label">Банківський рахунок IBAN</label>
                         <input asp-for="SellerBankIban" class="la-input text-uppercase" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN України: UA та 27 цифр (рівно 29 символів)" required />
                     </div>
                 </div>
 
                 <div class="la-subcard">
-                    <h6 class="mt-0 mb-2">Правовстановлюючий документ (Витяг з ДРРП або Державний акт)</h6>
+                    <h6 class="mt-0 mb-2">Правовстановлюючий документ</h6>
                     <div class="la-grid-3">
                         <div>
                             <label class="la-label">Тип документа</label>
@@ -77,7 +77,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="la-label">Файл документа (PDF / Скан — цілісність SHA-256)</label>
+                        <label class="la-label">Файл документа</label>
                         <input type="file" name="documentFile" class="la-input mb-0" />
                     </div>
                 </div>

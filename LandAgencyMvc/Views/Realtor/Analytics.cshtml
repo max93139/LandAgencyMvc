@@ -1,0 +1,229 @@
+@model LandAgencyMvc.Models.PeriodTurnoverViewModel
+@{
+    ViewData["Title"] = "Моя фінансова аналітика — LandAgency UA";
+    ViewData["ActiveNav"] = "Analytics";
+    var agentName = Model.CurrentUser?.FullName ?? (User.Identity?.Name ?? "Рієлтор");
+    var license = !string.IsNullOrEmpty(Model.CurrentUser?.LicenseNumber)
+        ? $" ({Model.CurrentUser.LicenseNumber})"
+        : "";
+}
+
+<div class="la-window">
+    <partial name="_RealtorNavbar" />
+
+    <div class="la-body">
+        <partial name="_AlertMessages" />
+
+        <div class="la-card">
+            <div class="mb-3">
+                <h3 class="mb-1">Моя фінансова аналітика: @agentName@license</h3>
+                <p class="la-meta mb-0">
+                    Особисті результати за звітний період: <strong>@Model.Period.Label</strong> (з @Model.Period.From.ToString("dd.MM.yyyy") по @Model.Period.To.AddDays(-1).ToString("dd.MM.yyyy"))
+                </p>
+            </div>
+
+            <form method="get" asp-controller="Realtor" asp-action="Analytics">
+                <div class="la-grid-4 mb-3">
+                    <div>
+                        <label class="la-label">Тип звітного періоду</label>
+                        <select class="la-input mb-0" name="kind" id="periodKindSelect">
+                            <option value="Month" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Month)">Поточний / обраний місяць</option>
+                            <option value="HalfYear" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.HalfYear)">Півріччя</option>
+                            <option value="Day" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Day)">Один звітний день</option>
+                            <option value="Custom" selected="@(Model.Kind == LandAgencyMvc.Services.PeriodKind.Custom)">Довільний період «з … по …»</option>
+                        </select>
+                    </div>
+
+                    <div id="anchorDateGroup">
+                        <label class="la-label">Опорна дата періоду</label>
+                        <input type="date" class="la-input mb-0" name="date" id="anchorDateInput" value="@Model.Date.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <div id="customFromGroup">
+                        <label class="la-label">Довільний період: з дати</label>
+                        <input type="date" class="la-input mb-0" name="from" id="customFromInput" value="@Model.From.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <div id="customToGroup">
+                        <label class="la-label">Довільний період: по дату</label>
+                        <input type="date" class="la-input mb-0" name="to" id="customToInput" value="@Model.To.ToString("yyyy-MM-dd")" />
+                    </div>
+                </div>
+
+                <div class="la-row-between">
+                    <div class="la-action-row">
+                        <label class="la-label me-2 mb-0">Сортування підсумків:</label>
+                        <select name="sort" class="la-input mb-0">
+                            <option value="Turnover" selected="@(Model.Sort == LandAgencyMvc.Services.TurnoverSort.Turnover)">За фінансовим оборотом ($)</option>
+                            <option value="Deals" selected="@(Model.Sort == LandAgencyMvc.Services.TurnoverSort.Deals)">За кількістю закритих угод</option>
+                            <option value="Area" selected="@(Model.Sort == LandAgencyMvc.Services.TurnoverSort.Area)">За загальною площею (га)</option>
+                            <option value="Name" selected="@(Model.Sort == LandAgencyMvc.Services.TurnoverSort.Name)">За найменуванням категорії</option>
+                        </select>
+                        <select name="desc" class="la-input mb-0">
+                            <option value="true" selected="@Model.Descending">За спаданням (↓)</option>
+                            <option value="false" selected="@(!Model.Descending)">За зростанням (↑)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="la-btn la-btn-dark">Сформувати фінансовий звіт</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="la-grid-4 mb-3">
+            <div class="la-card">
+                <span class="la-badge la-badge-green mb-2">Мій оборот угод</span>
+                <div class="la-price-lg">$@Model.TotalTurnoverUsd.ToString("N0")</div>
+                <span class="la-meta">Сумарна вартість моїх продажів у USD</span>
+            </div>
+            <div class="la-card">
+                <span class="la-badge la-badge-amber mb-2">Моя комісія (3%)</span>
+                <div class="la-price-lg">$@Model.TotalCommissionUsd.ToString("N2")</div>
+                <span class="la-meta">Особиста винагорода за закритими договорами</span>
+            </div>
+            <div class="la-card">
+                <span class="la-badge la-badge-indigo mb-2">Закрито мною угод</span>
+                <div class="la-price-lg">@Model.TotalDeals угод</div>
+                <span class="la-meta">@Model.TotalAreaHa.ToString("F2") га реалізованої землі</span>
+            </div>
+            <div class="la-card">
+                <span class="la-badge la-badge-green mb-2">Мій середній чек</span>
+                <div class="la-price-lg">$@Model.AvgDealPriceUsd.ToString("N0")</div>
+                <span class="la-meta">Середня вартість однієї моєї угоди</span>
+            </div>
+        </div>
+
+        <div class="la-card mb-3">
+            <div class="la-row-between mb-2">
+                <h4 class="mb-0">Мій оборот за категоріями земель</h4>
+                <span class="la-badge la-badge-green">Категорій у звіті: @Model.ByPurpose.Rows.Count</span>
+            </div>
+            <p class="la-meta mb-3">Узагальнення особисто супроводжених та нотаріально посвідчених договорів у розрізі цільового призначення</p>
+
+            @if (!Model.ByPurpose.Rows.Any())
+            {
+                <p class="la-meta mb-0">За обраний період закритих вами угод у базі даних не зафіксовано. Змініть часовий проміжок або оберіть ширший інтервал.</p>
+            }
+            else
+            {
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>Цільове призначення ділянки</th>
+                            <th class="text-center">К-ть угод</th>
+                            <th class="text-end">Площа (га)</th>
+                            <th class="text-end">Сумарний оборот ($)</th>
+                            <th class="text-end">Моя комісія 3% ($)</th>
+                            <th class="text-end">Сер. ціна ($)</th>
+                            <th class="text-end">Мін. ціна ($)</th>
+                            <th class="text-end">Макс. ціна ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.ByPurpose.Rows)
+                        {
+                            <tr>
+                                <td><strong>@r.Purpose</strong></td>
+                                <td class="text-center"><span class="la-badge la-badge-indigo">@r.DealsCount</span></td>
+                                <td class="text-end">@r.TotalAreaHectares.ToString("F2")</td>
+                                <td class="text-end"><strong>$@r.TotalTurnoverUsd.ToString("N2")</strong></td>
+                                <td class="text-end text-success">+$@r.TotalCommissionUsd.ToString("N2")</td>
+                                <td class="text-end">$@r.AveragePriceUsd.ToString("N2")</td>
+                                <td class="text-end">$@r.MinPriceUsd.ToString("N0")</td>
+                                <td class="text-end">$@r.MaxPriceUsd.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>Всього за звітний період:</th>
+                            <th class="text-center">@Model.TotalDeals</th>
+                            <th class="text-end">@Model.TotalAreaHa.ToString("F2") га</th>
+                            <th class="text-end"><strong>$@Model.TotalTurnoverUsd.ToString("N2")</strong></th>
+                            <th class="text-end text-success">+$@Model.TotalCommissionUsd.ToString("N2")</th>
+                            <th class="text-end">$@Model.AvgDealPriceUsd.ToString("N2")</th>
+                            <th colspan="2"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            }
+        </div>
+
+        <div class="la-card">
+            <div class="la-row-between mb-2">
+                <h4 class="mb-0">Мої закриті угоди за обраний період</h4>
+                <span class="la-badge la-badge-indigo">Договорів: @Model.ClosedDeals.Rows.Count</span>
+            </div>
+            <p class="la-meta mb-3">Деталізація нотаріально посвідчених договорів купівлі-продажу, супроводжених вами у звітному періоді</p>
+
+            @if (!Model.ClosedDeals.Rows.Any())
+            {
+                <p class="la-meta mb-0">За обраний період у вас немає закритих нотаріальних угод.</p>
+            }
+            else
+            {
+                <table class="la-table">
+                    <thead>
+                        <tr>
+                            <th>№ Договору / Реєстр</th>
+                            <th>Дата посвідчення</th>
+                            <th>Земельна ділянка</th>
+                            <th>Покупець</th>
+                            <th class="text-end">Площа (га)</th>
+                            <th class="text-end">Сума угоди ($)</th>
+                            <th class="text-end">Моя комісія ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in Model.ClosedDeals.Rows)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@d.ContractNumber</strong>
+                                    <div class="la-meta">@d.NotarialRegistryNumber</div>
+                                </td>
+                                <td>@d.NotaryDate.ToString("dd.MM.yyyy")</td>
+                                <td>
+                                    <strong>@d.CadastralNumber</strong>
+                                    <div class="la-meta">@d.PlotTitle</div>
+                                </td>
+                                <td>@d.BuyerName</td>
+                                <td class="text-end">@d.AreaHectares.ToString("F2")</td>
+                                <td class="text-end"><strong>$@d.FinalPriceUsd.ToString("N2")</strong></td>
+                                <td class="text-end text-success">+$@d.CommissionUsd.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const kindSelect = document.getElementById("periodKindSelect");
+            const fromInput = document.getElementById("customFromInput");
+            const toInput = document.getElementById("customToInput");
+            const anchorInput = document.getElementById("anchorDateInput");
+
+            if (fromInput && kindSelect) {
+                fromInput.addEventListener("change", function () {
+                    kindSelect.value = "Custom";
+                });
+            }
+            if (toInput && kindSelect) {
+                toInput.addEventListener("change", function () {
+                    kindSelect.value = "Custom";
+                });
+            }
+            if (anchorInput && kindSelect) {
+                anchorInput.addEventListener("change", function () {
+                    if (kindSelect.value === "Custom") {
+                        kindSelect.value = "Month";
+                    }
+                });
+            }
+        });
+    </script>
+}

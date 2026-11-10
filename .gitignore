@@ -11,3 +11,5 @@ obj/
 *.db-wal
 wwwroot/uploads/*
 !wwwroot/uploads/.gitkeep
+.venv/
+sample_pdf_text.txt

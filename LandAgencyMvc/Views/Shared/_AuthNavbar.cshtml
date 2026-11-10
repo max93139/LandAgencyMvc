@@ -1,6 +1,8 @@
 @{
     var activeNav = (ViewData["ActiveNav"] as string) ?? "";
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isRealtor = User.IsInRole("Realtor") || User.IsInRole("Admin");
+    var isLawyer = User.IsInRole("Lawyer");
 }
 
 <div class="la-topbar la-topbar-auth">
@@ -8,8 +10,19 @@
     <div class="la-nav-links">
         @if (isAuthenticated)
         {
-            <a class="@(activeNav == "Catalog" ? "active" : "")" asp-controller="Client" asp-action="Catalog">Каталог</a>
-            <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет</a>
+            @if (isRealtor)
+            {
+                <a asp-controller="Realtor" asp-action="Requests">Робоче місце рієлтора</a>
+            }
+            else if (isLawyer)
+            {
+                <a asp-controller="Lawyer" asp-action="Queue">Робоче місце юриста</a>
+            }
+            else
+            {
+                <a class="@(activeNav == "Catalog" ? "active" : "")" asp-controller="Client" asp-action="Catalog">Каталог</a>
+                <a class="@(activeNav == "Cabinet" ? "active" : "")" asp-controller="Client" asp-action="Cabinet">Мій кабінет</a>
+            }
             <a asp-controller="Account" asp-action="Logout">Вийти</a>
         }
         else

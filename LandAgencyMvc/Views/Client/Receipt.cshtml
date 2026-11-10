@@ -18,15 +18,15 @@
 
             <div class="la-grid-2 mb-3">
                 <div>
-                    <strong>Платник (Покупець):</strong><br />
+                    <strong>Платник:</strong><br />
                     ПІБ: @Model.Buyer?.FullName<br />
-                    РНОКПП (ІПН): @Model.Buyer?.TaxId<br />
+                    РНОКПП: @Model.Buyer?.TaxId<br />
                     Телефон: @Model.Buyer?.Phone
                 </div>
                 <div>
-                    <strong>Одержувач (Продавець ділянки):</strong><br />
+                    <strong>Одержувач:</strong><br />
                     ПІБ: @Model.LandPlot?.Seller?.FullName<br />
-                    РНОКПП (ІПН): @Model.LandPlot?.Seller?.TaxId<br />
+                    РНОКПП: @Model.LandPlot?.Seller?.TaxId<br />
                     IBAN: @Model.LandPlot?.EffectiveSellerIban
                 </div>
             </div>
@@ -40,8 +40,8 @@
                     <tr>
                         <th>№ Рахунку / Квитанції</th>
                         <th>Призначення транзакції</th>
-                        <th>Рахунок одержувача (IBAN)</th>
-                        <th>Сума (USD)</th>
+                        <th>Рахунок одержувача IBAN</th>
+                        <th>Сума, USD</th>
                         <th>Статус банківської виписки</th>
                     </tr>
                 </thead>

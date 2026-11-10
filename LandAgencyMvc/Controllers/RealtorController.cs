@@ -18,11 +18,16 @@ public class RealtorController : Controller
 {
     private readonly LandAgencyContext _db;
     private readonly IAutoMatchingService _autoMatchingService;
+    private readonly ILandAgencyQueries _queries;
 
-    public RealtorController(LandAgencyContext context, IAutoMatchingService autoMatchingService)
+    public RealtorController(
+        LandAgencyContext context,
+        IAutoMatchingService autoMatchingService,
+        ILandAgencyQueries queries)
     {
         _db = context;
         _autoMatchingService = autoMatchingService;
+        _queries = queries;
     }
 
     private async Task<AppUser?> GetCurrentRealtorAsync()
@@ -101,6 +106,68 @@ public class RealtorController : Controller
 
         TempData["RealtorMessage"] = $"Запит клієнта #{requestId} опрацьовано автоматичним двигуном. Підібрано ділянок: {matchedCount}.";
         return RedirectToAction(nameof(Requests), new { matchedRequestId = requestId });
+    }
+
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdatePlot(
+        int plotId,
+        string? title,
+        string? location,
+        double? areaHectares,
+        string? purpose,
+        decimal? priceUsd,
+        string? description)
+    {
+        var currentUser = await GetCurrentRealtorAsync();
+        var plot = await _db.LandPlots.FindAsync(plotId);
+        if (plot != null)
+        {
+            if (plot.Status == PlotStatus.Sold)
+            {
+                TempData["RealtorError"] = $"Ділянку {plot.CadastralNumber} вже продано. Редагування параметрів об'єкта заблоковано.";
+                return RedirectToAction("Details", "Client", new { id = plotId });
+            }
+
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                plot.Title = title.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(location))
+            {
+                plot.Location = location.Trim();
+            }
+
+            if (areaHectares.HasValue && areaHectares.Value > 0)
+            {
+                plot.AreaHectares = areaHectares.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(purpose))
+            {
+                plot.Purpose = purpose.Trim();
+            }
+
+            if (priceUsd.HasValue && priceUsd.Value > 0)
+            {
+                plot.PriceUsd = priceUsd.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                plot.Description = description.Trim();
+            }
+
+            plot.AssignedRealtorId = currentUser?.Id;
+            await _db.SaveChangesAsync();
+            await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+
+            TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} успішно оновлено.";
+        }
+
+        return RedirectToAction(nameof(Requests));
     }
 
     [Authorize(Roles = nameof(UserRole.Realtor))]
@@ -621,5 +688,186 @@ public class RealtorController : Controller
         }
 
         return View(deal);
+    }
+
+    /// <summary>
+    /// Особиста фінансова аналітика та результативність поточного рієлтора за обраний період (день, місяць, півріччя або довільний).
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpGet]
+    public async Task<IActionResult> Analytics(
+        PeriodKind kind = PeriodKind.Month,
+        DateOnly? date = null,
+        DateOnly? from = null,
+        DateOnly? to = null,
+        TurnoverSort sort = TurnoverSort.Turnover,
+        bool? desc = null)
+    {
+        var currentUser = await GetCurrentRealtorAsync();
+        bool isDescending = desc ?? true;
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var day = date ?? today;
+        var periodFrom = from ?? today.AddMonths(-3);
+        var periodTo = to ?? today;
+
+        var defaultMonthPeriod = Period.Containing(kind, day);
+        bool customRangeChanged = from.HasValue && to.HasValue &&
+            (from.Value != DateOnly.FromDateTime(defaultMonthPeriod.From) ||
+             to.Value != DateOnly.FromDateTime(defaultMonthPeriod.To).AddDays(-1));
+
+        if (customRangeChanged && kind != PeriodKind.Custom)
+        {
+            kind = PeriodKind.Custom;
+        }
+
+        var period = kind == PeriodKind.Custom
+            ? Period.Between(periodFrom, periodTo)
+            : defaultMonthPeriod;
+
+        var byPurpose = await _queries.TurnoverByPurposeAsync(period, sort, isDescending, currentUser?.Id);
+        var closedDeals = await _queries.RealtorClosedDealsAsync(period, currentUser?.Id, isDescending);
+
+        var viewModel = new PeriodTurnoverViewModel
+        {
+            CurrentUser = currentUser,
+            Kind = kind,
+            Date = day,
+            From = DateOnly.FromDateTime(period.From),
+            To = DateOnly.FromDateTime(period.To).AddDays(-1),
+            Sort = sort,
+            Descending = isDescending,
+            Period = period,
+            ByPurpose = byPurpose,
+            ClosedDeals = closedDeals
+        };
+
+        ViewData["ActiveNav"] = "Analytics";
+        return View(viewModel);
+    }
+
+    /// <summary>
+    /// Реєстр клієнтів агентства (CRM).
+    /// Забезпечує пошук за email, додавання, редагування та безпечне вилучення клієнтів.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpGet]
+    public async Task<IActionResult> Clients(string? searchEmail = null)
+    {
+        var clientsQuery = _db.Users
+            .Where(u => u.Role == UserRole.Client)
+            .Include(u => u.OwnedPlots)
+            .Include(u => u.ViewingRequests)
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(searchEmail))
+        {
+            var cleanSearch = searchEmail.Trim().ToLower();
+            clientsQuery = clientsQuery.Where(u => u.Email.ToLower().Contains(cleanSearch));
+        }
+
+        var clients = await clientsQuery
+            .OrderBy(u => u.Id)
+            .ToListAsync();
+
+        AppUser? foundUser = null;
+        if (!string.IsNullOrWhiteSpace(searchEmail))
+        {
+            foundUser = clients.FirstOrDefault(u => u.Email.Equals(searchEmail.Trim(), StringComparison.OrdinalIgnoreCase))
+                ?? await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Client && u.Email == searchEmail.Trim());
+
+            if (foundUser == null)
+            {
+                TempData["ErrorMessage"] = $"Клієнта з адресою '{searchEmail}' не знайдено.";
+            }
+        }
+
+        var model = new UsersManagementViewModel
+        {
+            Users = clients,
+            SearchEmail = searchEmail,
+            FoundUser = foundUser
+        };
+
+        ViewData["ActiveNav"] = "Clients";
+        return View(model);
+    }
+
+    /// <summary>
+    /// Додавання нового клієнта з початковою заявкою в одній транзакції.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddClient(AddUserFormModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.FullName) || string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.Password))
+        {
+            TempData["ErrorMessage"] = "Заповніть усі обов'язкові поля: ПІБ, Email та пароль.";
+            return RedirectToAction(nameof(Clients));
+        }
+
+        try
+        {
+            var user = await _queries.AddUserAsync(
+                model.FullName, model.Email, model.Phone, UserRole.Client, model.Password, model.BankDetails);
+            TempData["SuccessMessage"] = $"Успішно створено картку клієнта {user.FullName} ({user.Email}).";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Clients));
+    }
+
+    /// <summary>
+    /// Оновлення персональних даних, контактів, бюджету та статусу активності клієнта.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateClient(UpdateUserFormModel model)
+    {
+        try
+        {
+            await _queries.UpdateUserAsync(
+                model.Id,
+                model.FullName,
+                model.Email,
+                model.Phone,
+                model.TaxId,
+                model.BankDetails,
+                model.MaxBudget,
+                model.TargetPurpose,
+                model.IsActive);
+            TempData["SuccessMessage"] = $"Дані клієнта #{model.Id} ({model.FullName}) успішно оновлено.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Clients));
+    }
+
+    /// <summary>
+    /// Безпечне вилучення користувача з контролем обмеження цілісності Restrict.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteClient(int id)
+    {
+        try
+        {
+            string name = await _queries.DeleteUserAsync(id);
+            TempData["SuccessMessage"] = $"Користувача {name} (ID={id}) успішно вилучено з бази даних.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Clients));
     }
 }

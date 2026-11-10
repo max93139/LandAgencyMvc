@@ -55,11 +55,6 @@
                             </form>
                             <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
-                                <input type="hidden" name="status" value="Completed" />
-                                <button type="submit" class="la-btn la-btn-amber la-btn-sm">Огляд проведено (Клієнт купує)</button>
-                            </form>
-                            <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
-                                <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Cancelled" />
                                 <button type="submit" class="la-btn la-btn-red la-btn-sm">✕ Скасувати</button>
                             </form>
@@ -69,13 +64,13 @@
                             <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="Completed" />
-                                <button type="submit" class="la-btn la-btn-green la-btn-sm">✓ Провести огляд (Ділянка підходить)</button>
+                                <button type="submit" class="la-btn la-btn-green la-btn-sm">✓ Провести огляд</button>
                             </form>
                             <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post" class="la-inline-form">
                                 <input type="hidden" name="viewingId" value="@v.Id" />
                                 <input type="hidden" name="status" value="PlotRejectedByBuyer" />
                                 <input name="resultNotes" class="la-input-inline" placeholder="Зауваження покупця" />
-                                <button type="submit" class="la-btn la-btn-warning la-btn-sm">Не підійшла (Зафіксувати зауваження)</button>
+                                <button type="submit" class="la-btn la-btn-warning la-btn-sm">Не підійшла</button>
                             </form>
                             <form asp-controller="Realtor" asp-action="UpdateViewingStatus" method="post">
                                 <input type="hidden" name="viewingId" value="@v.Id" />

@@ -1,0 +1,205 @@
+@model LandAgencyMvc.Models.UsersManagementViewModel
+@{
+    ViewData["Title"] = "Клієнти — LandAgency UA";
+    ViewData["ActiveNav"] = "Clients";
+}
+
+<div class="la-window">
+    <partial name="_RealtorNavbar" />
+
+    <div class="la-body">
+        <partial name="_AlertMessages" />
+
+        <div class="la-card mb-3">
+            <h4 class="mb-2">Реєстрація нового клієнта в агентстві</h4>
+            <p class="la-meta mb-3">Створення облікового запису клієнта (покупця чи продавця) та внесення його даних у систему</p>
+
+            <form method="post" asp-controller="Realtor" asp-action="AddClient">
+                @Html.AntiForgeryToken()
+                <div class="la-grid-3 mb-2">
+                    <div>
+                        <label class="la-label">ПІБ клієнта</label>
+                        <input name="FullName" class="la-input mb-0" placeholder="Шевченко Тарас Григорович" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Електронна пошта</label>
+                        <input name="Email" type="email" class="la-input mb-0" placeholder="taras@shevchenko.ua" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Контактний телефон</label>
+                        <input name="Phone" class="la-input mb-0" placeholder="+380..." />
+                    </div>
+                </div>
+
+                <div class="la-grid-2 mb-3">
+                    <div>
+                        <label class="la-label">Початковий пароль облікового запису</label>
+                        <input name="Password" type="password" class="la-input mb-0" placeholder="Мінімум 4 символи" required />
+                    </div>
+                    <div>
+                        <label class="la-label">Банківські реквізити IBAN (за наявності)</label>
+                        <input name="BankDetails" class="la-input mb-0" placeholder="UA..." />
+                    </div>
+                </div>
+
+                <button type="submit" class="la-btn la-btn-green">+ Зареєструвати клієнта</button>
+            </form>
+        </div>
+
+        <div class="la-card">
+            <div class="la-row-between mb-3">
+                <div>
+                    <h4 class="mb-1">Клієнтська база агентства</h4>
+                    <span class="la-meta">Всього клієнтів у базі даних: <strong>@Model.Users.Count</strong></span>
+                </div>
+                <form method="get" asp-controller="Realtor" asp-action="Clients" class="la-action-row">
+                    <input name="searchEmail" type="email" class="la-input mb-0" placeholder="Пошук клієнта за Email..." value="@Model.SearchEmail" />
+                    <button type="submit" class="la-btn la-btn-dark la-btn-sm">Знайти</button>
+                    @if (!string.IsNullOrEmpty(Model.SearchEmail))
+                    {
+                        <a class="la-btn la-btn-gray la-btn-sm" asp-controller="Realtor" asp-action="Clients">Скинути</a>
+                    }
+                </form>
+            </div>
+
+            <table class="la-table">
+                <thead>
+                    <tr>
+                        <th class="text-center">ID</th>
+                        <th>Клієнт</th>
+                        <th>Контакти та IBAN</th>
+                        <th class="text-center">Нерухомість</th>
+                        <th class="text-center">Стан</th>
+                        <th class="text-end">Дії</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model.Users)
+                    {
+                        var hasHistory = u.OwnedPlots.Any() || u.ViewingRequests.Any();
+
+                        <tr>
+                            <td class="text-center">#@u.Id</td>
+                            <td>
+                                <strong>@u.FullName</strong>
+                                <br />
+                                <span class="la-meta">@u.Email</span>
+                            </td>
+                            <td>
+                                <div>@(string.IsNullOrEmpty(u.Phone) ? "—" : u.Phone)</div>
+                                @if (!string.IsNullOrEmpty(u.BankDetails))
+                                {
+                                    <span class="la-meta">IBAN: @u.BankDetails</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (u.OwnedPlots.Any())
+                                {
+                                    <span class="la-badge la-badge-green">@u.OwnedPlots.Count діл.</span>
+                                }
+                                else
+                                {
+                                    <span class="la-meta">0</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (u.IsActive)
+                                {
+                                    <span class="la-badge la-badge-green">Активний</span>
+                                }
+                                else
+                                {
+                                    <span class="la-badge la-badge-red">Заблокований</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="la-action-row justify-content-end">
+                                    <button type="button" class="la-btn la-btn-outline-dark la-btn-sm" data-bs-toggle="modal" data-bs-target="#editClientModal_@u.Id">
+                                        Редагувати
+                                    </button>
+
+                                    @if (hasHistory)
+                                    {
+                                        <span class="la-badge la-badge-amber" title="Неможливо вилучити: клієнт має історію угод, оглядів або закріплених ділянок">
+                                            Має історію
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-controller="Realtor" asp-action="DeleteClient" onsubmit="return confirm('Вилучити клієнта @u.FullName з бази даних?');" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@u.Id" />
+                                            <button type="submit" class="la-btn la-btn-danger la-btn-sm">Вилучити</button>
+                                        </form>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@foreach (var u in Model.Users)
+{
+    <div class="modal fade" id="editClientModal_@u.Id" tabindex="-1" aria-labelledby="modalLabel_@u.Id" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel_@u.Id">Редагування картки клієнта #@u.Id</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                </div>
+                <form method="post" asp-controller="Realtor" asp-action="UpdateClient">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Id" value="@u.Id" />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="la-label">ПІБ клієнта</label>
+                            <input name="FullName" value="@u.FullName" class="la-input mb-0" required />
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="la-label">Електронна пошта (Email)</label>
+                                <input name="Email" type="email" value="@u.Email" class="la-input mb-0" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="la-label">Контактний телефон</label>
+                                <input name="Phone" value="@u.Phone" class="la-input mb-0" placeholder="+380..." />
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="la-label">РНОКПП / ІПН</label>
+                                <input name="TaxId" value="@u.TaxId" class="la-input mb-0" placeholder="10 цифр" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="la-label">Бюджет купівлі ($)</label>
+                                <input name="MaxBudget" type="number" step="1000" min="0" value="@u.MaxBudget" class="la-input mb-0" placeholder="0" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="la-label">Банківські реквізити (IBAN)</label>
+                            <input name="BankDetails" value="@u.BankDetails" class="la-input mb-0" placeholder="UA..." />
+                        </div>
+                        <div class="mb-3">
+                            <label class="la-label">Бажане цільове призначення</label>
+                            <input name="TargetPurpose" value="@u.TargetPurpose" class="la-input mb-0" placeholder="Наприклад: 01.03 Для ведення ОСГ або 02.01 Для будівництва" />
+                        </div>
+                        <div class="mb-0">
+                            <label class="d-flex align-items-center gap-2">
+                                <input type="checkbox" name="IsActive" value="true" @(u.IsActive ? "checked" : "") />
+                                <span>Активний обліковий запис</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="la-btn la-btn-gray la-btn-sm" data-bs-dismiss="modal">Скасувати</button>
+                        <button type="submit" class="la-btn la-btn-dark la-btn-sm">Зберегти зміни</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}

@@ -1,0 +1,41 @@
+@{
+    ViewData["Title"] = "Контакти агентства — LandAgency UA";
+    ViewData["ActiveNav"] = "Contacts";
+}
+
+<div class="la-window">
+    @if (User.IsInRole("Realtor") || User.IsInRole("Admin"))
+    {
+        <partial name="_RealtorNavbar" />
+    }
+    else if (User.IsInRole("Lawyer"))
+    {
+        <partial name="_LawyerNavbar" />
+    }
+    else
+    {
+        <partial name="_ClientNavbar" />
+    }
+
+    <div class="la-body">
+        <div class="la-card">
+            <h4 class="mb-2">Контактна інформація агентства «LandAgency UA»</h4>
+            <p class="la-meta mb-3">Офіційний супровід угод купівлі-продажу земельних ділянок, юридичний аудит ДЗК/ДРРП та підготовка пакету документів до нотаріального посвідчення</p>
+
+            <div class="la-grid-3">
+                <div class="la-subcard mb-0">
+                    <strong class="la-text-sm d-block mb-1">Центральний офіс</strong>
+                    <div class="la-text-sm">м. Київ, бульвар Тараса Шевченка, 23, БЦ «Європа Плаза», 5 поверх</div>
+                </div>
+                <div class="la-subcard mb-0">
+                    <strong class="la-text-sm d-block mb-1">Контактні телефони</strong>
+                    <div class="la-text-sm">+380 (44) 220-10-20 (приймальня)<br />+380 (67) 555-44-33 (відділ продажів)</div>
+                </div>
+                <div class="la-subcard mb-0">
+                    <strong class="la-text-sm d-block mb-1">Графік прийому та нотаріату</strong>
+                    <div class="la-text-sm">Пн–Пт: 09:00 – 18:30<br />Сб (виїзні огляди): 10:00 – 16:00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

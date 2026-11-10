@@ -71,12 +71,6 @@
                                                         <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути файл ↗</a>
                                                     }
                                                 </div>
-                                                @if (!string.IsNullOrEmpty(doc.FileHash))
-                                                {
-                                                    <div class="la-code mt-1">
-                                                        SHA-256: @doc.FileHash
-                                                    </div>
-                                                }
                                             </div>
                                         }
                                     </div>
@@ -294,11 +288,21 @@
                 </div>
 
                 <div class="la-card">
-                    <h6>Налаштування профілю, РНОКПП (ІПН), IBAN та пароль</h6>
+                    <h6>Налаштування профілю та реквізитів клієнта</h6>
                     <form asp-controller="Client" asp-action="ChangePassword" method="post">
                         <div class="la-grid-2">
                             <div>
-                                <label class="la-label">РНОКПП (ІПН) для угод</label>
+                                <label class="la-label">Прізвище, ім'я та по батькові</label>
+                                <input name="fullName" value="@Model.CurrentUser?.FullName" class="la-input" placeholder="ПІБ" required />
+                            </div>
+                            <div>
+                                <label class="la-label">Контактний телефон</label>
+                                <input name="phone" value="@Model.CurrentUser?.Phone" class="la-input" placeholder="+380..." />
+                            </div>
+                        </div>
+                        <div class="la-grid-2">
+                            <div>
+                                <label class="la-label">РНОКПП для угод</label>
                                 <input name="taxId" value="@Model.CurrentUser?.TaxId" class="la-input" placeholder="10 цифр" />
                             </div>
                             <div>
@@ -308,11 +312,11 @@
                         </div>
                         <div class="la-grid-2">
                             <div>
-                                <label class="la-label">Поточний пароль</label>
+                                <label class="la-label">Поточний пароль (за потреби зміни)</label>
                                 <input type="password" name="currentPassword" class="la-input" placeholder="Для зміни пароля" />
                             </div>
                             <div>
-                                <label class="la-label">Новий пароль</label>
+                                <label class="la-label">Новий пароль (за потреби зміни)</label>
                                 <input type="password" name="newPassword" class="la-input" placeholder="Новий пароль" />
                             </div>
                         </div>
