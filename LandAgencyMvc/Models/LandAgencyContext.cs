@@ -85,7 +85,7 @@ public class LandAgencyContext : DbContext
             .HasOne(p => p.SaleDeal)
             .WithMany(d => d.Payments)
             .HasForeignKey(p => p.SaleDealId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<PlotDocument>()
             .HasOne(d => d.LandPlot)

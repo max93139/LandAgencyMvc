@@ -19,15 +19,18 @@ public class RealtorController : Controller
     private readonly LandAgencyContext _db;
     private readonly IAutoMatchingService _autoMatchingService;
     private readonly ILandAgencyQueries _queries;
+    private readonly ICadastralValidationService _cadastralService;
 
     public RealtorController(
         LandAgencyContext context,
         IAutoMatchingService autoMatchingService,
-        ILandAgencyQueries queries)
+        ILandAgencyQueries queries,
+        ICadastralValidationService cadastralService)
     {
         _db = context;
         _autoMatchingService = autoMatchingService;
         _queries = queries;
+        _cadastralService = cadastralService;
     }
 
     private async Task<AppUser?> GetCurrentRealtorAsync()
@@ -851,23 +854,620 @@ public class RealtorController : Controller
     }
 
     /// <summary>
-    /// Безпечне вилучення користувача з контролем обмеження цілісності Restrict.
+    /// Реєстр земельних ділянок агентства з повним набором операцій CRUD.
     /// </summary>
-    [Authorize(Roles = "Realtor,Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteClient(int id)
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpGet]
+    public async Task<IActionResult> Plots(string? search, PlotStatus? status)
     {
-        try
+        var query = _db.LandPlots
+            .Include(p => p.Seller)
+            .Include(p => p.Documents)
+            .Include(p => p.ViewingRequests)
+            .Include(p => p.LegalConclusion)
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            string name = await _queries.DeleteUserAsync(id);
-            TempData["SuccessMessage"] = $"Користувача {name} (ID={id}) успішно вилучено з бази даних.";
-        }
-        catch (Exception ex)
-        {
-            TempData["ErrorMessage"] = ex.Message;
+            var s = search.Trim().ToLower();
+            query = query.Where(p =>
+                p.CadastralNumber.ToLower().Contains(s) ||
+                p.Title.ToLower().Contains(s) ||
+                p.Location.ToLower().Contains(s) ||
+                (p.Seller != null && p.Seller.FullName.ToLower().Contains(s)));
         }
 
-        return RedirectToAction(nameof(Clients));
+        if (status.HasValue)
+        {
+            query = query.Where(p => p.Status == status.Value);
+        }
+
+        var plots = await query.OrderByDescending(p => p.CreatedAt).ToListAsync();
+        ViewBag.Search = search;
+        ViewBag.Status = status;
+
+        return View(plots);
+    }
+
+    /// <summary>
+    /// Форма створення нової земельної ділянки (базова модель PlotCreateViewModel).
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpGet]
+    public async Task<IActionResult> CreatePlot()
+    {
+        ViewBag.Sellers = await _db.Users
+            .Where(u => u.Role == UserRole.Client && u.IsActive)
+            .OrderBy(u => u.FullName)
+            .ToListAsync();
+
+        return View(new PlotCreateViewModel());
+    }
+
+    /// <summary>
+    /// Збереження нової ділянки з валідацією КОАТУУ та первинним документом.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreatePlot(PlotCreateViewModel vm)
+    {
+        var koatuu = _cadastralService.ValidateKoatuuFormat(vm.CadastralNumber);
+        if (!koatuu.IsValid)
+        {
+            ModelState.AddModelError(nameof(vm.CadastralNumber), $"Помилка структури кадастрового номера: {koatuu.ErrorMessage}");
+        }
+
+        bool duplicate = await _db.LandPlots.AnyAsync(p =>
+            p.CadastralNumber == vm.CadastralNumber.Trim() &&
+            p.Status != PlotStatus.RejectedByLawyer);
+        if (duplicate)
+        {
+            ModelState.AddModelError(nameof(vm.CadastralNumber), $"Ділянка з номером {vm.CadastralNumber} вже існує в базі даних.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Sellers = await _db.Users
+                .Where(u => u.Role == UserRole.Client && u.IsActive)
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+            return View(vm);
+        }
+
+        var realtor = await GetCurrentRealtorAsync();
+        var plot = new LandPlot
+        {
+            SellerId = vm.SellerId,
+            AssignedRealtorId = realtor?.Id,
+            CadastralNumber = vm.CadastralNumber.Trim(),
+            Title = vm.Title.Trim(),
+            Location = vm.Location.Trim(),
+            AreaHectares = vm.AreaHectares,
+            Purpose = vm.Purpose.Trim(),
+            PriceUsd = vm.PriceUsd,
+            OwnershipDocNumber = vm.OwnershipDocNumber.Trim(),
+            SellerBankIban = vm.SellerBankIban.Trim().ToUpperInvariant(),
+            Description = (vm.Description ?? string.Empty).Trim(),
+            Status = PlotStatus.PendingLegalCheck,
+            CreatedAt = DateTime.Now
+        };
+
+        _db.LandPlots.Add(plot);
+        await _db.SaveChangesAsync();
+
+        var docTitle = !string.IsNullOrWhiteSpace(vm.DocTitle)
+            ? vm.DocTitle.Trim()
+            : $"Правовстановлюючий документ ({plot.OwnershipDocNumber})";
+        var docType = !string.IsNullOrWhiteSpace(vm.DocType)
+            ? vm.DocType.Trim()
+            : "Витяг з ДРРП про право власності";
+
+        var plotDoc = new PlotDocument
+        {
+            LandPlotId = plot.Id,
+            Title = docTitle,
+            DocType = docType,
+            DocumentNumber = plot.OwnershipDocNumber,
+            IssueDate = vm.DocIssueDate ?? DateTime.Today,
+            IsVerified = false
+        };
+        var dummyBytes = System.Text.Encoding.UTF8.GetBytes($"{docType} №{plot.OwnershipDocNumber} для {plot.CadastralNumber}");
+        plotDoc.AttachFile(string.Empty, dummyBytes, "application/pdf");
+
+        _db.PlotDocuments.Add(plotDoc);
+        await _db.SaveChangesAsync();
+        await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+
+        TempData["RealtorMessage"] = $"Земельну ділянку {plot.CadastralNumber} успішно зареєстровано та передано в чергу юридичного аудиту.";
+        return RedirectToAction(nameof(Plots));
+    }
+
+    /// <summary>
+    /// Форма редагування земельної ділянки та її документів (похідна модель PlotEditViewModel : PlotCreateViewModel).
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpGet]
+    public async Task<IActionResult> EditPlot(int id)
+    {
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .Include(p => p.Seller)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (plot == null)
+        {
+            return NotFound();
+        }
+
+        if (!plot.IsEditable)
+        {
+            TempData["RealtorError"] = $"Ділянку {plot.CadastralNumber} вже продано. Редагування заборонено.";
+            return RedirectToAction(nameof(Plots));
+        }
+
+        ViewBag.Sellers = await _db.Users
+            .Where(u => u.Role == UserRole.Client && u.IsActive)
+            .OrderBy(u => u.FullName)
+            .ToListAsync();
+
+        return View(PlotEditViewModel.From(plot));
+    }
+
+    /// <summary>
+    /// Збереження змін у ділянці та синхронізація її документів.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditPlot(int id, PlotEditViewModel vm)
+    {
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (plot == null)
+        {
+            return NotFound();
+        }
+
+        if (!plot.IsEditable)
+        {
+            TempData["RealtorError"] = $"Ділянку {plot.CadastralNumber} вже відчужено за договором. Зміни заборонені.";
+            return RedirectToAction(nameof(Plots));
+        }
+
+        var koatuu = _cadastralService.ValidateKoatuuFormat(vm.CadastralNumber);
+        if (!koatuu.IsValid)
+        {
+            ModelState.AddModelError(nameof(vm.CadastralNumber), $"Помилка кадастрового номера: {koatuu.ErrorMessage}");
+        }
+
+        bool duplicate = await _db.LandPlots.AnyAsync(p =>
+            p.Id != id &&
+            p.CadastralNumber == vm.CadastralNumber.Trim() &&
+            p.Status != PlotStatus.RejectedByLawyer);
+        if (duplicate)
+        {
+            ModelState.AddModelError(nameof(vm.CadastralNumber), $"Інша ділянка вже зареєстрована з номером {vm.CadastralNumber}.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Sellers = await _db.Users
+                .Where(u => u.Role == UserRole.Client && u.IsActive)
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+            return View(vm);
+        }
+
+        vm.ApplyTo(plot);
+        await _db.SaveChangesAsync();
+        await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+
+        TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} та її документів збережено.";
+        return RedirectToAction(nameof(Plots));
+    }
+
+    /// <summary>
+    /// Вилучення окремого документа ділянки.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeletePlotDocument(int documentId, int plotId)
+    {
+        var doc = await _db.PlotDocuments.FirstOrDefaultAsync(d => d.Id == documentId && d.LandPlotId == plotId);
+        if (doc != null)
+        {
+            var plot = await _db.LandPlots.FindAsync(plotId);
+            if (plot != null && !plot.IsEditable)
+            {
+                TempData["RealtorError"] = "Неможливо вилучити документ проданої ділянки.";
+                return RedirectToAction(nameof(EditPlot), new { id = plotId });
+            }
+
+            _db.PlotDocuments.Remove(doc);
+            await _db.SaveChangesAsync();
+            TempData["RealtorMessage"] = $"Документ «{doc.Title}» вилучено.";
+        }
+
+        return RedirectToAction(nameof(EditPlot), new { id = plotId });
+    }
+
+    /// <summary>
+    /// Сторінка підтвердження видалення ділянки з демонстрацією некаскадного та каскадного режимів.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpGet]
+    public async Task<IActionResult> DeletePlot(int id)
+    {
+        var plot = await _db.LandPlots
+            .Include(p => p.Seller)
+            .Include(p => p.Documents)
+            .Include(p => p.ViewingRequests)
+            .Include(p => p.LegalConclusion)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (plot == null)
+        {
+            return NotFound();
+        }
+
+        int dealsCount = await _db.SaleDeals.CountAsync(d => d.LandPlotId == id);
+
+        var vm = new DeletePlotConfirmationViewModel
+        {
+            Plot = plot,
+            DocumentsCount = plot.Documents.Count,
+            ViewingsCount = plot.ViewingRequests.Count,
+            HasLegalConclusion = plot.LegalConclusion != null,
+            DealsCount = dealsCount
+        };
+
+        return View(vm);
+    }
+
+    /// <summary>
+    /// Виконання вилучення ділянки: некаскадного (з контролем Restrict) або каскадного.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeletePlotConfirmed(int id, bool cascade = false)
+    {
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .Include(p => p.ViewingRequests)
+            .Include(p => p.LegalConclusion)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (plot == null)
+        {
+            return NotFound();
+        }
+
+        int dealsCount = await _db.SaleDeals.CountAsync(d => d.LandPlotId == id);
+        if (dealsCount > 0 || !plot.CanBeDeleted)
+        {
+            TempData["RealtorError"] = $"Неможливо вилучити ділянку {plot.CadastralNumber}: за об'єктом зареєстровано {dealsCount} угод купівлі-продажу. Правило цілісності (Restrict) блокує видалення.";
+            return RedirectToAction(nameof(DeletePlot), new { id });
+        }
+
+        if (!cascade && plot.HasDependentRecords)
+        {
+            TempData["RealtorError"] = $"Некаскадне вилучення неможливе (ON DELETE RESTRICT): ділянка містить {plot.Documents.Count} документів та {plot.ViewingRequests.Count} оглядів. Для видалення очистіть їх окремо або оберіть «Каскадне вилучення».";
+            return RedirectToAction(nameof(DeletePlot), new { id });
+        }
+
+        string cadNum = plot.CadastralNumber;
+        int docsRemoved = plot.Documents.Count;
+        int viewingsRemoved = plot.ViewingRequests.Count;
+
+        if (cascade)
+        {
+            if (plot.Documents.Any())
+            {
+                _db.PlotDocuments.RemoveRange(plot.Documents);
+            }
+            if (plot.ViewingRequests.Any())
+            {
+                _db.ViewingRequests.RemoveRange(plot.ViewingRequests);
+            }
+            if (plot.LegalConclusion != null)
+            {
+                _db.LegalConclusions.Remove(plot.LegalConclusion);
+            }
+        }
+
+        _db.LandPlots.Remove(plot);
+        await _db.SaveChangesAsync();
+
+        if (cascade)
+        {
+            TempData["RealtorMessage"] = $"Ділянку {cadNum} успішно вилучено каскадно разом із документами ({docsRemoved}) та оглядами ({viewingsRemoved}).";
+        }
+        else
+        {
+            TempData["RealtorMessage"] = $"Ділянку {cadNum} (без дочірніх записів) успішно вилучено з бази даних.";
+        }
+
+        return RedirectToAction(nameof(Plots));
+    }
+
+    /// <summary>
+    /// Створення нової заявки клієнта на підбір ділянки.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateSelectionRequest(int buyerId, string desiredDistrict, double minAreaHa, decimal maxBudgetUsd, string purpose)
+    {
+        var realtor = await GetCurrentRealtorAsync();
+        var req = new SelectionRequest
+        {
+            BuyerId = buyerId,
+            DesiredDistrict = (desiredDistrict ?? string.Empty).Trim(),
+            MinAreaHa = minAreaHa > 0 ? minAreaHa : 0.10,
+            MaxBudgetUsd = maxBudgetUsd > 0 ? maxBudgetUsd : 30000m,
+            Purpose = (purpose ?? string.Empty).Trim(),
+            ProcessedByRealtorId = realtor?.Id,
+            CreatedAt = DateTime.Now
+        };
+
+        _db.SelectionRequests.Add(req);
+        await _db.SaveChangesAsync();
+        await _autoMatchingService.MatchRequestAsync(req.Id);
+
+        TempData["RealtorMessage"] = $"Заявку покупця #{req.Id} створено та автоматично оброблено.";
+        return RedirectToAction(nameof(Requests), new { matchedRequestId = req.Id });
+    }
+
+    /// <summary>
+    /// Коригування параметрів заявки на підбір.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditSelectionRequest(int id, string desiredDistrict, double minAreaHa, decimal maxBudgetUsd, string purpose, string? realtorNotes)
+    {
+        var req = await _db.SelectionRequests.FindAsync(id);
+        if (req != null)
+        {
+            req.DesiredDistrict = (desiredDistrict ?? string.Empty).Trim();
+            if (minAreaHa > 0) req.MinAreaHa = minAreaHa;
+            if (maxBudgetUsd > 0) req.MaxBudgetUsd = maxBudgetUsd;
+            if (!string.IsNullOrWhiteSpace(purpose)) req.Purpose = purpose.Trim();
+            if (realtorNotes != null) req.RealtorNotes = realtorNotes.Trim();
+
+            await _db.SaveChangesAsync();
+            await _autoMatchingService.MatchRequestAsync(req.Id);
+
+            TempData["RealtorMessage"] = $"Параметри запиту #{req.Id} оновлено та перераховано підбір.";
+        }
+
+        return RedirectToAction(nameof(Requests), new { matchedRequestId = id });
+    }
+
+    /// <summary>
+    /// Вилучення заявки на підбір.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteSelectionRequest(int id)
+    {
+        var req = await _db.SelectionRequests.FindAsync(id);
+        if (req != null)
+        {
+            _db.SelectionRequests.Remove(req);
+            await _db.SaveChangesAsync();
+            TempData["RealtorMessage"] = $"Заявку на підбір #{id} вилучено з черги.";
+        }
+
+        return RedirectToAction(nameof(Requests));
+    }
+
+    /// <summary>
+    /// Призначення виїзного огляду ділянки з клієнтом.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateViewingByRealtor(int landPlotId, int buyerId, DateTime preferredDate, string timeSlot, string? comment)
+    {
+        var realtor = await GetCurrentRealtorAsync();
+        var viewing = new ViewingRequest
+        {
+            LandPlotId = landPlotId,
+            BuyerId = buyerId,
+            RealtorId = realtor?.Id,
+            PreferredDate = preferredDate,
+            TimeSlot = (timeSlot ?? "12:00").Trim(),
+            Comment = (comment ?? string.Empty).Trim(),
+            Status = ViewingStatus.Scheduled,
+            CreatedAt = DateTime.Now
+        };
+
+        _db.ViewingRequests.Add(viewing);
+        await _db.SaveChangesAsync();
+
+        TempData["RealtorMessage"] = $"Огляд ділянки #{landPlotId} на {viewing.PreferredDate:dd.MM.yyyy} о {viewing.TimeSlot} заплановано.";
+        return RedirectToAction(nameof(Viewings));
+    }
+
+    /// <summary>
+    /// Коригування параметрів виїзного огляду.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditViewing(int viewingId, DateTime preferredDate, string timeSlot, ViewingStatus status, string? comment)
+    {
+        var viewing = await _db.ViewingRequests.FindAsync(viewingId);
+        if (viewing != null)
+        {
+            viewing.PreferredDate = preferredDate;
+            viewing.TimeSlot = (timeSlot ?? "12:00").Trim();
+            viewing.Status = status;
+            if (comment != null) viewing.Comment = comment.Trim();
+
+            await _db.SaveChangesAsync();
+            TempData["RealtorMessage"] = $"Дані виїзного огляду #{viewingId} успішно оновлено.";
+        }
+
+        return RedirectToAction(nameof(Viewings));
+    }
+
+    /// <summary>
+    /// Фізичне вилучення запису про огляд.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteViewing(int viewingId)
+    {
+        var viewing = await _db.ViewingRequests.FindAsync(viewingId);
+        if (viewing != null)
+        {
+            _db.ViewingRequests.Remove(viewing);
+            await _db.SaveChangesAsync();
+            TempData["RealtorMessage"] = $"Запис про огляд #{viewingId} вилучено з графіка.";
+        }
+
+        return RedirectToAction(nameof(Viewings));
+    }
+
+    /// <summary>
+    /// Форма редагування чернетки угоди.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpGet]
+    public async Task<IActionResult> EditDeal(int id)
+    {
+        var deal = await _db.SaleDeals
+            .Include(d => d.LandPlot)
+            .Include(d => d.Buyer)
+            .Include(d => d.Payments)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (deal == null)
+        {
+            return NotFound();
+        }
+
+        if (!deal.IsEditable)
+        {
+            TempData["RealtorError"] = $"Угоду у стані «{deal.StatusDisplayName}» або з проведеною оплатою змінювати заборонено.";
+            return RedirectToAction(nameof(Deals));
+        }
+
+        var vm = new DealEditViewModel
+        {
+            Id = deal.Id,
+            DraftContractNumber = deal.DraftContractNumber,
+            PlotTitle = deal.LandPlot?.Title ?? "—",
+            CadastralNumber = deal.LandPlot?.CadastralNumber ?? "—",
+            BuyerName = deal.Buyer?.FullName ?? "—",
+            FinalPriceUsd = deal.FinalPriceUsd,
+            NotaryOffice = deal.NotaryOffice,
+            NotaryDate = deal.NotaryDate
+        };
+
+        return View(vm);
+    }
+
+    /// <summary>
+    /// Збереження змінених умов угоди з перерахунком комісії та рахунків.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditDeal(int id, DealEditViewModel vm)
+    {
+        var deal = await _db.SaleDeals
+            .Include(d => d.Payments)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (deal == null)
+        {
+            return NotFound();
+        }
+
+        if (!deal.IsEditable)
+        {
+            TempData["RealtorError"] = "Неможливо змінити погоджену або оплачену угоду.";
+            return RedirectToAction(nameof(Deals));
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(vm);
+        }
+
+        deal.UpdateDraftTerms(vm.FinalPriceUsd, vm.NotaryOffice, vm.NotaryDate);
+        await _db.SaveChangesAsync();
+
+        TempData["RealtorMessage"] = $"Умови договору №{deal.DraftContractNumber} оновлено: ціна ${deal.FinalPriceUsd:N0}, комісія (3%) ${deal.AgencyCommissionUsd:N2}. Рахунки перераховано.";
+        return RedirectToAction(nameof(Deals));
+    }
+
+    /// <summary>
+    /// Сторінка підтвердження каскадного вилучення чернетки угоди разом з рахунками.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpGet]
+    public async Task<IActionResult> DeleteDeal(int id)
+    {
+        var deal = await _db.SaleDeals
+            .Include(d => d.LandPlot)
+            .Include(d => d.Buyer)
+            .Include(d => d.Payments)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (deal == null)
+        {
+            return NotFound();
+        }
+
+        return View(deal);
+    }
+
+    /// <summary>
+    /// Каскадне вилучення угоди та її платежів.
+    /// </summary>
+    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteDealConfirmed(int id)
+    {
+        var deal = await _db.SaleDeals
+            .Include(d => d.Payments)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (deal == null)
+        {
+            return NotFound();
+        }
+
+        if (!deal.CanBeDeleted)
+        {
+            TempData["RealtorError"] = $"Угоду у стані «{deal.StatusDisplayName}» або з підтвердженими оплатами видалити не можна (дозволено лише скасування).";
+            return RedirectToAction(nameof(Deals));
+        }
+
+        int paymentsCount = deal.Payments.Count;
+        string num = deal.DraftContractNumber;
+
+        if (deal.Payments.Any())
+        {
+            _db.Payments.RemoveRange(deal.Payments);
+        }
+
+        _db.SaleDeals.Remove(deal);
+        await _db.SaveChangesAsync();
+
+        TempData["RealtorMessage"] = $"Чернетку угоди №{num} разом із рахунками ({paymentsCount}) каскадно вилучено з бази даних.";
+        return RedirectToAction(nameof(Deals));
     }
 }
