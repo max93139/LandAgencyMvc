@@ -854,6 +854,27 @@ public class RealtorController : Controller
     }
 
     /// <summary>
+    /// Безпечне вилучення користувача з контролем обмеження цілісності Restrict.
+    /// </summary>
+    [Authorize(Roles = "Realtor,Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteClient(int id)
+    {
+        try
+        {
+            string name = await _queries.DeleteUserAsync(id);
+            TempData["SuccessMessage"] = $"Користувача {name} (ID={id}) успішно вилучено з бази даних.";
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Clients));
+    }
+
+    /// <summary>
     /// Реєстр земельних ділянок агентства з повним набором операцій CRUD.
     /// </summary>
     [Authorize(Roles = nameof(UserRole.Realtor))]
@@ -1132,7 +1153,7 @@ public class RealtorController : Controller
     /// Виконання вилучення ділянки: некаскадного (з контролем Restrict) або каскадного.
     /// </summary>
     [Authorize(Roles = nameof(UserRole.Realtor))]
-    [HttpPost]
+    [HttpPost, ActionName("DeletePlotConfirmed")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeletePlotConfirmed(int id, bool cascade = false)
     {
@@ -1437,7 +1458,7 @@ public class RealtorController : Controller
     /// Каскадне вилучення угоди та її платежів.
     /// </summary>
     [Authorize(Roles = nameof(UserRole.Realtor))]
-    [HttpPost]
+    [HttpPost, ActionName("DeleteDealConfirmed")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteDealConfirmed(int id)
     {
