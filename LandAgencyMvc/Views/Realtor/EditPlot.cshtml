@@ -1,0 +1,101 @@
+@model LandAgencyMvc.Models.PlotEditViewModel
+@{
+    ViewData["Title"] = $"Редагування ділянки {Model.CadastralNumber}";
+    ViewData["ActiveNav"] = "Plots";
+}
+
+<div class="container-fluid px-0">
+    <div class="la-page-header">
+        <div>
+            <div class="mb-2">
+                <a asp-action="Plots" class="text-decoration-none">&larr; Повернутися до реєстру ділянок</a>
+            </div>
+            <h1 class="la-page-title">Редагування земельної ділянки: @Model.CadastralNumber</h1>
+            <p class="la-meta mb-0">Поточний статус: <span class="la-badge la-badge-indigo">@Model.StatusDisplayName</span></p>
+        </div>
+        <div>
+            <a asp-action="DeletePlot" asp-route-id="@Model.Id" class="la-btn la-btn-danger">Видалити ділянку</a>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_AlertMessages")
+
+    <form method="post" asp-action="EditPlot" asp-route-id="@Model.Id">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="Status" />
+
+        <partial name="_PlotFormFields" model="Model" />
+
+        <div class="la-card mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="la-card-title mb-0">Прикріплені правовстановлюючі документи (@(Model.Documents.Count - 1))</h3>
+                <span class="la-meta small">Для збереження нових документів або вилучення заповніть поля та натисніть «Зберегти зміни»</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">Назва документа</th>
+                            <th style="width: 25%;">Тип</th>
+                            <th style="width: 20%;">Номер документа</th>
+                            <th style="width: 15%;">Дата видачі</th>
+                            <th style="width: 10%;" class="text-center">Дія / Вилучити</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.Documents.Count; i++)
+                        {
+                            var isNewRow = !Model.Documents[i].Id.HasValue || Model.Documents[i].Id == 0;
+                            <tr class="@(isNewRow ? "table-light" : "")">
+                                <td>
+                                    <input type="hidden" asp-for="Documents[i].Id" />
+                                    <input asp-for="Documents[i].Title" class="la-input mb-0" placeholder="@(isNewRow ? "+ Додати новий документ" : "Назва документа")" />
+                                    <span asp-validation-for="Documents[i].Title" class="text-danger small"></span>
+                                </td>
+                                <td>
+                                    <select asp-for="Documents[i].DocType" class="la-input mb-0">
+                                        <option value="Витяг з ДЗК">Витяг з ДЗК</option>
+                                        <option value="Витяг з ДРРП">Витяг з ДРРП</option>
+                                        <option value="Державний акт">Державний акт на право власності</option>
+                                        <option value="Договір купівлі-продажу">Договір купівлі-продажу</option>
+                                        <option value="Технічна документація">Технічна документація із землеустрою</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input asp-for="Documents[i].DocumentNumber" class="la-input mb-0" placeholder="Номер документа..." />
+                                </td>
+                                <td>
+                                    <input asp-for="Documents[i].IssueDate" type="date" class="la-input mb-0" />
+                                </td>
+                                <td class="text-center">
+                                    @if (!isNewRow)
+                                    {
+                                        <div class="form-check d-inline-block">
+                                            <input asp-for="Documents[i].Remove" class="form-check-input" id="remove_@i" />
+                                            <label class="form-check-label text-danger small" for="remove_@i">Видалити</label>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="la-meta small">новий рядок</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="la-btn la-btn-dark">Зберегти зміни</button>
+            <a asp-action="Plots" class="la-btn la-btn-outline">Скасувати</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

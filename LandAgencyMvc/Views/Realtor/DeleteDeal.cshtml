@@ -1,0 +1,104 @@
+@model LandAgencyMvc.Models.SaleDeal
+@{
+    ViewData["Title"] = $"Вилучення чернетки угоди #{Model.DraftContractNumber}";
+    ViewData["ActiveNav"] = "Deals";
+}
+
+<div class="container-fluid px-0">
+    <div class="la-page-header">
+        <div>
+            <div class="mb-2">
+                <a asp-action="Deals" class="text-decoration-none">&larr; Повернутися до реєстру угод</a>
+            </div>
+            <h1 class="la-page-title text-danger">Вилучення чернетки угоди: №@Model.DraftContractNumber</h1>
+            <p class="la-meta mb-0">Каскадне вилучення композиції «Угода купівлі-продажу &rarr; Рахунки-фактури (Payments)»</p>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_AlertMessages")
+
+    <div class="la-card mb-4">
+        <h3 class="la-card-title mb-3">Параметри угоди</h3>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="la-meta">Номер проекту договору</div>
+                <div class="fw-bold fs-5">@Model.DraftContractNumber</div>
+            </div>
+            <div class="col-md-4">
+                <div class="la-meta">Ділянка</div>
+                <div>@(Model.LandPlot?.Title ?? "—") (@(Model.LandPlot?.CadastralNumber ?? "—"))</div>
+            </div>
+            <div class="col-md-4">
+                <div class="la-meta">Покупець</div>
+                <div>@(Model.Buyer?.FullName ?? "—")</div>
+            </div>
+            <div class="col-md-4">
+                <div class="la-meta">Сума угоди / Комісія 3%</div>
+                <div class="fw-bold">$@Model.FinalPriceUsd.ToString("N0") / $@Model.AgencyCommissionUsd.ToString("N2")</div>
+            </div>
+            <div class="col-md-4">
+                <div class="la-meta">Нотаріальна контора</div>
+                <div>@Model.NotaryOffice (@Model.NotaryDate.ToString("dd.MM.yyyy"))</div>
+            </div>
+            <div class="col-md-4">
+                <div class="la-meta">Поточний стан</div>
+                <span class="la-badge @Model.StatusBadgeClass">@Model.StatusDisplayName</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="la-card mb-4">
+        <h3 class="la-card-title mb-3">Рахунки на оплату, що будуть вилучені каскадно (ON DELETE CASCADE)</h3>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>№ Рахунку / Квитанції</th>
+                        <th>Призначення платежу</th>
+                        <th>Сума</th>
+                        <th>Отримувач (IBAN)</th>
+                        <th>Стан оплати</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Payments)
+                    {
+                        <tr>
+                            <td><strong>@p.InvoiceNumber</strong></td>
+                            <td>@p.PaymentType</td>
+                            <td class="fw-bold">$@p.AmountUsd.ToString("N2")</td>
+                            <td><span class="small font-monospace">@p.RecipientIban</span></td>
+                            <td><span class="la-badge @(p.IsPaid ? "la-badge-green" : "la-badge-amber")">@p.StatusDisplayName</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (!Model.CanBeDeleted)
+    {
+        <div class="la-alert la-alert-danger mb-4">
+            <strong>Вилучення заборонено:</strong> Ця угода вже посвідчена нотаріально або містить підтверджені банківські оплати.
+            Згідно з правилом цілісності бухгалтерського обліку, проведені фінансові операції не можуть бути фізично видалені з бази даних.
+        </div>
+        <div>
+            <a asp-action="Deals" class="la-btn la-btn-outline">Повернутися до списку</a>
+        </div>
+    }
+    else
+    {
+        <div class="la-alert la-alert-warning mb-4">
+            <strong>Увага:</strong> Ви збираєтеся каскадно вилучити чернетку нотаріальної угоди №@Model.DraftContractNumber.
+            Разом з нею з таблиці <code>Payments</code> будуть <strong>автоматично вилучені всі @Model.Payments.Count сформовані рахунки</strong>.
+        </div>
+
+        <form method="post" asp-action="DeleteDealConfirmed" asp-route-id="@Model.Id" class="d-flex gap-2">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="la-btn la-btn-danger" onclick="return confirm('Видалити чернетку угоди та всі її рахунки?');">
+                Підтвердити каскадне вилучення
+            </button>
+            <a asp-action="Deals" class="la-btn la-btn-outline">Скасувати</a>
+        </form>
+    }
+</div>

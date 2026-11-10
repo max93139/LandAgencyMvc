@@ -29,6 +29,7 @@
                             <th>ЦІЛЬОВЕ ПРИЗНАЧЕННЯ</th>
                             <th>БЮДЖЕТ</th>
                             <th>ПІДІБРАНІ ВАРІАНТИ</th>
+                            <th class="text-end">ДІЇ</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -55,6 +56,13 @@
                                     {
                                         <div class="la-text-xs mt-1">@r.RealtorNotes</div>
                                     }
+                                </td>
+                                <td class="text-end">
+                                    <form asp-action="DeleteSelectionRequest" method="post" class="d-inline" onsubmit="return confirm('Вилучити цей запит на підбір з бази даних?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@r.Id" />
+                                        <button type="submit" class="la-btn la-btn-danger la-btn-xs">Видалити</button>
+                                    </form>
                                 </td>
                             </tr>
                         }
