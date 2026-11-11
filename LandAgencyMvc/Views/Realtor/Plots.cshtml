@@ -1,0 +1,120 @@
+@model IEnumerable<LandAgencyMvc.Models.LandPlot>
+@{
+    ViewData["Title"] = "Реєстр земельних ділянок";
+    ViewData["ActiveNav"] = "Plots";
+    var search = ViewBag.Search as string;
+    var currentStatus = ViewBag.Status as LandAgencyMvc.Models.PlotStatus?;
+}
+
+<div class="container-fluid px-0">
+    <div class="la-page-header">
+        <div>
+            <h1 class="la-page-title">Реєстр земельних ділянок агентства</h1>
+            <p class="la-meta mb-0">Повний цикл управління об'єктами: реєстрація, коригування параметрів, робота з документами та видалення</p>
+        </div>
+        <div>
+            <a asp-action="CreatePlot" class="la-btn la-btn-dark">+ Додати земельну ділянку</a>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_AlertMessages")
+
+    <div class="la-card mb-4">
+        <form method="get" asp-action="Plots" class="row g-2 align-items-center">
+            <div class="col-md-5">
+                <input type="text" name="search" value="@search" class="la-input mb-0" placeholder="Пошук за кадастровим номером, назвою, адресою або власником..." />
+            </div>
+            <div class="col-md-4">
+                <select name="status" class="la-input mb-0">
+                    <option value="">Всі статуси лістингу</option>
+                    <option value="PendingLegalCheck" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)">На перевірці у юриста</option>
+                    <option value="VerifiedInCatalog" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)">Опубліковано в каталозі</option>
+                    <option value="RejectedByLawyer" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.RejectedByLawyer)">Відхилено юристом</option>
+                    <option value="Sold" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.Sold)">Продано</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="la-btn la-btn-outline-dark flex-fill">Застосувати</button>
+                @if (!string.IsNullOrWhiteSpace(search) || currentStatus.HasValue)
+                {
+                    <a asp-action="Plots" class="la-btn la-btn-outline">Скинути</a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <div class="la-card">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Кадастровий номер</th>
+                        <th>Назва та адреса</th>
+                        <th>Площа / Ціна</th>
+                        <th>Власник</th>
+                        <th>Документи / Огляди</th>
+                        <th>Статус</th>
+                        <th class="text-end">Дії</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-4 la-meta">Земельних ділянок за заданими фільтрами не знайдено.</td>
+                        </tr>
+                    }
+                    @foreach (var plot in Model)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@plot.CadastralNumber</strong>
+                                <div class="small">
+                                    <a href="@plot.KadastrLiveUrl" target="_blank" class="text-decoration-none">kadastr.live ↗</a>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">@plot.Title</div>
+                                <div class="la-meta small">@plot.Location</div>
+                            </td>
+                            <td>
+                                <div>@plot.AreaHectares га (@plot.AreaSotky сот.)</div>
+                                <div class="fw-bold text-success">$@plot.PriceUsd.ToString("N0")</div>
+                            </td>
+                            <td>
+                                <div>@(plot.Seller?.FullName ?? "—")</div>
+                                <div class="la-meta small">@(plot.Seller?.Phone ?? "—")</div>
+                            </td>
+                            <td>
+                                <span class="la-badge la-badge-indigo">Документів: @plot.Documents.Count</span>
+                                <span class="la-badge la-badge-amber">Оглядів: @plot.ViewingRequests.Count</span>
+                            </td>
+                            <td>
+                                <span class="la-badge @plot.StatusBadgeClass">@plot.StatusDisplayName</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="la-action-row justify-content-end">
+                                    <a asp-controller="Client" asp-action="Details" asp-route-id="@plot.Id" class="la-btn la-btn-outline la-btn-sm" title="Перегляд публічної картки">Перегляд</a>
+
+                                    @if (plot.IsEditable)
+                                    {
+                                        <a asp-action="EditPlot" asp-route-id="@plot.Id" class="la-btn la-btn-outline-dark la-btn-sm">Редагувати</a>
+                                    }
+
+                                    @if (plot.CanBeDeleted)
+                                    {
+                                        <a asp-action="DeletePlot" asp-route-id="@plot.Id" class="la-btn la-btn-danger la-btn-sm">Видалити</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="la-badge la-badge-green" title="Ділянку продано за нотаріальною угодою. Видалення заблоковано.">Продано</span>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

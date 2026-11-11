@@ -119,6 +119,16 @@ public class LandPlot
         ("11.02", "11.02 Для розміщення промислових підприємств", "11.02 Промисловість та склади")
     };
 
+    [NotMapped]
+    public bool IsEditable => Status != PlotStatus.Sold;
+
+    [NotMapped]
+    public bool CanBeDeleted => Status != PlotStatus.Sold;
+
+    [NotMapped]
+    public bool HasDependentRecords =>
+        Documents.Any() || ViewingRequests.Any() || LegalConclusion != null;
+
     /// <summary>
     /// Оновлює запитувану вартість ділянки, якщо вона ще не була відчужена за нотаріальною угодою.
     /// </summary>

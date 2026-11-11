@@ -1,0 +1,100 @@
+@model LandAgencyMvc.Models.DealEditViewModel
+@{
+    ViewData["Title"] = $"Редагування чернетки угоди #{Model.DraftContractNumber}";
+    ViewData["ActiveNav"] = "Deals";
+}
+
+<div class="container-fluid px-0">
+    <div class="la-page-header">
+        <div>
+            <div class="mb-2">
+                <a asp-action="Deals" class="text-decoration-none">&larr; Повернутися до реєстру угод</a>
+            </div>
+            <h1 class="la-page-title">Редагування умов чернетки угоди: №@Model.DraftContractNumber</h1>
+            <p class="la-meta mb-0">Коригування ціни продажу з автоматичним перерахунком комісії агентства (3%) та синхронізацією сум рахунків-фактур</p>
+        </div>
+        <div>
+            <a asp-action="DeleteDeal" asp-route-id="@Model.Id" class="la-btn la-btn-danger">Видалити чернетку</a>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_AlertMessages")
+
+    <form method="post" asp-action="EditDeal" asp-route-id="@Model.Id">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="DraftContractNumber" />
+        <input type="hidden" asp-for="PlotTitle" />
+        <input type="hidden" asp-for="CadastralNumber" />
+        <input type="hidden" asp-for="BuyerName" />
+
+        <div class="la-card mb-4">
+            <h3 class="la-card-title mb-3">Сторони та об'єкт нерухомості</h3>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="la-meta">Об'єкт нерухомості</div>
+                    <div class="fw-bold">@Model.PlotTitle</div>
+                    <div class="small text-muted">@Model.CadastralNumber</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="la-meta">Покупець за договором</div>
+                    <div class="fw-bold">@Model.BuyerName</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="la-card mb-4">
+            <h3 class="la-card-title mb-3">Фінансові та нотаріальні параметри</h3>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FinalPriceUsd" class="la-label"></label>
+                    <input asp-for="FinalPriceUsd" type="number" step="100" class="la-input" id="dealPriceInput" />
+                    <span asp-validation-for="FinalPriceUsd" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="NotaryOffice" class="la-label"></label>
+                    <input asp-for="NotaryOffice" class="la-input" placeholder="Київський міський нотаріальний округ..." />
+                    <span asp-validation-for="NotaryOffice" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="NotaryDate" class="la-label"></label>
+                    <input asp-for="NotaryDate" type="date" class="la-input" />
+                    <span asp-validation-for="NotaryDate" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded border">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="la-meta">Комісія агентства (3%):</span>
+                            <strong id="agencyFeeDisplay">$@Model.AgencyCommissionUsd.ToString("N2")</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="la-meta">Разом до сплати:</span>
+                            <strong class="text-success" id="totalAmountDisplay">$@Model.TotalAmountUsd.ToString("N2")</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="la-btn la-btn-dark">Зберегти та перерахувати рахунки</button>
+            <a asp-action="Deals" class="la-btn la-btn-outline">Скасувати</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('dealPriceInput').addEventListener('input', function() {
+            var price = parseFloat(this.value) || 0;
+            var fee = Math.round(price * 0.03 * 100) / 100;
+            var total = price + fee;
+            document.getElementById('agencyFeeDisplay').textContent = '$' + fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('totalAmountDisplay').textContent = '$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        });
+    </script>
+}

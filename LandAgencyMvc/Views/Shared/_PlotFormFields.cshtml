@@ -1,0 +1,87 @@
+@model LandAgencyMvc.Models.PlotCreateViewModel
+
+<div asp-validation-summary="ModelOnly" class="la-alert la-alert-danger mb-3"></div>
+
+<div class="la-card mb-3">
+    <h3 class="la-card-title mb-3">Основні реквізити земельної ділянки</h3>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="SellerId" class="la-label"></label>
+            <select asp-for="SellerId" class="la-input">
+                <option value="">-- Оберіть клієнта-власника --</option>
+                @if (ViewBag.Sellers is IEnumerable<LandAgencyMvc.Models.AppUser> sellers)
+                {
+                    foreach (var s in sellers)
+                    {
+                        <option value="@s.Id">@s.FullName (@s.Email, @s.Phone)</option>
+                    }
+                }
+            </select>
+            <span asp-validation-for="SellerId" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="CadastralNumber" class="la-label"></label>
+            <input asp-for="CadastralNumber" class="la-input" placeholder="3221884000:03:001:0120" />
+            <span asp-validation-for="CadastralNumber" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-8">
+            <label asp-for="Title" class="la-label"></label>
+            <input asp-for="Title" class="la-input" placeholder="Фасадна ділянка біля лісу" />
+            <span asp-validation-for="Title" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-4">
+            <label asp-for="AreaHectares" class="la-label"></label>
+            <input asp-for="AreaHectares" type="number" step="0.01" class="la-input" />
+            <span asp-validation-for="AreaHectares" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-12">
+            <label asp-for="Location" class="la-label"></label>
+            <input asp-for="Location" class="la-input" placeholder="Київська обл., Обухівський р-н, с. Лісники, вул. Лісова, 14" />
+            <span asp-validation-for="Location" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Purpose" class="la-label"></label>
+            <select asp-for="Purpose" class="la-input">
+                @foreach (var (code, fullValue, label) in LandAgencyMvc.Models.LandPlot.StandardPurposes)
+                {
+                    <option value="@fullValue">@label (@code)</option>
+                }
+            </select>
+            <span asp-validation-for="Purpose" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="PriceUsd" class="la-label"></label>
+            <input asp-for="PriceUsd" type="number" step="100" class="la-input" />
+            <span asp-validation-for="PriceUsd" class="text-danger small"></span>
+        </div>
+    </div>
+</div>
+
+<div class="la-card mb-3">
+    <h3 class="la-card-title mb-3">Юридичні та банківські відомості</h3>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="OwnershipDocNumber" class="la-label"></label>
+            <input asp-for="OwnershipDocNumber" class="la-input" placeholder="ДРРП-59102847 або ДА-ЯЯ-123456" />
+            <span asp-validation-for="OwnershipDocNumber" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="SellerBankIban" class="la-label"></label>
+            <input asp-for="SellerBankIban" class="la-input" placeholder="UA213223130000026007233566001" />
+            <span asp-validation-for="SellerBankIban" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-12">
+            <label asp-for="Description" class="la-label"></label>
+            <textarea asp-for="Description" rows="3" class="la-input" placeholder="Опис ділянки, комунікації, під'їзд..."></textarea>
+            <span asp-validation-for="Description" class="text-danger small"></span>
+        </div>
+    </div>
+</div>
