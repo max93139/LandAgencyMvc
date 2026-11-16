@@ -38,10 +38,41 @@ public class AccountController : Controller
         return View();
     }
 
+    /// <summary>
+    /// UC-16 «Службова авторизація співробітника»: окрема сторінка входу для рієлторів і юристів.
+    /// </summary>
+    [HttpGet]
+    public IActionResult StaffLogin(string? returnUrl = null)
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToWorkspace(GetSignedInRole());
+        }
+
+        ViewData["ReturnUrl"] = returnUrl;
+        return View();
+    }
+
+    /// <summary>
+    /// UC-07 «Реєстрація та авторизація клієнта»: вхід для покупців і продавців.
+    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(string email, string password, string? returnUrl = null)
+    public Task<IActionResult> Login(string email, string password, string? returnUrl = null) =>
+        SignInAsync(email, password, returnUrl, staffEntrance: false);
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> StaffLogin(string email, string password, string? returnUrl = null) =>
+        SignInAsync(email, password, returnUrl, staffEntrance: true);
+
+    /// <summary>
+    /// Перевіряє пароль і спрямовує користувача до робочого місця. Клієнтський і службовий входи розділені:
+    /// обліковий запис іншого типу отримує підказку, куди заходити, але лише після успішної перевірки пароля.
+    /// </summary>
+    private async Task<IActionResult> SignInAsync(string email, string password, string? returnUrl, bool staffEntrance)
     {
+        var loginAction = staffEntrance ? nameof(StaffLogin) : nameof(Login);
         var normalizedEmail = (email ?? string.Empty).Trim().ToLower();
         var normalizedPassword = (password ?? string.Empty).Trim();
 
@@ -51,13 +82,22 @@ public class AccountController : Controller
         if (user == null || !user.Authenticate(normalizedPassword))
         {
             TempData["LoginError"] = "Невірна електронна пошта або пароль.";
-            return RedirectToAction(nameof(Login), new { returnUrl });
+            return RedirectToAction(loginAction, new { returnUrl });
         }
 
         if (!user.IsActive)
         {
-            TempData["LoginError"] = "Обліковий запис заблоковано адміністратором.";
-            return RedirectToAction(nameof(Login), new { returnUrl });
+            TempData["LoginError"] = "Обліковий запис заблоковано.";
+            return RedirectToAction(loginAction, new { returnUrl });
+        }
+
+        bool isStaff = user.Role is UserRole.Realtor or UserRole.Lawyer;
+        if (isStaff != staffEntrance)
+        {
+            TempData["LoginError"] = staffEntrance
+                ? "Це службовий вхід. Покупці та продавці входять через сторінку входу для клієнтів."
+                : "Співробітники агентства входять через службовий вхід.";
+            return RedirectToAction(isStaff ? nameof(StaffLogin) : nameof(Login), new { returnUrl });
         }
 
         await _db.SaveChangesAsync();
