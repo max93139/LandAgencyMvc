@@ -43,7 +43,18 @@
                         </div>
                     </div>
 
-                    @if (!d.IsActive)
+                    @if (d.CanCompleteAtNotary)
+                    {
+                        <form asp-controller="Lawyer" asp-action="RegisterOwnershipTransfer" method="post">
+                            <input type="hidden" name="dealId" value="@d.Id" />
+                            <div class="la-text-sm mb-2">
+                                <strong>Договір підписано у нотаріуса</strong> (реєстровий №@d.NotarialRegistryNumber).
+                                Оплата: @(d.IsFullyPaid ? "усі рахунки підтверджено ✓" : "очікується підтвердження всіх рахунків")
+                            </div>
+                            <button type="submit" class="la-btn la-btn-green" disabled="@(!d.IsFullyPaid)">Зареєструвати перехід права власності</button>
+                        </form>
+                    }
+                    else if (!d.IsActive)
                     {
                         <div class="la-text-sm">
                             <strong>Примітка юриста:</strong> @(string.IsNullOrWhiteSpace(d.LawyerApprovalNotes) ? "Договір опрацьовано" : d.LawyerApprovalNotes)
