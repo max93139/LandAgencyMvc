@@ -68,6 +68,12 @@ public partial class ClientController
         var viewing = await _db.ViewingRequests.FirstOrDefaultAsync(v => v.Id == viewingId && v.BuyerId == currentUserId);
         if (viewing != null)
         {
+            if (!viewing.CanCancelByClient)
+            {
+                TempData["CabinetError"] = $"Огляд у статусі «{viewing.StatusDisplayName}» скасувати не можна.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
             viewing.CancelViewing("Скасовано покупцем з особистого кабінету");
             await _db.SaveChangesAsync();
             TempData["CabinetMessage"] = $"Заявку на огляд #{viewingId} скасовано.";

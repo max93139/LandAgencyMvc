@@ -39,36 +39,11 @@ public partial class RealtorController
         var viewing = await _db.ViewingRequests.FindAsync(viewingId);
         if (viewing != null)
         {
-            switch (status)
+            var refusal = await ApplyViewingStatusAsync(viewing, status, resultNotes, currentUser?.Id);
+            if (refusal != null)
             {
-                case ViewingStatus.Scheduled:
-                    viewing.ConfirmViewing(currentUser?.Id);
-                    break;
-                case ViewingStatus.Completed:
-                    viewing.CompleteViewing(true, resultNotes ?? "Огляд меж та оригіналів документів проведено, покупець підтвердив намір купівлі.");
-                    break;
-                case ViewingStatus.PlotRejectedByBuyer:
-                    var cleanNotes = !string.IsNullOrWhiteSpace(resultNotes)
-                        ? resultNotes.Trim()
-                        : "Ділянка не підійшла покупцю за підсумками виїзного огляду. Уточнено критерії пошуку.";
-                    viewing.CompleteViewing(false, cleanNotes);
-
-                    var buyerReq = await _db.SelectionRequests
-                        .Where(r => r.BuyerId == viewing.BuyerId)
-                        .OrderByDescending(r => r.Id)
-                        .FirstOrDefaultAsync();
-                    if (buyerReq != null)
-                    {
-                        buyerReq.IsProcessedByRealtor = false;
-                        buyerReq.RealtorNotes = $"Потребує повторного підбору (зауваження після огляду: {cleanNotes})";
-                    }
-                    break;
-                case ViewingStatus.Cancelled:
-                    viewing.CancelViewing(resultNotes ?? "Скасовано рієлтором за погодженням сторін.");
-                    break;
-                default:
-                    viewing.Status = status;
-                    break;
+                TempData["RealtorError"] = refusal;
+                return RedirectToAction(nameof(Viewings));
             }
 
             await _db.SaveChangesAsync();
@@ -76,6 +51,49 @@ public partial class RealtorController
         }
 
         return RedirectToAction(nameof(Viewings));
+    }
+
+    /// <summary>
+    /// Застосовує перехід статусу огляду за правилами домену.
+    /// </summary>
+    /// <returns>Текст відмови або null, якщо перехід виконано.</returns>
+    private async Task<string?> ApplyViewingStatusAsync(ViewingRequest viewing, ViewingStatus target, string? resultNotes, int? realtorId)
+    {
+        if (!viewing.CanChangeStatusTo(target))
+        {
+            return $"Огляд у статусі «{viewing.StatusDisplayName}» не можна перевести в статус «{ViewingRequest.DisplayNameOf(target)}».";
+        }
+
+        switch (target)
+        {
+            case ViewingStatus.Scheduled:
+                viewing.ConfirmViewing(realtorId);
+                break;
+            case ViewingStatus.Completed:
+                viewing.CompleteViewing(true, resultNotes ?? "Огляд меж та оригіналів документів проведено, покупець підтвердив намір купівлі.");
+                break;
+            case ViewingStatus.PlotRejectedByBuyer:
+                var cleanNotes = !string.IsNullOrWhiteSpace(resultNotes)
+                    ? resultNotes.Trim()
+                    : "Ділянка не підійшла покупцю за підсумками виїзного огляду. Уточнено критерії пошуку.";
+                viewing.CompleteViewing(false, cleanNotes);
+
+                var buyerReq = await _db.SelectionRequests
+                    .Where(r => r.BuyerId == viewing.BuyerId)
+                    .OrderByDescending(r => r.Id)
+                    .FirstOrDefaultAsync();
+                if (buyerReq != null)
+                {
+                    buyerReq.IsProcessedByRealtor = false;
+                    buyerReq.RealtorNotes = $"Потребує повторного підбору (зауваження після огляду: {cleanNotes})";
+                }
+                break;
+            case ViewingStatus.Cancelled:
+                viewing.CancelViewing(resultNotes ?? "Скасовано рієлтором за погодженням сторін.");
+                break;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -116,12 +134,28 @@ public partial class RealtorController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditViewing(int viewingId, DateTime preferredDate, string timeSlot, ViewingStatus status, string? comment)
     {
+        var currentUser = await GetCurrentRealtorAsync();
         var viewing = await _db.ViewingRequests.FindAsync(viewingId);
         if (viewing != null)
         {
+            if (viewing.IsFinished)
+            {
+                TempData["RealtorError"] = $"Огляд #{viewingId} у статусі «{viewing.StatusDisplayName}» є історією й не редагується.";
+                return RedirectToAction(nameof(Viewings));
+            }
+
+            if (status != viewing.Status)
+            {
+                var refusal = await ApplyViewingStatusAsync(viewing, status, null, currentUser?.Id);
+                if (refusal != null)
+                {
+                    TempData["RealtorError"] = refusal;
+                    return RedirectToAction(nameof(Viewings));
+                }
+            }
+
             viewing.PreferredDate = preferredDate;
             viewing.TimeSlot = (timeSlot ?? "12:00").Trim();
-            viewing.Status = status;
             if (comment != null) viewing.Comment = comment.Trim();
 
             await _db.SaveChangesAsync();
@@ -143,6 +177,12 @@ public partial class RealtorController
         var viewing = await _db.ViewingRequests.FindAsync(viewingId);
         if (viewing != null)
         {
+            if (!viewing.CanBeDeleted)
+            {
+                TempData["RealtorError"] = $"Огляд #{viewingId} у статусі «{viewing.StatusDisplayName}» вилучати не можна: призначений огляд спершу скасовується, а проведений зберігається як підстава для угоди.";
+                return RedirectToAction(nameof(Viewings));
+            }
+
             _db.ViewingRequests.Remove(viewing);
             await _db.SaveChangesAsync();
             TempData["RealtorMessage"] = $"Запис про огляд #{viewingId} вилучено з графіка.";
