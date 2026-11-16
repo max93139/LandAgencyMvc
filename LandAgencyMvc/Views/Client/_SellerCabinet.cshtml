@@ -1,0 +1,142 @@
+@model LandAgencyMvc.Models.CabinetViewModel
+
+<div>
+    <div class="la-card">
+        <h5>Мої оголошення на продаж (Мої ділянки)</h5>
+        @if (!Model.MyPlots.Any())
+        {
+            <p class="la-meta mb-0">Ви ще не виставляли власних земельних ділянок на продаж.</p>
+        }
+        else
+        {
+            @foreach (var myPlot in Model.MyPlots)
+            {
+                <div class="la-subcard">
+                    <div class="la-row-between">
+                        <div>
+                            <strong>@myPlot.CadastralNumber (@myPlot.AreaHectares га, @myPlot.Title)</strong>
+                            <span class="la-badge @myPlot.StatusBadgeClass ms-1">@myPlot.StatusDisplayName</span>
+                        </div>
+                        @if (myPlot.Status != LandAgencyMvc.Models.PlotStatus.Sold)
+                        {
+                            <form asp-controller="Client" asp-action="UpdatePlotPrice" method="post" class="la-inline-form">
+                                <input type="hidden" name="plotId" value="@myPlot.Id" />
+                                <input type="number" name="newPriceUsd" value="@myPlot.PriceUsd" class="la-input-inline" required />
+                                <button type="submit" class="la-btn la-btn-blue la-btn-sm">Оновити ціну</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <strong class="la-price-md">$@myPlot.PriceUsd.ToString("N0")</strong>
+                        }
+                    </div>
+                    <div class="la-text-xs mt-1">
+                        Призначення: @myPlot.Purpose • IBAN: @myPlot.EffectiveSellerIban
+                    </div>
+                    @if (myPlot.LegalConclusion != null)
+                    {
+                        <div class="la-text-xs mt-1 @(myPlot.LegalConclusion.IsApproved ? "text-success" : "text-danger") fw-bold">
+                            Висновок юриста №@myPlot.LegalConclusion.ConclusionNumber: @myPlot.LegalConclusion.ConclusionText
+                        </div>
+                    }
+                    @if (myPlot.Documents.Any())
+                    {
+                        <div class="mt-2">
+                            @foreach (var doc in myPlot.Documents)
+                            {
+                                <div class="la-subcard py-2 px-3 mb-1">
+                                    <div class="la-row-between">
+                                        <div>
+                                            <span class="la-badge @(doc.IsVerified ? "la-badge-green" : "la-badge-indigo")">
+                                                📄 @doc.DocType №@doc.DocumentNumber
+                                            </span>
+                                            @if (doc.IsVerified)
+                                            {
+                                                <span class="la-badge la-badge-green">Верифіковано юристом ✓</span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(doc.FileUrl))
+                                        {
+                                            <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути файл ↗</a>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (myPlot.Status != LandAgencyMvc.Models.PlotStatus.Sold)
+                    {
+                        <details class="mt-2 la-text-xs">
+                            <summary class="fw-bold text-primary">➕ Додати правовстановлюючий документ або витяг ДЗК</summary>
+                            <form asp-controller="Client" asp-action="AddPlotDocument" method="post" enctype="multipart/form-data" class="la-subcard mt-2 mb-0">
+                                <input type="hidden" name="plotId" value="@myPlot.Id" />
+                                <div class="la-grid-2">
+                                    <div>
+                                        <label class="la-label">Тип документа</label>
+                                        <select name="docType" class="la-input">
+                                            <option value="Витяг з ДРРП про право власності">Витяг з ДРРП про право власності</option>
+                                            <option value="Витяг з Державного земельного кадастру">Витяг з ДЗК</option>
+                                            <option value="Державний акт на право власності на землю">Державний акт на право власності</option>
+                                            <option value="Технічна документація із землеустрою">Технічна документація із землеустрою</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="la-label">Реєстраційний № документа</label>
+                                        <input name="documentNumber" class="la-input" placeholder="Номер документа" required />
+                                    </div>
+                                </div>
+                                <div class="la-row-between">
+                                    <input type="file" name="documentFile" class="la-input-inline" />
+                                    <button type="submit" class="la-btn la-btn-green la-btn-xs">Завантажити файл</button>
+                                </div>
+                            </form>
+                        </details>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<div>
+    <div class="la-card">
+        <h5>Угоди з продажу моїх ділянок</h5>
+        @if (!Model.MySellerDeals.Any())
+        {
+            <p class="la-meta mb-0">Угод із продажу ваших ділянок поки немає.</p>
+        }
+        else
+        {
+            @foreach (var sd in Model.MySellerDeals)
+            {
+                <div class="la-subcard mt-2">
+                    <div class="la-row-between">
+                        <strong>Угода №@sd.DraftContractNumber — Ділянка @sd.LandPlot?.CadastralNumber</strong>
+                        <span class="la-badge @sd.StatusBadgeClass">@sd.StatusDisplayName</span>
+                    </div>
+                    <div class="la-text-sm mt-1">Покупець: @sd.Buyer?.FullName • Сума: $@sd.FinalPriceUsd.ToString("N0") • Оплата: @(sd.IsFullyPaid ? "Оплачено повністю ✓" : "Очікує надходження коштів")</div>
+                    @if (sd.Payments.Any())
+                    {
+                        <div class="la-text-xs mt-1">
+                            @foreach (var p in sd.Payments)
+                            {
+                                <div class="mb-1">
+                                    • @p.PaymentType ($@p.AmountUsd.ToString("N2")):
+                                    <span class="la-badge @p.StatusBadgeClass">@p.StatusDisplayName</span>
+                                    @if (!string.IsNullOrEmpty(p.PaymentReference))
+                                    {
+                                        <span>(Ref: @p.PaymentReference)</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    <div class="la-action-row mt-2">
+                        <a class="la-btn la-btn-white la-btn-xs" asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@sd.Id" target="_blank">Квитанція та рахунки</a>
+                        <a class="la-btn la-btn-link la-btn-xs" asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@sd.Id" target="_blank">Текст договору</a>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
