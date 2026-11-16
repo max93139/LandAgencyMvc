@@ -21,6 +21,38 @@
                 {
                     <div class="la-text-sm fw-bold text-success mt-1">Рієлтор: @req.RealtorNotes</div>
                 }
+                <details class="la-text-xs mt-2">
+                    <summary class="fw-bold text-primary">Змінити параметри запиту</summary>
+                    <form asp-controller="Client" asp-action="EditSelectionRequestByClient" method="post" class="la-subcard mt-2 mb-0">
+                        <input type="hidden" name="requestId" value="@req.Id" />
+                        <div class="la-grid-3">
+                            <div>
+                                <label class="la-label">Район або громада</label>
+                                <input name="desiredDistrict" value="@req.DesiredDistrict" class="la-input" required />
+                            </div>
+                            <div>
+                                <label class="la-label">Мінімальна площа (га)</label>
+                                <input name="minAreaHa" type="number" step="0.01" value="@req.MinAreaHa" class="la-input" required />
+                            </div>
+                            <div>
+                                <label class="la-label">Максимальний бюджет (USD)</label>
+                                <input name="maxBudgetUsd" type="number" value="@req.MaxBudgetUsd.ToString("0")" class="la-input" required />
+                            </div>
+                        </div>
+                        <label class="la-label">Цільове призначення</label>
+                        <select name="purpose" class="la-input">
+                            @foreach (var item in LandAgencyMvc.Models.LandPlot.StandardPurposes)
+                            {
+                                <option value="@item.FullValue" selected="@(req.Purpose == item.FullValue)">@item.FullValue</option>
+                            }
+                        </select>
+                        <button type="submit" class="la-btn la-btn-blue la-btn-sm">Зберегти та перерахувати підбір</button>
+                    </form>
+                </details>
+                <form asp-controller="Client" asp-action="DeleteSelectionRequestByClient" method="post" class="mt-2" onsubmit="return confirm('Вилучити запит на підбір?');">
+                    <input type="hidden" name="requestId" value="@req.Id" />
+                    <button type="submit" class="la-btn la-btn-red la-btn-xs">Вилучити запит</button>
+                </form>
             </div>
         }
         @if (Model.MatchedPlotsForUser.Any())

@@ -215,6 +215,68 @@ public class ClientController : Controller
     }
 
     /// <summary>
+    /// Змінює параметри власного запиту на підбір і одразу перераховує збіги.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Buyer)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditSelectionRequestByClient(
+        int requestId,
+        string desiredDistrict,
+        double minAreaHa,
+        decimal maxBudgetUsd,
+        string? purpose)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var request = await _db.SelectionRequests.FirstOrDefaultAsync(r => r.Id == requestId && r.BuyerId == currentUserId);
+        if (request == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (string.IsNullOrWhiteSpace(desiredDistrict) || maxBudgetUsd <= 0)
+        {
+            TempData["CabinetError"] = "Вкажіть бажаний район та максимальний бюджет для підбору ділянок.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        request.DesiredDistrict = desiredDistrict.Trim();
+        request.MinAreaHa = Math.Max(minAreaHa, 0);
+        request.MaxBudgetUsd = maxBudgetUsd;
+        request.Purpose = (purpose ?? string.Empty).Trim();
+
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        await _db.SaveChangesAsync();
+        int matchedCount = await _autoMatchingService.MatchRequestAsync(request.Id);
+        await transaction.CommitAsync();
+
+        TempData["CabinetMessage"] = $"Запит на підбір оновлено. Знайдено {matchedCount} відповідних об'єктів.";
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
+    /// Вилучення власного запиту на підбір.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Buyer)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteSelectionRequestByClient(int requestId)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var request = await _db.SelectionRequests.FirstOrDefaultAsync(r => r.Id == requestId && r.BuyerId == currentUserId);
+        if (request != null)
+        {
+            _db.SelectionRequests.Remove(request);
+            await _db.SaveChangesAsync();
+            TempData["CabinetMessage"] = "Запит на підбір вилучено.";
+        }
+
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
     /// Сторінка картки земельної ділянки з переліком документів, юридичним висновком та формою огляду.
     /// </summary>
     [HttpGet("/Catalog/Details/{id:int}")]
