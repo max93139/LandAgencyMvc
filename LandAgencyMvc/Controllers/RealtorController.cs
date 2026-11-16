@@ -20,17 +20,20 @@ public class RealtorController : Controller
     private readonly IAutoMatchingService _autoMatchingService;
     private readonly ILandAgencyQueries _queries;
     private readonly ICadastralValidationService _cadastralService;
+    private readonly IPlotMediaStorage _mediaStorage;
 
     public RealtorController(
         LandAgencyContext context,
         IAutoMatchingService autoMatchingService,
         ILandAgencyQueries queries,
-        ICadastralValidationService cadastralService)
+        ICadastralValidationService cadastralService,
+        IPlotMediaStorage mediaStorage)
     {
         _db = context;
         _autoMatchingService = autoMatchingService;
         _queries = queries;
         _cadastralService = cadastralService;
+        _mediaStorage = mediaStorage;
     }
 
     private async Task<AppUser?> GetCurrentRealtorAsync()
@@ -876,9 +879,12 @@ public class RealtorController : Controller
             OwnershipDocNumber = vm.OwnershipDocNumber.Trim(),
             SellerBankIban = vm.SellerBankIban.Trim().ToUpperInvariant(),
             Description = (vm.Description ?? string.Empty).Trim(),
+            Latitude = vm.Latitude,
+            Longitude = vm.Longitude,
             Status = PlotStatus.PendingLegalCheck,
             CreatedAt = DateTime.Now
         };
+        plot.UpdateSaleConditions(vm.SaleConditions);
 
         _db.LandPlots.Add(plot);
         await _db.SaveChangesAsync();
@@ -919,6 +925,7 @@ public class RealtorController : Controller
     {
         var plot = await _db.LandPlots
             .Include(p => p.Documents)
+            .Include(p => p.Media)
             .Include(p => p.Seller)
             .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -951,6 +958,7 @@ public class RealtorController : Controller
     {
         var plot = await _db.LandPlots
             .Include(p => p.Documents)
+            .Include(p => p.Media)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (plot == null)
@@ -985,6 +993,7 @@ public class RealtorController : Controller
                 .Where(u => u.Role == UserRole.Seller && u.IsActive)
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
+            vm.Media = plot.Media.OrderBy(m => m.Id).ToList();
             return View(vm);
         }
 
@@ -994,6 +1003,61 @@ public class RealtorController : Controller
 
         TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} та її документів збережено.";
         return RedirectToAction(nameof(Plots));
+    }
+
+    /// <summary>
+    /// UC-12 «Скласти опис ділянки з фото, відео та координатами»: додає фото або відео до ділянки.
+    /// Відео можна завантажити файлом або вказати https-посиланням. Координати вносяться у формі редагування.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Realtor)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddPlotMedia(int plotId, MediaKind kind, IFormFile? mediaFile, string? videoUrl, string? caption)
+    {
+        var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId);
+        if (plot == null)
+        {
+            return NotFound();
+        }
+
+        if (!plot.IsEditable)
+        {
+            TempData["RealtorError"] = "Неможливо додати матеріали до проданої ділянки.";
+            return RedirectToAction(nameof(Plots));
+        }
+
+        var result = await _mediaStorage.SaveAsync(plotId, kind, mediaFile, videoUrl, caption);
+        if (result.Media == null)
+        {
+            TempData["RealtorError"] = result.Error;
+            return RedirectToAction(nameof(EditPlot), new { id = plotId });
+        }
+
+        _db.PlotMedia.Add(result.Media);
+        await _db.SaveChangesAsync();
+
+        TempData["RealtorMessage"] = kind == MediaKind.Photo ? "Фото додано до ділянки." : "Відео додано до ділянки.";
+        return RedirectToAction(nameof(EditPlot), new { id = plotId });
+    }
+
+    /// <summary>
+    /// Вилучення фото або відео ділянки разом із завантаженим файлом.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Realtor)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeletePlotMedia(int mediaId, int plotId)
+    {
+        var media = await _db.PlotMedia.FirstOrDefaultAsync(m => m.Id == mediaId && m.LandPlotId == plotId);
+        if (media != null)
+        {
+            _db.PlotMedia.Remove(media);
+            await _db.SaveChangesAsync();
+            _mediaStorage.DeleteFile(media);
+            TempData["RealtorMessage"] = "Матеріал вилучено.";
+        }
+
+        return RedirectToAction(nameof(EditPlot), new { id = plotId });
     }
 
     /// <summary>
@@ -1065,6 +1129,7 @@ public class RealtorController : Controller
     {
         var plot = await _db.LandPlots
             .Include(p => p.Documents)
+            .Include(p => p.Media)
             .Include(p => p.ViewingRequests)
             .Include(p => p.LegalConclusion)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -1107,8 +1172,10 @@ public class RealtorController : Controller
             }
         }
 
+        var mediaFiles = plot.Media.ToList();
         _db.LandPlots.Remove(plot);
         await _db.SaveChangesAsync();
+        mediaFiles.ForEach(_mediaStorage.DeleteFile);
 
         if (cascade)
         {

@@ -1,0 +1,46 @@
+@model LandAgencyMvc.Models.PlotEditViewModel
+
+<div class="la-card mt-4 mb-4">
+    <h3 class="la-card-title mb-3">Фото та відео ділянки (@Model.Media.Count)</h3>
+
+    @if (Model.Media.Any())
+    {
+        <div class="la-gallery mb-3">
+            @foreach (var item in Model.Media)
+            {
+                <figure class="la-gallery-item">
+                    <partial name="_PlotMediaItem" model="item" />
+                    <form asp-action="DeletePlotMedia" method="post" class="mt-1">
+                        <input type="hidden" name="mediaId" value="@item.Id" />
+                        <input type="hidden" name="plotId" value="@Model.Id" />
+                        <button type="submit" class="la-btn la-btn-red la-btn-xs">Вилучити</button>
+                    </form>
+                </figure>
+            }
+        </div>
+    }
+
+    <form asp-action="AddPlotMedia" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="plotId" value="@Model.Id" />
+        <div class="la-grid-3">
+            <div>
+                <label class="la-label">Тип матеріалу</label>
+                <select name="kind" class="la-input">
+                    <option value="@nameof(LandAgencyMvc.Models.MediaKind.Photo)">Фото</option>
+                    <option value="@nameof(LandAgencyMvc.Models.MediaKind.Video)">Відео</option>
+                </select>
+            </div>
+            <div>
+                <label class="la-label">Файл (фото до 5 МБ, відео до 25 МБ)</label>
+                <input type="file" name="mediaFile" class="la-input" />
+            </div>
+            <div>
+                <label class="la-label">Або https-посилання на відео</label>
+                <input name="videoUrl" class="la-input" placeholder="https://..." />
+            </div>
+        </div>
+        <label class="la-label">Підпис (необов'язково)</label>
+        <input name="caption" class="la-input" maxlength="120" placeholder="Наприклад: вид із північної межі" />
+        <button type="submit" class="la-btn la-btn-dark">Додати матеріал</button>
+    </form>
+</div>

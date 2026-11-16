@@ -1,0 +1,21 @@
+@model LandAgencyMvc.Models.PlotMedia
+
+@if (Model.Kind == LandAgencyMvc.Models.MediaKind.Photo)
+{
+    <a href="@Model.Url" target="_blank" rel="noopener">
+        <img src="@Model.Url" alt="@(string.IsNullOrEmpty(Model.Caption) ? "Фото ділянки" : Model.Caption)" loading="lazy" />
+    </a>
+}
+else if (Model.IsExternalLink)
+{
+    <a href="@Model.Url" target="_blank" rel="noopener" class="la-btn la-btn-white la-btn-sm">▶ Дивитися відео ↗</a>
+}
+else
+{
+    <video controls preload="metadata" src="@Model.Url"></video>
+}
+
+@if (!string.IsNullOrEmpty(Model.Caption))
+{
+    <figcaption class="la-text-xs">@Model.Caption</figcaption>
+}

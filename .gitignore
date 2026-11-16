@@ -13,3 +13,4 @@ wwwroot/uploads/*
 !wwwroot/uploads/.gitkeep
 .venv/
 sample_pdf_text.txt
+LandAgencyMvc/wwwroot/uploads/media/

@@ -85,3 +85,26 @@
         </div>
     </div>
 </div>
+
+<div class="la-card mb-3">
+    <h3 class="la-card-title mb-3">Умови продажу та розташування на карті</h3>
+    <div class="row g-3">
+        <div class="col-md-12">
+            <label asp-for="SaleConditions" class="la-label"></label>
+            <textarea asp-for="SaleConditions" rows="2" class="la-input" placeholder="Форма розрахунку, строки, можливість торгу, обтяження..."></textarea>
+            <span asp-validation-for="SaleConditions" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Latitude" class="la-label"></label>
+            <input asp-for="Latitude" type="number" step="0.0001" class="la-input" placeholder="50.4501" />
+            <span asp-validation-for="Latitude" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Longitude" class="la-label"></label>
+            <input asp-for="Longitude" type="number" step="0.0001" class="la-input" placeholder="30.5234" />
+            <span asp-validation-for="Longitude" class="text-danger small"></span>
+        </div>
+    </div>
+</div>
