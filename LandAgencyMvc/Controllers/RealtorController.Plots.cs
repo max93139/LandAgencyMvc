@@ -7,6 +7,9 @@ namespace LandAgencyMvc.Controllers;
 
 public partial class RealtorController
 {
+    /// <summary>
+    /// UC-12 «Скласти опис ділянки з фото, відео та координатами»: швидка зміна параметрів ділянки.
+    /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -69,6 +72,9 @@ public partial class RealtorController
         return RedirectToAction(nameof(Requests));
     }
 
+    /// <summary>
+    /// UC-12 «Скласти опис ділянки з фото, відео та координатами»: комерційний опис.
+    /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -230,6 +236,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-12 «Скласти опис ділянки з фото, відео та координатами»: форма ділянки з координатами та умовами продажу.
     /// Форма редагування земельної ділянки та її документів (похідна модель PlotEditViewModel : PlotCreateViewModel).
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -262,6 +269,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-12 «Скласти опис ділянки з фото, відео та координатами»: форма ділянки з координатами та умовами продажу.
     /// Збереження змін у ділянці та синхронізація її документів.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]

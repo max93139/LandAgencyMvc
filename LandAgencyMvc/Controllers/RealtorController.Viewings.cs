@@ -8,6 +8,7 @@ namespace LandAgencyMvc.Controllers;
 public partial class RealtorController
 {
     /// <summary>
+    /// UC-13 «Організувати виїзд та показ ділянки на місці»: перелік заявок на огляд.
     /// Реєстр запланованих та проведених виїзних оглядів ділянок з покупцями.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -25,6 +26,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-13 «Організувати виїзд та показ ділянки на місці»: підтвердження, проведення або скасування огляду.
     /// Оновлює стан огляду: узгоджує дату, фіксує успішний огляд або відмову покупця
     /// з поверненням запиту клієнта на повторний підбір.
     /// </summary>
@@ -77,6 +79,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-13 «Організувати виїзд та показ ділянки на місці»: рієлтор призначає огляд сам.
     /// Призначення виїзного огляду ділянки з клієнтом.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -105,6 +108,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-13 «Організувати виїзд та показ ділянки на місці»: зміна дати, часу й статусу огляду.
     /// Коригування параметрів виїзного огляду.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -128,6 +132,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-13 «Організувати виїзд та показ ділянки на місці»: вилучення заявки.
     /// Фізичне вилучення запису про огляд.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]

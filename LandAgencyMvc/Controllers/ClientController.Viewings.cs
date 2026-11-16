@@ -8,6 +8,7 @@ namespace LandAgencyMvc.Controllers;
 public partial class ClientController
 {
     /// <summary>
+    /// UC-03 «Замовити виїзний огляд ділянки».
     /// Оформлює заявку на виїзний огляд обраної ділянки із зазначенням бажаної дати та таймслоту.
     /// </summary>
     [Authorize(Roles = AppRoles.Buyer)]
@@ -54,6 +55,9 @@ public partial class ClientController
         return RedirectToAction(nameof(Cabinet));
     }
 
+    /// <summary>
+    /// Скасування покупцем власної заявки з UC-03 «Замовити виїзний огляд ділянки».
+    /// </summary>
     [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]

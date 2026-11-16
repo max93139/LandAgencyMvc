@@ -167,6 +167,7 @@ public class SaleDeal : IVersioned
     }
 
     /// <summary>
+    /// UC-15 «Автоматичний розрахунок комісії агентства».
     /// Розраховує суму комісійної винагороди агентства нерухомості.
     /// </summary>
     public void CalculateCommission(double ratePercent = 3.0)

@@ -111,6 +111,9 @@ public class AccountController : Controller
         return RedirectToWorkspace(user.Role);
     }
 
+    /// <summary>
+    /// UC-07 «Реєстрація та авторизація клієнта»: реєстрація покупця або продавця.
+    /// </summary>
     [HttpGet]
     public IActionResult Register()
     {
@@ -122,6 +125,9 @@ public class AccountController : Controller
         return View();
     }
 
+    /// <summary>
+    /// UC-07 «Реєстрація та авторизація клієнта»: реєстрація покупця або продавця.
+    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(

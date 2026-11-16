@@ -9,6 +9,7 @@ namespace LandAgencyMvc.Controllers;
 public partial class RealtorController
 {
     /// <summary>
+    /// UC-14 «Підготувати пакет документів для нотаріуса»: реєстр угод і рахунків.
     /// Реєстр нотаріальних угод купівлі-продажу з візуальним відображенням стадій правового супроводу.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -52,6 +53,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-14 «Підготувати пакет документів для нотаріуса» (include UC-15 «Автоматичний розрахунок комісії агентства»).
     /// Створює проєкт угоди: розраховує 3% комісію агентства, формує графік рахунків-фактур (IBAN)
     /// та направляє проект договору юристу для отримання правової візи.
     /// </summary>
@@ -189,6 +191,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-06 «Здійснити оплату / завдаток через банк»: рієлтор підтверджує зарахування за банківською випискою.
     /// Перевірка та підтвердження банківського зарахування коштів за квитанцією клієнта.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -218,6 +221,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-06 «Здійснити оплату / завдаток через банк»: рієлтор відхиляє платіж із неправильними реквізитами.
     /// Відхилення поданого клієнтом коду квитанції у разі невідповідності банківській виписці.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -246,6 +250,9 @@ public partial class RealtorController
         return RedirectToAction(nameof(Deals));
     }
 
+    /// <summary>
+    /// UC-14 «Підготувати пакет документів для нотаріуса»: передача проєкту договору юристу на візу.
+    /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -297,6 +304,9 @@ public partial class RealtorController
         return RedirectToAction(nameof(Deals));
     }
 
+    /// <summary>
+    /// UC-14 «Підготувати пакет документів для нотаріуса»: друкована форма договору.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> PrintContract(int dealId)
     {

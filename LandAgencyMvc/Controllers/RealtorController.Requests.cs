@@ -8,6 +8,7 @@ namespace LandAgencyMvc.Controllers;
 public partial class RealtorController
 {
     /// <summary>
+    /// Черга запитів на підбір (UC-01): рієлтор бачить результат UC-02 та підібрані ділянки.
     /// Робоча черга заявок на підбір ділянок з автоматичним двигуном підбору.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
@@ -49,6 +50,7 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// UC-02 «Автоматичний підбір ділянок за критеріями»: ручний перерахунок збігів рієлтором.
     /// Запуск ручного або повторного підбору для конкретної заявки клієнта.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]

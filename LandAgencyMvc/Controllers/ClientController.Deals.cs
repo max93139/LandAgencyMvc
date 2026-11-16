@@ -7,6 +7,9 @@ namespace LandAgencyMvc.Controllers;
 
 public partial class ClientController
 {
+    /// <summary>
+    /// Покупець після проведеного огляду ініціює проєкт угоди; далі UC-14 веде рієлтор, а UC-05 завершує покупець.
+    /// </summary>
     [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -83,6 +86,7 @@ public partial class ClientController
     }
 
     /// <summary>
+    /// UC-06 «Здійснити оплату / завдаток через банк»: покупець повідомляє реквізити платежу за рахунком.
     /// Подання клієнтом реквізитів банківської оплати (код квитанції, IBAN) за виставленим рахунком-фактурою.
     /// Переводить платіж у статус очікування підтвердження виписки агентством.
     /// </summary>
@@ -134,6 +138,7 @@ public partial class ClientController
     }
 
     /// <summary>
+    /// UC-06 «Здійснити оплату / завдаток через банк» (спрощена форма для кабінету).
     /// Альтернативний обробник для зворотної сумісності форми кабінету.
     /// </summary>
     [Authorize(Roles = AppRoles.Buyer)]
@@ -205,6 +210,9 @@ public partial class ClientController
         return RedirectToAction(nameof(Cabinet));
     }
 
+    /// <summary>
+    /// Квитанція та рахунки за угодою (результат UC-06) для покупця, продавця, рієлтора й юриста.
+    /// </summary>
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> DownloadReceipt(int dealId)
