@@ -80,17 +80,15 @@ public class DocumentEditItem
 {
     public int? Id { get; set; }
 
-    [Required(ErrorMessage = "Вкажіть назву документа")]
     [Display(Name = "Назва")]
-    public string Title { get; set; } = string.Empty;
+    public string? Title { get; set; }
 
     [Required(ErrorMessage = "Вкажіть тип документа")]
     [Display(Name = "Тип")]
     public string DocType { get; set; } = "Витяг з ДЗК";
 
-    [Required(ErrorMessage = "Вкажіть номер документа")]
     [Display(Name = "Номер")]
-    public string DocumentNumber { get; set; } = string.Empty;
+    public string? DocumentNumber { get; set; }
 
     [Display(Name = "Дата видачі")]
     public DateTime IssueDate { get; set; } = DateTime.Today;
