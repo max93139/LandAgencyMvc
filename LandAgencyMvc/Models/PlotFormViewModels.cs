@@ -107,6 +107,8 @@ public class PlotEditViewModel : PlotCreateViewModel
 {
     public int Id { get; set; }
 
+    public Guid Version { get; set; }
+
     public PlotStatus Status { get; set; }
 
     public string StatusDisplayName => Status switch
@@ -127,6 +129,7 @@ public class PlotEditViewModel : PlotCreateViewModel
         var vm = new PlotEditViewModel
         {
             Id = plot.Id,
+            Version = plot.Version,
             SellerId = plot.SellerId,
             CadastralNumber = plot.CadastralNumber,
             Title = plot.Title,
@@ -242,6 +245,8 @@ public class DeletePlotConfirmationViewModel
 public class DealEditViewModel
 {
     public int Id { get; set; }
+
+    public Guid Version { get; set; }
 
     [Display(Name = "Номер чернетки")]
     public string DraftContractNumber { get; set; } = string.Empty;

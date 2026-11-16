@@ -8,7 +8,7 @@ namespace LandAgencyMvc.Models;
 /// <summary>
 /// Сутність земельної ділянки з кадастровими, географічними, фінансовими та юридичними реквізитами.
 /// </summary>
-public class LandPlot
+public class LandPlot : IVersioned
 {
     public int Id { get; set; }
 
@@ -77,6 +77,8 @@ public class LandPlot
     /// Умови продажу, які задає продавець (UC-10): форма розрахунку, строки, торг, обтяження.
     /// </summary>
     public string SaleConditions { get; set; } = string.Empty;
+
+    public Guid Version { get; set; } = Guid.NewGuid();
 
     public LegalConclusion? LegalConclusion { get; set; }
 

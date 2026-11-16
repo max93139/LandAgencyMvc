@@ -23,6 +23,7 @@
     <form method="post" asp-action="EditDeal" asp-route-id="@Model.Id">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="Version" />
         <input type="hidden" asp-for="DraftContractNumber" />
         <input type="hidden" asp-for="PlotTitle" />
         <input type="hidden" asp-for="CadastralNumber" />

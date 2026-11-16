@@ -22,6 +22,9 @@ public class LandAgencyContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<LandPlot>().Property(p => p.Version).IsConcurrencyToken();
+        modelBuilder.Entity<SaleDeal>().Property(d => d.Version).IsConcurrencyToken();
+
         modelBuilder.Entity<AppUser>().HasIndex(u => u.Email).IsUnique();
         modelBuilder.Entity<LandPlot>().HasIndex(p => p.CadastralNumber).IsUnique();
         modelBuilder.Entity<LegalConclusion>().HasIndex(c => c.ConclusionNumber).IsUnique();
@@ -137,6 +140,42 @@ public class LandAgencyContext : DbContext
             .WithMany()
             .HasForeignKey(s => s.BuyerId)
             .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampVersions();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        StampVersions();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Запам'ятовує версію, з якою користувач відкрив форму редагування. Якщо рядок змінили в проміжку,
+    /// збереження завершиться DbUpdateConcurrencyException, а не перезапише чужі зміни.
+    /// </summary>
+    public void UseSubmittedVersion<T>(T entity, Guid submittedVersion) where T : class, IVersioned
+    {
+        if (submittedVersion != Guid.Empty)
+        {
+            Entry(entity).Property(e => e.Version).OriginalValue = submittedVersion;
+        }
+    }
+
+    /// <summary>
+    /// Оновлює маркер версії кожного змінюваного рядка. Оригінальне значення лишається тим, що було прочитано,
+    /// тому UPDATE ... WHERE Version = прочитане не торкнеться рядка, який уже змінив хтось інший.
+    /// </summary>
+    private void StampVersions()
+    {
+        foreach (var entry in ChangeTracker.Entries<IVersioned>().Where(e => e.State == EntityState.Modified))
+        {
+            entry.Entity.Version = Guid.NewGuid();
+        }
     }
 
     public void InitializeDatabase()

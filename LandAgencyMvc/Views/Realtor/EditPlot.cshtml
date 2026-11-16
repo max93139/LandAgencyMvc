@@ -23,6 +23,7 @@
     <form method="post" asp-action="EditPlot" asp-route-id="@Model.Id">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="Version" />
         <input type="hidden" asp-for="Status" />
 
         <partial name="_PlotFormFields" model="Model" />

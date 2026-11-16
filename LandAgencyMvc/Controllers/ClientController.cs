@@ -200,10 +200,12 @@ public class ClientController : Controller
             CreatedAt = DateTime.Now
         };
 
+        await using var transaction = await _db.Database.BeginTransactionAsync();
         _db.SelectionRequests.Add(request);
         await _db.SaveChangesAsync();
 
         int matchedCount = await _autoMatchingService.MatchRequestAsync(request.Id);
+        await transaction.CommitAsync();
 
         TempData["CabinetMessage"] = $"Запит на підбір ділянки створено. Автоматично знайдено {matchedCount} відповідних об'єктів у каталозі!";
         return RedirectToAction(nameof(Cabinet));
@@ -378,6 +380,11 @@ public class ClientController : Controller
 
             if (existingDeal == null)
             {
+                int previousDeals = await _db.SaleDeals.CountAsync(d => d.LandPlotId == viewing.LandPlotId);
+                string contractNumber = $"ДГ-{DateTime.Now:yyyy}-{viewing.LandPlotId:D3}" + (previousDeals > 0 ? $"-{previousDeals + 1}" : string.Empty);
+
+                await using var transaction = await _db.Database.BeginTransactionAsync();
+
                 var deal = new SaleDeal
                 {
                     LandPlotId = viewing.LandPlotId,
@@ -388,7 +395,7 @@ public class ClientController : Controller
                 };
 
                 deal.PrepareContractDraft(
-                    $"ДГ-{DateTime.Now:yyyy}-{viewing.LandPlotId:D3}",
+                    contractNumber,
                     viewing.LandPlot.PriceUsd,
                     realtor?.CommissionRate ?? 3.0);
 
@@ -401,6 +408,7 @@ public class ClientController : Controller
                     senderIban: currentUser?.BankDetails,
                     agencyIban: realtor?.BankDetails));
                 await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 TempData["CabinetMessage"] = $"Проєкт нотаріальної угоди {deal.DraftContractNumber} успішно ініційовано на підставі проведеного огляду.";
             }
@@ -524,6 +532,8 @@ public class ClientController : Controller
             currentUser.OwnershipDoc = model.OwnershipDocNumber;
         }
 
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+
         _db.LandPlots.Add(model);
         await _db.SaveChangesAsync();
 
@@ -544,8 +554,17 @@ public class ClientController : Controller
         };
         plotDoc.AttachFile(savedFileUrl, fileBytes, mimeType);
 
-        _db.PlotDocuments.Add(plotDoc);
-        await _db.SaveChangesAsync();
+        try
+        {
+            _db.PlotDocuments.Add(plotDoc);
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            DeleteUploadedFile(savedFileUrl);
+            throw;
+        }
 
         var registryExtract = await DzkRegistrySimulator.QueryRegistriesAsync(model, _cadastralService);
 
@@ -941,6 +960,18 @@ public class ClientController : Controller
             .Where(d => d.BuyerId == buyerId)
             .OrderByDescending(d => d.Id)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Файлова система не входить у транзакцію бази даних, тому після відкоту завантажений файл вилучається вручну.
+    /// </summary>
+    private void DeleteUploadedFile(string fileUrl)
+    {
+        var path = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", Path.GetFileName(fileUrl));
+        if (System.IO.File.Exists(path))
+        {
+            System.IO.File.Delete(path);
+        }
     }
 
     private async Task<(string fileUrl, byte[] fileBytes, string mimeType)> SaveUploadedDocumentAsync(

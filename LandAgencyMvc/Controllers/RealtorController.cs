@@ -397,6 +397,8 @@ public class RealtorController : Controller
             : "Перша Київська державна нотаріальна контора";
         DateTime resolvedNotaryDate = notaryDate == default ? DateTime.Today.AddDays(3).AddHours(11) : notaryDate;
 
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+
         if (existingDeal != null)
         {
             existingDeal.BuyerId = buyerId;
@@ -416,6 +418,7 @@ public class RealtorController : Controller
                 isPaid: false,
                 agencyIban: currentUser?.BankDetails));
             await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             TempData["RealtorMessage"] = $"Проєкт договору {existingDeal.DraftContractNumber} оновлено та передано юристу на погодження.";
             return RedirectToAction(nameof(Deals));
@@ -440,6 +443,7 @@ public class RealtorController : Controller
             isPaid: false,
             agencyIban: currentUser?.BankDetails));
         await _db.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         TempData["RealtorMessage"] = $"Проєкт договору {deal.DraftContractNumber} створено, сформовано рахунки на оплату та передано юристу на погодження.";
         return RedirectToAction(nameof(Deals));
@@ -886,6 +890,8 @@ public class RealtorController : Controller
         };
         plot.UpdateSaleConditions(vm.SaleConditions);
 
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+
         _db.LandPlots.Add(plot);
         await _db.SaveChangesAsync();
 
@@ -911,6 +917,7 @@ public class RealtorController : Controller
         _db.PlotDocuments.Add(plotDoc);
         await _db.SaveChangesAsync();
         await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+        await transaction.CommitAsync();
 
         TempData["RealtorMessage"] = $"Земельну ділянку {plot.CadastralNumber} успішно зареєстровано та передано в чергу юридичного аудиту.";
         return RedirectToAction(nameof(Plots));
@@ -997,9 +1004,13 @@ public class RealtorController : Controller
             return View(vm);
         }
 
+        _db.UseSubmittedVersion(plot, vm.Version);
+
+        await using var transaction = await _db.Database.BeginTransactionAsync();
         vm.ApplyTo(plot);
         await _db.SaveChangesAsync();
         await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+        await transaction.CommitAsync();
 
         TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} та її документів збережено.";
         return RedirectToAction(nameof(Plots));
@@ -1359,6 +1370,7 @@ public class RealtorController : Controller
         var vm = new DealEditViewModel
         {
             Id = deal.Id,
+            Version = deal.Version,
             DraftContractNumber = deal.DraftContractNumber,
             PlotTitle = deal.LandPlot?.Title ?? "—",
             CadastralNumber = deal.LandPlot?.CadastralNumber ?? "—",
@@ -1399,6 +1411,7 @@ public class RealtorController : Controller
             return View(vm);
         }
 
+        _db.UseSubmittedVersion(deal, vm.Version);
         deal.UpdateDraftTerms(vm.FinalPriceUsd, vm.NotaryOffice, vm.NotaryDate);
         await _db.SaveChangesAsync();
 

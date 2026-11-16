@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using LandAgencyMvc.Data;
+using LandAgencyMvc.Filters;
 using LandAgencyMvc.Models;
 using LandAgencyMvc.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -14,7 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options => options.Filters.Add<DatabaseExceptionFilter>());
 builder.Services.Configure<WebEncoderOptions>(options =>
 {
     options.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All);

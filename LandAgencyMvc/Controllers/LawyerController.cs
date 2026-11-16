@@ -145,6 +145,8 @@ public class LawyerController : Controller
                 return RedirectToAction(nameof(Queue));
             }
 
+            await using var transaction = await _db.Database.BeginTransactionAsync();
+
             var dzkExtract = await DzkRegistrySimulator.QueryRegistriesAsync(plot, _cadastralService);
             plot.ChangeStatus(approve ? PlotStatus.VerifiedInCatalog : PlotStatus.RejectedByLawyer);
 
@@ -230,6 +232,7 @@ public class LawyerController : Controller
             await _db.SaveChangesAsync();
 
             int autoMatchedCount = await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+            await transaction.CommitAsync();
 
             if (approve)
             {
