@@ -212,7 +212,12 @@ public partial class RealtorController
                 return RedirectToAction(nameof(Deals));
             }
 
-            payment.VerifyPayment(currentUser.Id, verificationNotes);
+            if (!payment.VerifyPayment(currentUser.Id, verificationNotes))
+            {
+                TempData["RealtorError"] = $"Платіж за рахунком {payment.InvoiceNumber} у статусі «{payment.StatusDisplayName}» підтвердити не можна: підтверджується лише платіж, поданий покупцем.";
+                return RedirectToAction(nameof(Deals));
+            }
+
             await _db.SaveChangesAsync();
             TempData["RealtorMessage"] = $"Банківське зарахування за рахунком {payment.InvoiceNumber} (код операції: {payment.PaymentReference}) успішно підтверджено.";
         }
@@ -242,7 +247,12 @@ public partial class RealtorController
                 return RedirectToAction(nameof(Deals));
             }
 
-            payment.RejectPayment(currentUser.Id, rejectionNotes);
+            if (!payment.RejectPayment(currentUser.Id, rejectionNotes))
+            {
+                TempData["RealtorError"] = $"Платіж за рахунком {payment.InvoiceNumber} у статусі «{payment.StatusDisplayName}» відхилити не можна: відхиляється лише платіж, що очікує перевірки.";
+                return RedirectToAction(nameof(Deals));
+            }
+
             await _db.SaveChangesAsync();
             TempData["RealtorError"] = $"Квитанцію за рахунком {payment.InvoiceNumber} відхилено. Клієнт може повторно надіслати коректний код транзакції.";
         }
