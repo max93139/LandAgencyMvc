@@ -444,7 +444,7 @@ public partial class RealtorController
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost, ActionName("DeletePlotConfirmed")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeletePlotConfirmed(int id, bool cascade = false)
+    public async Task<IActionResult> DeletePlotConfirmed(int id, string? reason, bool cascade = false)
     {
         var plot = await _db.LandPlots
             .Include(p => p.Documents)
@@ -467,6 +467,12 @@ public partial class RealtorController
             return RedirectToAction(nameof(DeletePlot), new { id });
         }
 
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["RealtorError"] = "Вкажіть причину вилучення: вона зберігається в архіві вилучених ділянок.";
+            return RedirectToAction(nameof(DeletePlot), new { id });
+        }
+
         if (!cascade && plot.HasDependentRecords)
         {
             TempData["RealtorError"] = $"Некаскадне вилучення неможливе (ON DELETE RESTRICT): ділянка містить {plot.Documents.Count} документів та {plot.ViewingRequests.Count} оглядів. Для видалення очистіть їх окремо або оберіть «Каскадне вилучення».";
@@ -477,17 +483,38 @@ public partial class RealtorController
         int docsRemoved = plot.Documents.Count;
         int viewingsRemoved = plot.ViewingRequests.Count;
 
-        await _plotRemoval.RemoveWithDependentsAsync(plot);
+        var realtor = await GetCurrentRealtorAsync();
+        if (realtor == null)
+        {
+            return Forbid();
+        }
+
+        await _plotRemoval.RemoveWithDependentsAsync(plot, reason, realtor);
 
         if (cascade)
         {
-            TempData["RealtorMessage"] = $"Ділянку {cadNum} успішно вилучено каскадно разом із документами ({docsRemoved}) та оглядами ({viewingsRemoved}).";
+            TempData["RealtorMessage"] = $"Ділянку {cadNum} успішно вилучено каскадно разом із документами ({docsRemoved}) та оглядами ({viewingsRemoved}). Копію збережено в архіві вилучених ділянок.";
         }
         else
         {
-            TempData["RealtorMessage"] = $"Ділянку {cadNum} (без дочірніх записів) успішно вилучено з бази даних.";
+            TempData["RealtorMessage"] = $"Ділянку {cadNum} (без дочірніх записів) успішно вилучено з бази даних. Копію збережено в архіві вилучених ділянок.";
         }
 
         return RedirectToAction(nameof(Plots));
+    }
+
+    /// <summary>
+    /// Архів вилучених ділянок: хто, коли й чому вилучив ділянку. Лише перегляд, змінювати архів не можна.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Realtor)]
+    [HttpGet]
+    public async Task<IActionResult> PlotArchive()
+    {
+        var archive = await _db.ArchivedPlots
+            .AsNoTracking()
+            .OrderByDescending(a => a.RemovedAtUtc)
+            .ToListAsync();
+
+        return View(archive);
     }
 }

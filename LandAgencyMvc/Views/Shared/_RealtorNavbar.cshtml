@@ -14,6 +14,7 @@
     <div class="la-nav-links">
         <span class="la-badge la-badge-amber me-2">РІЄЛТОР</span>
         <a class="@(activeNav == "Plots" ? "active" : "")" asp-controller="Realtor" asp-action="Plots">Ділянки</a>
+        <a class="@(activeNav == "PlotArchive" ? "active" : "")" asp-controller="Realtor" asp-action="PlotArchive">Архів ділянок</a>
         <a class="@(activeNav == "Requests" ? "active" : "")" asp-controller="Realtor" asp-action="Requests">Запити на підбір</a>
         <a class="@(activeNav == "Viewings" ? "active" : "")" asp-controller="Realtor" asp-action="Viewings">Черга оглядів</a>
         <a class="@(activeNav == "Deals" ? "active" : "")" asp-controller="Realtor" asp-action="Deals">Угоди та нотаріат</a>

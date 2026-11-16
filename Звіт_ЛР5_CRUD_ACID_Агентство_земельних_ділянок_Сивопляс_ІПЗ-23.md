@@ -113,13 +113,44 @@ public enum UserRole
 - **Покупець** змінює (з перерахунком підбору) та вилучає власні запити на підбір; чужі запити недоступні.
 - **Юрист** відкликає юридичний висновок: ділянка повертається на повторну перевірку, документи втрачають позначку верифікації, активні огляди скасовуються, збіги із запитами перераховуються. Відкликання заборонене для проданої ділянки чи ділянки з активною угодою.
 
+Вилучення ділянки не знищує історію: перед видаленням у ту саму транзакцію записується архівна копія в таблицю `ArchivedPlots` (кадастровий номер, власник, статус, кількість документів, обов'язкова причина, автор і час). Тригери бази забороняють змінювати й видаляти рядки архіву, а рієлтор переглядає його на сторінці «Архів ділянок». Це відповідає принципу збереження історії для звітності й аудиту.
+
 Спільна логіка вилучення ділянки з усіма залежними записами винесена в `PlotRemovalService` і використовується продавцем та рієлтором. Під час перевірки знайдено й усунено дефект: після вилучення ділянки її ідентифікатор лишався у списках збігів запитів на підбір, тепер сервіс прибирає його.
 
-Лістинг 2 — Вилучення ділянки разом із залежними записами (Services/PlotRemovalService.cs)
+Лістинг 2 — Вилучення ділянки з архівною копією та залежними записами (Services/PlotRemovalService.cs)
 
 ```csharp
-    public async Task RemoveWithDependentsAsync(LandPlot plot)
+    public async Task RemoveWithDependentsAsync(LandPlot plot, string reason, AppUser removedBy)
     {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("Потрібно вказати причину вилучення ділянки.", nameof(reason));
+        }
+
+        var sellerName = await _db.Users
+            .Where(u => u.Id == plot.SellerId)
+            .Select(u => u.FullName)
+            .FirstOrDefaultAsync() ?? string.Empty;
+
+        _db.ArchivedPlots.Add(new ArchivedPlot
+        {
+            OriginalPlotId = plot.Id,
+            CadastralNumber = plot.CadastralNumber,
+            Title = plot.Title,
+            Location = plot.Location,
+            AreaHectares = plot.AreaHectares,
+            PriceUsd = plot.PriceUsd,
+            SellerName = sellerName,
+            StatusAtRemoval = plot.Status,
+            DocumentsCount = plot.Documents.Count,
+            ViewingsCount = plot.ViewingRequests.Count,
+            MediaCount = plot.Media.Count,
+            Reason = reason.Trim(),
+            RemovedByName = removedBy.FullName,
+            RemovedByRole = removedBy.Role,
+            RemovedAtUtc = DateTime.UtcNow
+        });
+
         _db.PlotDocuments.RemoveRange(plot.Documents);
         _db.ViewingRequests.RemoveRange(plot.ViewingRequests);
         if (plot.LegalConclusion != null)

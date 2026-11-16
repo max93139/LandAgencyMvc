@@ -1,0 +1,55 @@
+@model List<LandAgencyMvc.Models.ArchivedPlot>
+@{
+    ViewData["Title"] = "Архів вилучених ділянок";
+    ViewData["ActiveNav"] = "PlotArchive";
+}
+
+<div class="container-fluid px-0">
+    <div class="la-page-header">
+        <div>
+            <h1 class="la-page-title">Архів вилучених ділянок</h1>
+            <p class="la-meta mb-0">Кожне вилучення лишає тут копію ділянки з причиною, автором і часом. Архів лише доповнюється: змінити або видалити рядок не дозволяє сама база даних.</p>
+        </div>
+    </div>
+
+    <div class="la-card">
+        @if (Model.Count == 0)
+        {
+            <p class="la-meta mb-0">Жодну ділянку ще не вилучено.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Вилучено (UTC)</th>
+                            <th>Кадастровий номер</th>
+                            <th>Ділянка</th>
+                            <th>Власник</th>
+                            <th>Статус на момент вилучення</th>
+                            <th>Документи / огляди / медіа</th>
+                            <th>Хто вилучив</th>
+                            <th>Причина</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.RemovedAtUtc.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td><strong>@item.CadastralNumber</strong></td>
+                                <td>@item.Title<div class="la-meta">@item.Location, @item.AreaHectares га, $@item.PriceUsd.ToString("N0")</div></td>
+                                <td>@item.SellerName</td>
+                                <td>@item.StatusAtRemoval</td>
+                                <td>@item.DocumentsCount / @item.ViewingsCount / @item.MediaCount</td>
+                                <td>@item.RemovedByName<div class="la-meta">@item.RemovedByRole</div></td>
+                                <td>@item.Reason</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
