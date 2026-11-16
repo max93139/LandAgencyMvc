@@ -19,10 +19,11 @@
                         </div>
                         @if (myPlot.Status != LandAgencyMvc.Models.PlotStatus.Sold)
                         {
-                            <form asp-controller="Client" asp-action="UpdatePlotPrice" method="post" class="la-inline-form">
+                            <form asp-controller="Client" asp-action="UpdatePlotTerms" method="post" class="la-inline-form">
                                 <input type="hidden" name="plotId" value="@myPlot.Id" />
                                 <input type="number" name="newPriceUsd" value="@myPlot.PriceUsd" class="la-input-inline" required />
-                                <button type="submit" class="la-btn la-btn-blue la-btn-sm">Оновити ціну</button>
+                                <input name="saleConditions" value="@myPlot.SaleConditions" maxlength="500" class="la-input-inline" placeholder="Умови продажу" />
+                                <button type="submit" class="la-btn la-btn-blue la-btn-sm">Оновити ціну й умови</button>
                             </form>
                         }
                         else

@@ -68,6 +68,7 @@ public class ClientController : Controller
             .Include(p => p.AssignedRealtor)
             .Include(p => p.LegalConclusion)
             .Include(p => p.Documents)
+            .Include(p => p.Media)
             .Where(p => p.Status == PlotStatus.VerifiedInCatalog)
             .AsNoTracking();
 
@@ -220,6 +221,7 @@ public class ClientController : Controller
             .Include(p => p.Seller)
             .Include(p => p.AssignedRealtor)
             .Include(p => p.Documents)
+            .Include(p => p.Media)
             .Include(p => p.LegalConclusion)
             .ThenInclude(c => c!.Lawyer)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -428,6 +430,11 @@ public class ClientController : Controller
     /// Реєстрація ділянки продавцем: валідація КОАТУУ, завантаження документа з SHA-256 хешуванням,
     /// накладення електронного підпису та передача в чергу аудиту ДЗК/ДРРП.
     /// </summary>
+    /// <summary>
+    /// UC-08 «Зареєструвати ділянку на продаж» (include UC-09 «Перевірити кадастровий номер та реєстрацію в ДЗК»).
+    /// Продавець подає ділянку з правовстановлюючим документом. Кадастровий номер перевіряється за форматом і кодом області,
+    /// після збереження виконується попередній запит до ДЗК/ДРРП, а остаточне рішення про публікацію ухвалює юрист.
+    /// </summary>
     [Authorize(Roles = AppRoles.Seller)]
     [HttpPost("/Plots/Create")]
     [HttpPost("/Client/CreatePlot")]
@@ -502,6 +509,11 @@ public class ClientController : Controller
         model.AssignedRealtorId = realtor?.Id;
         model.Status = PlotStatus.PendingLegalCheck;
         model.CreatedAt = DateTime.Now;
+        model.UpdateSaleConditions(model.SaleConditions);
+
+        // Координати вносить рієлтор, тому значення з форми продавця ігноруються.
+        model.Latitude = null;
+        model.Longitude = null;
 
         if (!string.IsNullOrWhiteSpace(model.SellerBankIban) && string.IsNullOrWhiteSpace(currentUser.BankDetails))
         {
@@ -535,14 +547,22 @@ public class ClientController : Controller
         _db.PlotDocuments.Add(plotDoc);
         await _db.SaveChangesAsync();
 
-        TempData["CabinetMessage"] = $"Ділянку {model.CadastralNumber} ({koatuu.RegionName}) успішно подано на модерацію. Документ зафіксовано з контрольною сумою SHA-256.";
+        var registryExtract = await DzkRegistrySimulator.QueryRegistriesAsync(model, _cadastralService);
+
+        TempData["CabinetMessage"] = $"Ділянку {model.CadastralNumber} ({koatuu.RegionName}) подано на модерацію. " +
+                                     $"Попередній запит до ДЗК/ДРРП (витяг {registryExtract.ExtractNumber}): {registryExtract.RecommendedRiskLevel}. " +
+                                     "Документ зафіксовано з контрольною сумою SHA-256.";
         return RedirectToAction(nameof(Cabinet));
     }
 
+    /// <summary>
+    /// UC-10 «Встановити ціну та умови продажу»: продавець змінює ціну й умови продажу власної ділянки,
+    /// доки за нею немає підписаного договору.
+    /// </summary>
     [Authorize(Roles = AppRoles.Seller)]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdatePlotPrice(int plotId, decimal newPriceUsd)
+    public async Task<IActionResult> UpdatePlotTerms(int plotId, decimal newPriceUsd, string? saleConditions)
     {
         var currentUser = await GetCurrentUserAsync();
         int currentUserId = currentUser?.Id ?? 0;
@@ -571,16 +591,21 @@ public class ClientController : Controller
             }
 
             plot.UpdatePrice(newPriceUsd);
+            plot.UpdateSaleConditions(saleConditions);
             await _db.SaveChangesAsync();
 
             await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
 
-            TempData["CabinetMessage"] = $"Ціну ділянки {plot.CadastralNumber} оновлено до ${newPriceUsd:N0}.";
+            TempData["CabinetMessage"] = $"Ціну й умови продажу ділянки {plot.CadastralNumber} оновлено: ${newPriceUsd:N0}.";
         }
 
         return RedirectToAction(nameof(Cabinet));
     }
 
+    /// <summary>
+    /// UC-11 «Завантажити правовстановлюючі документи»: продавець додає до власної ділянки документ або витяг
+    /// з автоматичним підрахунком контрольної суми SHA-256.
+    /// </summary>
     [Authorize(Roles = AppRoles.Seller)]
     [HttpPost]
     [ValidateAntiForgeryToken]
