@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using LandAgencyMvc.Data;
+using LandAgencyMvc.Filters;
 using LandAgencyMvc.Models;
 using LandAgencyMvc.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -13,17 +15,20 @@ var builder = WebApplication.CreateBuilder(args);
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options => options.Filters.Add<DatabaseExceptionFilter>());
 builder.Services.Configure<WebEncoderOptions>(options =>
 {
     options.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All);
 });
-builder.Services.AddDbContext<LandAgencyContext>(options =>
-    options.UseSqlite("Data Source=landagency.db"));
+builder.Services.AddDbContext<LandAgencyContext>(options => options
+    .UseSqlite("Data Source=landagency.db;Foreign Keys=True")
+    .AddInterceptors(new SqliteDurabilityInterceptor()));
 
 builder.Services.AddScoped<ICadastralValidationService, CadastralValidationService>();
 builder.Services.AddScoped<IAutoMatchingService, AutoMatchingService>();
 builder.Services.AddScoped<ILandAgencyQueries, LandAgencyQueries>();
+builder.Services.AddScoped<IPlotMediaStorage, PlotMediaStorage>();
+builder.Services.AddScoped<IPlotRemovalService, PlotRemovalService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -32,6 +37,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.LoginPath = "/Account/Login";
+        options.Events.OnRedirectToLogin = context =>
+        {
+            var isStaffArea = context.Request.Path.StartsWithSegments("/Realtor")
+                || context.Request.Path.StartsWithSegments("/Lawyer");
+            var loginPath = isStaffArea ? "/Account/StaffLogin" : "/Account/Login";
+            var returnUrl = Uri.EscapeDataString(context.Request.Path + context.Request.QueryString);
+            context.Response.Redirect($"{loginPath}?ReturnUrl={returnUrl}");
+            return Task.CompletedTask;
+        };
         options.LogoutPath = "/Account/Logout";
         options.AccessDeniedPath = "/Account/AccessDenied";
         options.ExpireTimeSpan = TimeSpan.FromDays(7);

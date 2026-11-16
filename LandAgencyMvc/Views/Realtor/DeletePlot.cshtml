@@ -96,8 +96,17 @@
     @if (Model.DealsCount > 0 || !Model.CanBeDeletedCascade)
     {
         <div class="la-alert la-alert-danger mb-4">
-            <strong>Вилучення заблоковано:</strong> Земельна ділянка @Model.Plot.CadastralNumber вже фігурує в укладених або завершених нотаріальних угодах.
-            Згідно з правилом цілісності бази даних (ON DELETE RESTRICT), фінансова та архівна історія зберігається в повному обсязі.
+            <strong>Вилучення заблоковано:</strong>
+            @if (Model.DealsCount == 0 && Model.Plot.Status != LandAgencyMvc.Models.PlotStatus.Sold && Model.HasLegalConclusion)
+            {
+                <span>Земельна ділянка @Model.Plot.CadastralNumber має юридичний висновок, який зберігається для аудиту земельного банку.
+                Щоб вилучити її, юрист має відкликати висновок, і ділянка повернеться на перевірку.</span>
+            }
+            else
+            {
+                <span>Земельна ділянка @Model.Plot.CadastralNumber вже фігурує в укладених або завершених нотаріальних угодах.
+                Згідно з правилом цілісності бази даних (ON DELETE RESTRICT), фінансова та архівна історія зберігається в повному обсязі.</span>
+            }
         </div>
         <div>
             <a asp-action="Plots" class="la-btn la-btn-outline">Повернутися до списку</a>

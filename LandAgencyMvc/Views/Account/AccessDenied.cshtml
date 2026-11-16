@@ -13,13 +13,17 @@
                 Цей розділ доступний виключно співробітникам відповідної ролі (рієлтор або юрист).
             </p>
             <div class="la-action-row justify-content-center">
-                @if (User.IsInRole("Realtor") || User.IsInRole("Admin"))
+                @if (User.IsInRole(AppRoles.Realtor))
                 {
                     <a asp-controller="Realtor" asp-action="Requests" class="la-btn la-btn-green">До робочого місця рієлтора</a>
                 }
-                else if (User.IsInRole("Lawyer"))
+                else if (User.IsInRole(AppRoles.Lawyer))
                 {
                     <a asp-controller="Lawyer" asp-action="Queue" class="la-btn la-btn-green">До робочого місця юриста</a>
+                }
+                else if (User.IsInRole(AppRoles.Seller))
+                {
+                    <a asp-controller="Client" asp-action="Cabinet" class="la-btn la-btn-green">До особистого кабінету</a>
                 }
                 else
                 {

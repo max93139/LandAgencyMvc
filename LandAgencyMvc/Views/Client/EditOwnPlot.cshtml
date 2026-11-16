@@ -1,0 +1,69 @@
+@model LandAgencyMvc.Models.SellerPlotEditViewModel
+@{
+    ViewData["Title"] = $"Редагування оголошення {Model.CadastralNumber} — LandAgency UA";
+    ViewData["ActiveNav"] = "Cabinet";
+}
+
+<div class="la-window">
+    <partial name="_ClientNavbar" />
+
+    <div class="la-body">
+        <div class="la-card">
+            <h4>Редагування оголошення</h4>
+            <p class="la-meta mb-3">Кадастровий номер, площу й цільове призначення змінює лише юрист за результатами перевірки.</p>
+
+            <partial name="_AlertMessages" />
+            <div asp-validation-summary="ModelOnly" class="la-alert la-alert-danger mb-3"></div>
+
+            <div class="la-subcard">
+                <div class="la-text-sm"><strong>Кадастровий номер:</strong> @Model.CadastralNumber</div>
+                <div class="la-text-sm"><strong>Площа:</strong> @Model.AreaHectares га</div>
+                <div class="la-text-sm"><strong>Призначення:</strong> @Model.Purpose</div>
+                <div class="la-text-sm"><strong>Статус:</strong> @Model.StatusDisplayName</div>
+            </div>
+
+            <form asp-controller="Client" asp-action="EditOwnPlot" asp-route-id="@Model.Id" method="post">
+                <input type="hidden" asp-for="Id" />
+                <input type="hidden" asp-for="Version" />
+
+                <div class="la-grid-2">
+                    <div>
+                        <label asp-for="Title" class="la-label"></label>
+                        <input asp-for="Title" class="la-input" />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+                    <div>
+                        <label asp-for="Location" class="la-label"></label>
+                        <input asp-for="Location" class="la-input" />
+                        <span asp-validation-for="Location" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="la-grid-2">
+                    <div>
+                        <label asp-for="PriceUsd" class="la-label"></label>
+                        <input asp-for="PriceUsd" type="number" class="la-input" />
+                        <span asp-validation-for="PriceUsd" class="text-danger small"></span>
+                    </div>
+                    <div>
+                        <label asp-for="SellerBankIban" class="la-label"></label>
+                        <input asp-for="SellerBankIban" class="la-input text-uppercase" maxlength="29" />
+                        <span asp-validation-for="SellerBankIban" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <label asp-for="Description" class="la-label"></label>
+                <textarea asp-for="Description" rows="3" class="la-input"></textarea>
+
+                <label asp-for="SaleConditions" class="la-label"></label>
+                <textarea asp-for="SaleConditions" rows="2" maxlength="500" class="la-input"></textarea>
+                <span asp-validation-for="SaleConditions" class="text-danger small"></span>
+
+                <div class="la-action-row">
+                    <button type="submit" class="la-btn la-btn-green">Зберегти зміни</button>
+                    <a asp-controller="Client" asp-action="Cabinet" class="la-btn la-btn-outline">Скасувати</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

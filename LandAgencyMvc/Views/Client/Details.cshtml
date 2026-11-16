@@ -76,6 +76,39 @@
                     <p class="la-text-sm mt-1 mb-0">@Model.Description</p>
                 </div>
 
+                @if (!string.IsNullOrWhiteSpace(Model.SaleConditions))
+                {
+                    <div class="la-subcard">
+                        <strong class="la-text-sm">Умови продажу:</strong>
+                        <p class="la-text-sm mt-1 mb-0">@Model.SaleConditions</p>
+                    </div>
+                }
+
+                @if (Model.HasCoordinates)
+                {
+                    <div class="la-subcard la-row-between">
+                        <span class="la-text-sm">
+                            <strong>Координати:</strong> @Model.Latitude!.Value.ToString("0.0000"), @Model.Longitude!.Value.ToString("0.0000")
+                        </span>
+                        <a href="@Model.MapUrl" target="_blank" rel="noopener" class="la-btn la-btn-white la-btn-xs">Показати на карті ↗</a>
+                    </div>
+                }
+
+                @if (Model.Media.Any())
+                {
+                    <div class="la-subcard">
+                        <strong class="la-text-sm d-block mb-2">Фото та відео ділянки:</strong>
+                        <div class="la-gallery">
+                            @foreach (var item in Model.Media.OrderBy(m => m.Id))
+                            {
+                                <figure class="la-gallery-item">
+                                    <partial name="_PlotMediaItem" model="item" />
+                                </figure>
+                            }
+                        </div>
+                    </div>
+                }
+
                 @if (Model.Documents.Any())
                 {
                     <div>
@@ -106,6 +139,12 @@
                 {
                     <div class="la-subcard la-text-sm">
                         Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" class="fw-bold">Мій кабінет</a>.
+                    </div>
+                }
+                else if (!User.IsInRole(AppRoles.Buyer))
+                {
+                    <div class="la-subcard la-text-sm">
+                        Записатися на виїзний огляд можуть лише покупці.
                     </div>
                 }
                 else if (Model.Status != LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)

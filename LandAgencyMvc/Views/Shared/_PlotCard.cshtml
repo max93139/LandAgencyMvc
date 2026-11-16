@@ -11,6 +11,13 @@
         </div>
         <strong class="la-price-lg">$@Model.PriceUsd.ToString("N0")</strong>
     </div>
+    @{
+        var cover = Model.Media.OrderBy(m => m.Id).FirstOrDefault(m => m.Kind == LandAgencyMvc.Models.MediaKind.Photo);
+    }
+    @if (cover != null)
+    {
+        <img class="la-card-cover" src="@cover.Url" alt="@Model.Title" loading="lazy" />
+    }
     <h5 class="mt-2 mb-1">@Model.Title (@Model.AreaHectares га / @Model.AreaSotky сот.)</h5>
     <p class="la-meta">Кадастр: <strong>@Model.CadastralNumber</strong></p>
     <p class="la-meta">Призначення: @Model.Purpose</p>

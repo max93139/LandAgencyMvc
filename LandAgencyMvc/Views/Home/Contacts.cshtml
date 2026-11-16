@@ -4,11 +4,11 @@
 }
 
 <div class="la-window">
-    @if (User.IsInRole("Realtor") || User.IsInRole("Admin"))
+    @if (User.IsInRole(AppRoles.Realtor))
     {
         <partial name="_RealtorNavbar" />
     }
-    else if (User.IsInRole("Lawyer"))
+    else if (User.IsInRole(AppRoles.Lawyer))
     {
         <partial name="_LawyerNavbar" />
     }

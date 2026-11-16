@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Identity;
 
 namespace LandAgencyMvc.Models;
@@ -27,9 +28,19 @@ public class AppUser
     /// </summary>
     public string Password { get; set; } = string.Empty;
 
-    public UserRole Role { get; set; } = UserRole.Client;
+    public UserRole Role { get; set; } = UserRole.Buyer;
 
     public bool IsActive { get; set; } = true;
+
+    [NotMapped]
+    public string RoleDisplayName => Role switch
+    {
+        UserRole.Buyer => "Покупець",
+        UserRole.Seller => "Продавець",
+        UserRole.Realtor => "Рієлтор",
+        UserRole.Lawyer => "Юрист",
+        _ => Role.ToString()
+    };
 
     public string BankDetails { get; set; } = string.Empty;
 

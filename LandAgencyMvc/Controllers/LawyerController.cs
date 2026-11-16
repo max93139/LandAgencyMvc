@@ -12,7 +12,7 @@ namespace LandAgencyMvc.Controllers;
 /// Відповідає за правовий аудит земельних ділянок (КОАТУУ, ДЗК/ДРРП, цінові аномалії),
 /// формування юридичних висновків та правову експертизу проектів договорів для нотаріуса.
 /// </summary>
-[Authorize(Roles = "Lawyer,Admin")]
+[Authorize(Roles = AppRoles.Lawyer)]
 public class LawyerController : Controller
 {
     private readonly LandAgencyContext _db;
@@ -44,6 +44,7 @@ public class LawyerController : Controller
     }
 
     /// <summary>
+    /// UC-17 «Перевірити обмеження використання ділянки»: черга ділянок на юридичний аудит.
     /// Черга земельних ділянок для юридичного аудиту: очікують перевірки, верифіковані або відхилені.
     /// </summary>
     [HttpGet]
@@ -71,6 +72,7 @@ public class LawyerController : Controller
     }
 
     /// <summary>
+    /// UC-17 «Перевірити обмеження використання ділянки» (include UC-18 «Онлайн-запит витягу з бази ДЗК»).
     /// Детальний перегляд ділянки з автоматичним запитом до ДЗК/ДРРП та аналізом ринкової ціни за сотку.
     /// </summary>
     [HttpGet]
@@ -114,6 +116,7 @@ public class LawyerController : Controller
     }
 
     /// <summary>
+    /// UC-19 «Оформити юридичний звіт щодо ділянки» (extend UC-20 «Скласти акт про виявлені ризики» при відхиленні).
     /// Фіксує юридичний висновок адвоката: погоджує ділянку для публікації або відхиляє з актом ризиків.
     /// При успішному схваленні автоматично запускає автопідбір під активні запити клієнтів.
     /// </summary>
@@ -144,6 +147,8 @@ public class LawyerController : Controller
                 TempData["LawyerError"] = $"Ділянку {plot.CadastralNumber} вже продано за нотаріальною угодою. Повторна зміна статусу юридичного аудиту неможлива.";
                 return RedirectToAction(nameof(Queue));
             }
+
+            await using var transaction = await _db.Database.BeginTransactionAsync();
 
             var dzkExtract = await DzkRegistrySimulator.QueryRegistriesAsync(plot, _cadastralService);
             plot.ChangeStatus(approve ? PlotStatus.VerifiedInCatalog : PlotStatus.RejectedByLawyer);
@@ -230,6 +235,7 @@ public class LawyerController : Controller
             await _db.SaveChangesAsync();
 
             int autoMatchedCount = await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+            await transaction.CommitAsync();
 
             if (approve)
             {
@@ -264,6 +270,7 @@ public class LawyerController : Controller
     }
 
     /// <summary>
+    /// Правова віза проєкту договору: передує UC-05 «Підписати договір у нотаріуса».
     /// Правова віза юриста: погоджує передачу договору нотаріусу або повертає рієлтору на доопрацювання.
     /// </summary>
     [HttpPost]
@@ -307,9 +314,119 @@ public class LawyerController : Controller
     }
 
     /// <summary>
+    /// Відкликає юридичний висновок: ділянка повертається на повторну перевірку, документи втрачають позначку
+    /// верифікації, активні заявки на огляд скасовуються, а збіги із запитами на підбір перераховуються.
+    /// Неможливе, якщо ділянку продано або за нею є активна угода.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeLegalConclusion(int landPlotId)
+    {
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .Include(p => p.LegalConclusion)
+            .FirstOrDefaultAsync(p => p.Id == landPlotId);
+
+        if (plot?.LegalConclusion == null)
+        {
+            return RedirectToAction(nameof(Queue));
+        }
+
+        bool hasActiveDeal = await _db.SaleDeals.AnyAsync(d =>
+            d.LandPlotId == landPlotId && d.Status != DealStatus.Cancelled);
+        if (plot.Status == PlotStatus.Sold || hasActiveDeal)
+        {
+            TempData["LawyerError"] = $"Висновок щодо ділянки {plot.CadastralNumber} відкликати не можна: ділянку продано або за нею є активна угода.";
+            return RedirectToAction(nameof(Queue));
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+
+        _db.LegalConclusions.Remove(plot.LegalConclusion);
+        plot.ChangeStatus(PlotStatus.PendingLegalCheck);
+        foreach (var doc in plot.Documents)
+        {
+            doc.IsVerified = false;
+        }
+
+        var activeViewings = await _db.ViewingRequests
+            .Where(v => v.LandPlotId == landPlotId &&
+                        (v.Status == ViewingStatus.NewRequest || v.Status == ViewingStatus.Scheduled))
+            .ToListAsync();
+        foreach (var viewing in activeViewings)
+        {
+            viewing.CancelViewing("Ділянку знято з публікації: юридичний висновок відкликано.");
+        }
+
+        await _db.SaveChangesAsync();
+        await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+        await transaction.CommitAsync();
+
+        TempData["LawyerMessage"] = $"Юридичний висновок щодо ділянки {plot.CadastralNumber} відкликано. Ділянку повернуто на перевірку.";
+        return RedirectToAction(nameof(Queue));
+    }
+
+    /// <summary>
+    /// UC-21 «Зареєструвати перехід права власності в ДЗК».
+    /// Юрист фіксує державну реєстрацію права за покупцем після нотаріального посвідчення та повного
+    /// підтвердження банківських розрахунків: угода завершується, ділянка стає «Продано», а решта заявок
+    /// на огляд цієї ділянки скасовуються.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RegisterOwnershipTransfer(int dealId)
+    {
+        var currentUser = await GetCurrentLawyerAsync();
+        var deal = await _db.SaleDeals
+            .Include(d => d.LandPlot)
+            .Include(d => d.Payments)
+            .FirstOrDefaultAsync(d => d.Id == dealId);
+
+        if (deal == null)
+        {
+            return RedirectToAction(nameof(Contracts));
+        }
+
+        if (!deal.CanCompleteAtNotary)
+        {
+            TempData["LawyerError"] = $"Реєстрація права за угодою {deal.DraftContractNumber} можлива лише після підписання договору у нотаріуса.";
+            return RedirectToAction(nameof(Contracts));
+        }
+
+        if (!deal.IsFullyPaid)
+        {
+            var unpaidInvoices = string.Join(", ", deal.Payments.Where(p => !p.IsPaid).Select(p => p.InvoiceNumber));
+            TempData["LawyerError"] = $"Реєстрація права неможлива до підтвердження всіх банківських розрахунків (непідтверджені рахунки: {unpaidInvoices}).";
+            return RedirectToAction(nameof(Contracts));
+        }
+
+        if (!deal.RegisterOwnershipRight())
+        {
+            TempData["LawyerError"] = $"Не вдалося зареєструвати право власності за угодою {deal.DraftContractNumber}.";
+            return RedirectToAction(nameof(Contracts));
+        }
+
+        deal.LawyerId ??= currentUser?.Id;
+
+        var pendingViewings = await _db.ViewingRequests
+            .Where(v => v.LandPlotId == deal.LandPlotId &&
+                        v.Status != ViewingStatus.Completed &&
+                        v.Status != ViewingStatus.Cancelled)
+            .ToListAsync();
+        foreach (var viewing in pendingViewings)
+        {
+            viewing.CancelViewing("Ділянку продано: право власності зареєстровано за покупцем.");
+        }
+
+        await _db.SaveChangesAsync();
+        TempData["LawyerMessage"] = $"Право власності за угодою {deal.DraftContractNumber} зареєстровано. Ділянку переведено у статус «Продано».";
+        return RedirectToAction(nameof(Contracts));
+    }
+
+    /// <summary>
     /// Реєстр земельного банку та аудит власників ділянок (з'єднання 4 таблиць: LandPlots, Users, PlotDocuments, LegalConclusions).
     /// </summary>
-    [Authorize(Roles = "Lawyer,Admin")]
+    [Authorize(Roles = AppRoles.Lawyer)]
     [HttpGet]
     public async Task<IActionResult> LandBank(LandBankFilter filter)
     {

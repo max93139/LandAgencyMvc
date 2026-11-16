@@ -51,6 +51,18 @@ public class PlotCreateViewModel
     [Display(Name = "Комерційний опис об'єкта")]
     public string Description { get; set; } = string.Empty;
 
+    [StringLength(LandPlot.MaxSaleConditionsLength, ErrorMessage = "Умови продажу: не більше 500 символів")]
+    [Display(Name = "Умови продажу")]
+    public string SaleConditions { get; set; } = string.Empty;
+
+    [Range(44.0, 53.0, ErrorMessage = "Широта України: від 44 до 53 градусів")]
+    [Display(Name = "Широта (WGS-84)")]
+    public double? Latitude { get; set; }
+
+    [Range(22.0, 41.0, ErrorMessage = "Довгота України: від 22 до 41 градуса")]
+    [Display(Name = "Довгота (WGS-84)")]
+    public double? Longitude { get; set; }
+
     [Display(Name = "Назва первинного документа")]
     public string? DocTitle { get; set; }
 
@@ -68,23 +80,26 @@ public class DocumentEditItem
 {
     public int? Id { get; set; }
 
-    [Required(ErrorMessage = "Вкажіть назву документа")]
     [Display(Name = "Назва")]
-    public string Title { get; set; } = string.Empty;
+    public string? Title { get; set; }
 
     [Required(ErrorMessage = "Вкажіть тип документа")]
     [Display(Name = "Тип")]
     public string DocType { get; set; } = "Витяг з ДЗК";
 
-    [Required(ErrorMessage = "Вкажіть номер документа")]
     [Display(Name = "Номер")]
-    public string DocumentNumber { get; set; } = string.Empty;
+    public string? DocumentNumber { get; set; }
 
     [Display(Name = "Дата видачі")]
     public DateTime IssueDate { get; set; } = DateTime.Today;
 
     [Display(Name = "Вилучити цей документ")]
     public bool Remove { get; set; }
+
+    /// <summary>
+    /// Лише для показу: верифікований юристом документ рієлтор не змінює й не вилучає.
+    /// </summary>
+    public bool IsVerified { get; set; }
 }
 
 /// <summary>
@@ -95,7 +110,11 @@ public class PlotEditViewModel : PlotCreateViewModel
 {
     public int Id { get; set; }
 
+    public Guid Version { get; set; }
+
     public PlotStatus Status { get; set; }
+
+    public bool LegalFactsLocked => Status == PlotStatus.VerifiedInCatalog;
 
     public string StatusDisplayName => Status switch
     {
@@ -108,11 +127,14 @@ public class PlotEditViewModel : PlotCreateViewModel
 
     public List<DocumentEditItem> Documents { get; set; } = new();
 
+    public List<PlotMedia> Media { get; set; } = new();
+
     public static PlotEditViewModel From(LandPlot plot)
     {
         var vm = new PlotEditViewModel
         {
             Id = plot.Id,
+            Version = plot.Version,
             SellerId = plot.SellerId,
             CadastralNumber = plot.CadastralNumber,
             Title = plot.Title,
@@ -123,6 +145,10 @@ public class PlotEditViewModel : PlotCreateViewModel
             OwnershipDocNumber = plot.OwnershipDocNumber,
             SellerBankIban = plot.SellerBankIban,
             Description = plot.Description,
+            SaleConditions = plot.SaleConditions,
+            Latitude = plot.Latitude,
+            Longitude = plot.Longitude,
+            Media = plot.Media.OrderBy(m => m.Id).ToList(),
             Status = plot.Status,
             Documents = plot.Documents.Select(d => new DocumentEditItem
             {
@@ -130,7 +156,8 @@ public class PlotEditViewModel : PlotCreateViewModel
                 Title = d.Title,
                 DocType = d.DocType,
                 DocumentNumber = d.DocumentNumber,
-                IssueDate = d.IssueDate
+                IssueDate = d.IssueDate,
+                IsVerified = d.IsVerified
             }).ToList()
         };
 
@@ -148,23 +175,30 @@ public class PlotEditViewModel : PlotCreateViewModel
 
     public void ApplyTo(LandPlot plot)
     {
-        plot.SellerId = SellerId;
-        plot.CadastralNumber = CadastralNumber.Trim();
+        if (!plot.AreLegalFactsLocked)
+        {
+            plot.SellerId = SellerId;
+            plot.CadastralNumber = CadastralNumber.Trim();
+            plot.AreaHectares = AreaHectares;
+            plot.Purpose = Purpose.Trim();
+            plot.OwnershipDocNumber = OwnershipDocNumber.Trim();
+        }
+
         plot.Title = Title.Trim();
         plot.Location = Location.Trim();
-        plot.AreaHectares = AreaHectares;
-        plot.Purpose = Purpose.Trim();
         plot.PriceUsd = PriceUsd;
-        plot.OwnershipDocNumber = OwnershipDocNumber.Trim();
         plot.SellerBankIban = SellerBankIban.Trim().ToUpperInvariant();
         plot.Description = (Description ?? string.Empty).Trim();
+        plot.UpdateSaleConditions(SaleConditions);
+        plot.Latitude = Latitude;
+        plot.Longitude = Longitude;
 
         foreach (var item in Documents)
         {
             if (item.Id.HasValue && item.Id.Value > 0)
             {
                 var doc = plot.Documents.FirstOrDefault(d => d.Id == item.Id.Value);
-                if (doc != null)
+                if (doc != null && !doc.IsVerified)
                 {
                     if (item.Remove)
                     {
@@ -188,7 +222,7 @@ public class PlotEditViewModel : PlotCreateViewModel
                     DocType = item.DocType.Trim(),
                     DocumentNumber = item.DocumentNumber.Trim(),
                     IssueDate = item.IssueDate,
-                    IsVerified = plot.Status == PlotStatus.VerifiedInCatalog
+                    IsVerified = false
                 };
                 var dummyBytes = System.Text.Encoding.UTF8.GetBytes($"{newDoc.DocType} №{newDoc.DocumentNumber} для ділянки {plot.CadastralNumber}");
                 newDoc.AttachFile(string.Empty, dummyBytes, "application/pdf");
@@ -212,7 +246,7 @@ public class DeletePlotConfirmationViewModel
     public bool CanBeDeletedNonCascade =>
         DealsCount == 0 && DocumentsCount == 0 && ViewingsCount == 0 && !HasLegalConclusion;
 
-    public bool CanBeDeletedCascade => DealsCount == 0 && Plot.Status != PlotStatus.Sold;
+    public bool CanBeDeletedCascade => DealsCount == 0 && Plot.CanBeDeleted;
 }
 
 /// <summary>
@@ -221,6 +255,8 @@ public class DeletePlotConfirmationViewModel
 public class DealEditViewModel
 {
     public int Id { get; set; }
+
+    public Guid Version { get; set; }
 
     [Display(Name = "Номер чернетки")]
     public string DraftContractNumber { get; set; } = string.Empty;

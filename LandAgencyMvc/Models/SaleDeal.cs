@@ -9,7 +9,7 @@ namespace LandAgencyMvc.Models;
 /// 2) Правова експертиза юристом (ApprovedByLawyerForNotary / ReturnedForRevision)
 /// 3) Нотаріальне посвідчення та держреєстрація в ДРРП (SignedAtNotary -> CompletedAtNotary).
 /// </summary>
-public class SaleDeal
+public class SaleDeal : IVersioned
 {
     public int Id { get; set; }
 
@@ -55,6 +55,8 @@ public class SaleDeal
     public string LawyerApprovalNotes { get; set; } = string.Empty;
 
     public DealStatus Status { get; set; } = DealStatus.DraftPreparedByRealtor;
+
+    public Guid Version { get; set; } = Guid.NewGuid();
 
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 
@@ -165,6 +167,7 @@ public class SaleDeal
     }
 
     /// <summary>
+    /// UC-15 «Автоматичний розрахунок комісії агентства».
     /// Розраховує суму комісійної винагороди агентства нерухомості.
     /// </summary>
     public void CalculateCommission(double ratePercent = 3.0)

@@ -31,27 +31,48 @@ public class AccountController : Controller
                 return Redirect(returnUrl);
             }
 
-            if (User.IsInRole(nameof(UserRole.Realtor)) || User.IsInRole("Admin"))
-            {
-                return RedirectToAction("Requests", "Realtor");
-            }
-
-            if (User.IsInRole(nameof(UserRole.Lawyer)))
-            {
-                return RedirectToAction("Queue", "Lawyer");
-            }
-
-            return RedirectToAction("Cabinet", "Client");
+            return RedirectToWorkspace(GetSignedInRole());
         }
 
         ViewData["ReturnUrl"] = returnUrl;
         return View();
     }
 
+    /// <summary>
+    /// UC-16 «Службова авторизація співробітника»: окрема сторінка входу для рієлторів і юристів.
+    /// </summary>
+    [HttpGet]
+    public IActionResult StaffLogin(string? returnUrl = null)
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToWorkspace(GetSignedInRole());
+        }
+
+        ViewData["ReturnUrl"] = returnUrl;
+        return View();
+    }
+
+    /// <summary>
+    /// UC-07 «Реєстрація та авторизація клієнта»: вхід для покупців і продавців.
+    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(string email, string password, string? returnUrl = null)
+    public Task<IActionResult> Login(string email, string password, string? returnUrl = null) =>
+        SignInAsync(email, password, returnUrl, staffEntrance: false);
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> StaffLogin(string email, string password, string? returnUrl = null) =>
+        SignInAsync(email, password, returnUrl, staffEntrance: true);
+
+    /// <summary>
+    /// Перевіряє пароль і спрямовує користувача до робочого місця. Клієнтський і службовий входи розділені:
+    /// обліковий запис іншого типу отримує підказку, куди заходити, але лише після успішної перевірки пароля.
+    /// </summary>
+    private async Task<IActionResult> SignInAsync(string email, string password, string? returnUrl, bool staffEntrance)
     {
+        var loginAction = staffEntrance ? nameof(StaffLogin) : nameof(Login);
         var normalizedEmail = (email ?? string.Empty).Trim().ToLower();
         var normalizedPassword = (password ?? string.Empty).Trim();
 
@@ -61,13 +82,22 @@ public class AccountController : Controller
         if (user == null || !user.Authenticate(normalizedPassword))
         {
             TempData["LoginError"] = "Невірна електронна пошта або пароль.";
-            return RedirectToAction(nameof(Login), new { returnUrl });
+            return RedirectToAction(loginAction, new { returnUrl });
         }
 
         if (!user.IsActive)
         {
-            TempData["LoginError"] = "Обліковий запис заблоковано адміністратором.";
-            return RedirectToAction(nameof(Login), new { returnUrl });
+            TempData["LoginError"] = "Обліковий запис заблоковано.";
+            return RedirectToAction(loginAction, new { returnUrl });
+        }
+
+        bool isStaff = user.Role is UserRole.Realtor or UserRole.Lawyer;
+        if (isStaff != staffEntrance)
+        {
+            TempData["LoginError"] = staffEntrance
+                ? "Це службовий вхід. Покупці та продавці входять через сторінку входу для клієнтів."
+                : "Співробітники агентства входять через службовий вхід.";
+            return RedirectToAction(isStaff ? nameof(StaffLogin) : nameof(Login), new { returnUrl });
         }
 
         await _db.SaveChangesAsync();
@@ -78,38 +108,36 @@ public class AccountController : Controller
             return Redirect(returnUrl);
         }
 
-        return user.Role switch
-        {
-            UserRole.Realtor => RedirectToAction("Requests", "Realtor"),
-            UserRole.Lawyer => RedirectToAction("Queue", "Lawyer"),
-            _ => RedirectToAction("Cabinet", "Client")
-        };
+        return RedirectToWorkspace(user.Role);
     }
 
+    /// <summary>
+    /// UC-07 «Реєстрація та авторизація клієнта»: реєстрація покупця або продавця.
+    /// </summary>
     [HttpGet]
     public IActionResult Register()
     {
         if (User.Identity?.IsAuthenticated == true)
         {
-            if (User.IsInRole(nameof(UserRole.Realtor)) || User.IsInRole("Admin"))
-            {
-                return RedirectToAction("Requests", "Realtor");
-            }
-
-            if (User.IsInRole(nameof(UserRole.Lawyer)))
-            {
-                return RedirectToAction("Queue", "Lawyer");
-            }
-
-            return RedirectToAction("Cabinet", "Client");
+            return RedirectToWorkspace(GetSignedInRole());
         }
 
         return View();
     }
 
+    /// <summary>
+    /// UC-07 «Реєстрація та авторизація клієнта»: реєстрація покупця або продавця.
+    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Register(string fullName, string email, string phone, string password, string? taxId = null, string? bankDetails = null)
+    public async Task<IActionResult> Register(
+        string fullName,
+        string email,
+        string phone,
+        string password,
+        UserRole accountType = UserRole.Buyer,
+        string? taxId = null,
+        string? bankDetails = null)
     {
         var cleanFullName = (fullName ?? string.Empty).Trim();
         var cleanEmail = (email ?? string.Empty).Trim();
@@ -118,6 +146,12 @@ public class AccountController : Controller
         if (string.IsNullOrWhiteSpace(cleanFullName) || string.IsNullOrWhiteSpace(cleanEmail) || string.IsNullOrWhiteSpace(password))
         {
             TempData["RegisterError"] = "Заповніть обов'язкові поля ПІБ, електронної пошти та пароля.";
+            return RedirectToAction(nameof(Register));
+        }
+
+        if (!AppRoles.ClientRoles.Contains(accountType))
+        {
+            TempData["RegisterError"] = "Зареєструватися можна лише як Покупець або Продавець. Службові ролі створює агентство.";
             return RedirectToAction(nameof(Register));
         }
 
@@ -135,7 +169,7 @@ public class AccountController : Controller
             Phone = (phone ?? string.Empty).Trim(),
             TaxId = (taxId ?? string.Empty).Trim(),
             BankDetails = (bankDetails ?? string.Empty).Trim(),
-            Role = UserRole.Client
+            Role = accountType
         };
         user.SetPassword(password);
 
@@ -147,6 +181,19 @@ public class AccountController : Controller
         TempData["CabinetMessage"] = "Обліковий запис клієнта успішно створено. Ласкаво просимо до LandAgency UA!";
         return RedirectToAction("Cabinet", "Client");
     }
+
+    /// <summary>
+    /// Робоче місце, на яке потрапляє користувач після входу: рієлтор, юрист або особистий кабінет клієнта.
+    /// </summary>
+    private IActionResult RedirectToWorkspace(UserRole role) => role switch
+    {
+        UserRole.Realtor => RedirectToAction("Requests", "Realtor"),
+        UserRole.Lawyer => RedirectToAction("Queue", "Lawyer"),
+        _ => RedirectToAction("Cabinet", "Client")
+    };
+
+    private UserRole GetSignedInRole() =>
+        Enum.TryParse<UserRole>(User.FindFirstValue(ClaimTypes.Role), out var role) ? role : UserRole.Buyer;
 
     private async Task SignInUserAsync(AppUser user)
     {

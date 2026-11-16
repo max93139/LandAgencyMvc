@@ -16,6 +16,9 @@ public class AutoMatchingService : IAutoMatchingService
         _db = db;
     }
 
+    /// <summary>
+    /// UC-02 «Автоматичний підбір ділянок за критеріями»: збіги для одного запиту.
+    /// </summary>
     public async Task<int> MatchRequestAsync(int requestId)
     {
         var request = await _db.SelectionRequests
@@ -37,6 +40,9 @@ public class AutoMatchingService : IAutoMatchingService
         return matches.Count;
     }
 
+    /// <summary>
+    /// UC-02 «Автоматичний підбір ділянок за критеріями»: оновлення збігів після зміни ділянки.
+    /// </summary>
     public async Task<int> MatchNewOrUpdatedPlotAsync(int plotId)
     {
         var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId);
@@ -73,6 +79,9 @@ public class AutoMatchingService : IAutoMatchingService
         return matchedRequestsCount;
     }
 
+    /// <summary>
+    /// UC-02 «Автоматичний підбір ділянок за критеріями»: перерахунок усіх запитів.
+    /// </summary>
     public async Task<int> MatchAllActiveRequestsAsync()
     {
         var activeRequests = await _db.SelectionRequests

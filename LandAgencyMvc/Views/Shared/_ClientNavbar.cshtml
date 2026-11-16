@@ -4,12 +4,20 @@
     var currentUser = (Model as LandAgencyMvc.Models.CabinetViewModel)?.CurrentUser;
     var displayName = currentUser?.FullName ?? (User.Identity?.IsAuthenticated == true ? User.Identity.Name : null);
     var isAuthenticated = User.Identity?.IsAuthenticated == true || currentUser != null;
+    var isSeller = User.IsInRole(AppRoles.Seller);
 }
 
 <div class="la-topbar la-topbar-client">
     <div class="la-nav-links">
         <strong class="la-brand">LandAgency UA</strong>
-        @if (isDetails)
+        @if (isSeller)
+        {
+            @if (isDetails)
+            {
+                <a class="active" asp-controller="Client" asp-action="Cabinet">← Назад до кабінету</a>
+            }
+        }
+        else if (isDetails)
         {
             <a class="active" asp-controller="Client" asp-action="Catalog">← Назад до каталогу</a>
         }
@@ -21,7 +29,10 @@
         <a class="la-nav-item" asp-controller="Home" asp-action="Contacts">Контакти</a>
     </div>
     <div class="la-topbar-user">
-        <a class="la-btn la-btn-green la-btn-sm" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
+        @if (isSeller)
+        {
+            <a class="la-btn la-btn-green la-btn-sm" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку</a>
+        }
         @if (isAuthenticated && !string.IsNullOrEmpty(displayName))
         {
             <span>@displayName</span>

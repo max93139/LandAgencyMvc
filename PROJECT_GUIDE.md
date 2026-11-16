@@ -1,235 +1,222 @@
-# Повний посібник із проєкту «Земельне Агентство» (LandAgencyMvc)
+# Посібник із проєкту «Земельне агентство» (LandAgencyMvc)
 
-Цей документ містить вичерпний опис архітектури, структури файлів, бізнес-логіки та практичні інструкції з редагування коду вебзастосунку **LandAgencyMvc**.
+Структура проєкту, карта прецедентів із діаграми ЛР1, матриця CRUD, реалізація ACID та підготовка до захисту.
+Таблиці з посиланнями на код генеруються скриптом `tools/use_case_map.py`, тому номери рядків завжди актуальні.
 
----
+## 1. Огляд
 
-## 1. Загальний огляд проєкту
+**LandAgencyMvc** — інформаційна система земельного агентства: ASP.NET Core MVC на .NET 10, Entity Framework Core (Code First), SQLite.
+Ролі збігаються з діаграмою прецедентів ЛР1: чотири актори-люди й три зовнішні системи, які в проєкті емулюються.
 
-**LandAgencyMvc** — це інформаційна система автоматизації діяльності земельного агентства нерухомості, побудована на платформі **ASP.NET Core MVC** (.NET 10 / C#) з використанням **Entity Framework Core** та локальної реляційної бази даних **SQLite**.
+| Роль | Що робить |
+|---|---|
+| **Покупець** (`Buyer`) | Шукає ділянки в каталозі, подає запити на підбір, замовляє й переносить огляди, оплачує рахунки, підписує договір у нотаріуса |
+| **Продавець** (`Seller`) | Виставляє ділянки, задає ціну й умови продажу, завантажує правовстановлюючі документи |
+| **Рієлтор** (`Realtor`) | Складає опис ділянки (координати, фото, відео), організовує огляди, готує угоди й підтверджує оплати |
+| **Юрист** (`Lawyer`) | Перевіряє ділянки в ДЗК/ДРРП, видає висновки й акти ризиків, візує договори, реєструє перехід права власності |
 
-### Ключові можливості системи:
-1. **Багаторольова модель доступу**:
-   - **Клієнт (Client)**: реєстрація, додавання власних земельних ділянок на продаж, пошук та фільтрація в каталозі перевірених ділянок, створення заявок на підбір, запис на перегляди, проведення оплат за договором.
-   - **Рієлтор (Realtor)**: обробка заявок на підбір ділянок, планування переглядів, створення чернеток договорів купівлі-продажу, розрахунок комісії (за замовчуванням 3%), взаємодія з нотаріусом, друк договору.
-   - **Юрист (Lawyer)**: юридичний аудит ділянок (перевірка через симулятор ДЗК / ДРРП на арешти, сервітути, межі), формування висновків/актів ризиків, погодження проєктів договорів перед нотаріальним посвідченням.
-2. **Інтегрований симулятор ДЗК та ДРРП (`DzkRegistrySimulator`)**:
-   - Автоматична перевірка коректності кадастрового номера згідно зі стандартом України (`^\d{10}:\d{2}:\d{3}:\d{4}$`).
-   - Симуляція витягу з Державного земельного кадастру (ДЗК) та Державного реєстру речових прав на нерухоме майно (ДРРП).
-   - Автоматичний розрахунок нормативної грошової оцінку (НГО) за категоріями цільового призначення.
-   - Виявлення штучних факторів ризику (арешти, іпотеки, сервітути, накладки меж).
-3. **Фінансовий модуль та угоди (`SaleDeal`, `Payment`)**:
-   - Повний життєвий цикл угоди: від чернетки рієлтора до погодження юристом, посвідчення нотаріусом та реєстрації права власності.
-   - Автоматичне генерування платіжних доручень з реквізитами у форматі IBAN.
-   - Генерація друкованих форм договорів та квитанцій про оплату.
+Зовнішні системи з діаграми: **ДЗК/ДРРП** — `DzkRegistrySimulator`; **Банківська система** — IBAN і підтвердження платежу рієлтором;
+**Сервіс підбору** — `AutoMatchingService`. Це емуляція в межах лабораторної роботи.
 
----
+### Тестові акаунти
 
-## 2. Архітектура та принцип роботи (ASP.NET Core MVC)
+Адміністратора немає: роль `Admin` у проєкті не існує.
 
-Застосунок реалізовано за класичним архітектурним патерном **Model-View-Controller (MVC)**:
+| Роль | Вхід | Email | Пароль |
+|---|---|---|---|
+| Рієлтор | Службовий (`/Account/StaffLogin`) | `realtor@landagency.ua`, `realtor2@landagency.ua` | `realtor123` |
+| Юрист | Службовий | `lawyer@landagency.ua`, `lawyer2@landagency.ua` | `lawyer123` |
+| Продавець | Клієнтський (`/Account/Login`) | `seller@landagency.ua`, `seller2@…`, `seller3@…`, `seller4@…` | `client123` |
+| Покупець | Клієнтський | `buyer@landagency.ua`, `buyer2@…` … `buyer5@…` | `client123` |
+
+## 2. Архітектура та життєвий цикл запиту
 
 ```
-[ Браузер користувача (HTTP Request) ]
-                 │
-                 ▼
-       [ Program.cs (Routing & Middleware) ]
-                 │
-                 ▼
-      [ Controllers (Контролери) ]
-       ├── AccountController (Аутентифікація)
-       ├── ClientController  (Каталог, кабінет клієнта)
-       ├── RealtorController (Заявки, перегляди, угоди)
-       └── LawyerController  (Черга перевірки, договори)
-                 │
-                 ├──► Взаємодія з базою даних через [ LandAgencyContext ]
-                 │    та моделі даних [ Models ] (Entity Framework Core)
-                 │    └── Файл SQLite: landagency.db
-                 │
-                 ▼
-      [ Views (.cshtml) (Представлення) ]
-       └── Генерація HTML на стороні сервера з даними з моделей
-                 │
-                 ▼
-[ Браузер користувача (Згенерований HTML / CSS / JS) ]
+Браузер → Program.cs (маршрутизація, автентифікація, фільтри)
+        → Контролер (Controllers/…, [Authorize(Roles = AppRoles.…)])
+        → LandAgencyContext (EF Core) + сервіси (Services/…) + доменні методи сутностей (Models/…)
+        → Razor-вид (Views/…) → HTML
 ```
 
-### Життєвий цикл запиту:
-1. **Вхідний запит**: Користувач звертається за певною URL-адресою (наприклад, `/Client/Catalog` або `/Realtor/Requests`).
-2. **Маршрутизація (`Program.cs`)**: Фреймворк ASP.NET Core зіставляє URL з відповідним Контролером та Action-методом.
-3. **Ідентифікація користувача**: Контролери використовують криптографічно захищену аутентифікаційну сесію ASP.NET Core Cookie Authentication (`LandAgency.Auth`) та отримують `ClaimTypes.NameIdentifier` і `ClaimTypes.Role` із `HttpContext.User`.
-4. **Обробка логіки (Controller)**:
-   - Контролер звертається до `LandAgencyContext` та DI-сервісів (`ICadastralValidationService`, `IAutoMatchingService`).
-   - Отримує або змінює дані в моделях (`LandPlot`, `SaleDeal`, `ViewingRequest` тощо).
-   - Зберігає зміни через `await _db.SaveChangesAsync()`.
-5. **Генерація відповіді (View)**:
-   - Контролер передає підготовлені дані через суворо типізовану модель або ViewModel (без використання `ViewBag`) у файл представлення Razor (`.cshtml`).
-   - Razor генерує фінальний HTML, який повертається браузеру клієнта.
+1. `Program.cs` налаштовує cookie-автентифікацію (`LandAgency.Auth`), DI, SQLite, фільтр помилок БД та перехоплювач довговічності.
+2. Атрибут `[Authorize(Roles = AppRoles.Buyer)]` та подібні розмежовують доступ; імена ролей зібрано в `Models/AppRoles.cs`.
+3. Бізнес-правила живуть у сутностях (`SaleDeal.SignByParties`, `ViewingRequest.Reschedule` тощо), а контролер лише викликає їх і зберігає.
+4. Неавторизований перехід на `/Realtor/...` або `/Lawyer/...` веде на службовий вхід, решта — на клієнтський (`Program.cs`, `OnRedirectToLogin`).
 
----
-
-## 3. Структура файлів та каталогів
+## 3. Структура файлів
 
 ```
 LandAgencyMvc/
-├── LandAgencyMvc.sln                 # Файл рішення для Visual Studio / Rider
-└── LandAgencyMvc/                    # Основний проєкт застосунку
-    ├── Program.cs                    # Точка входу, конфігурація DI, middleware, ініціалізація БД
-    ├── LandAgencyMvc.csproj          # Файл конфігурації проєкту .NET та NuGet-пакетів
-    ├── appsettings.json              # Загальні налаштування застосунку
-    ├── appsettings.Development.json  # Налаштування для середовища розробки
-    ├── landagency.db                 # Файл бази даних SQLite
-    │
-    ├── Models/                       # Доменні сутності, моделі БД та ViewModels
-    │   ├── Enums.cs                  # Переліки: UserRole, PlotStatus, ViewingStatus, DealStatus, PaymentStatus
-    │   ├── AppUser.cs                # Сутність користувача (Клієнт, Рієлтор, Юрист)
-    │   ├── LandPlot.cs               # Земельна ділянка (кадастровий номер, площа, ціна, статус, URL-посилання, StandardPurposes)
-    │   ├── PlotDocument.cs           # Документи ділянки (SHA-256 хеш, КЕП/ЕЦП, розмір)
-    │   ├── SelectionRequest.cs       # Заявка клієнта на підбір земельної ділянки та доменні правила підбору
-    │   ├── ViewingRequest.cs         # Заявка на виїзд та перегляд ділянки
-    │   ├── LegalConclusion.cs        # Юридичний висновок / акт ризиків юриста
-    │   ├── SaleDeal.cs               # Угода купівлі-продажу, статус, комісія, нотаріус
-    │   ├── Payment.cs                # Платіж (вартість ділянки, комісія агентства, IBAN)
-    │   ├── DzkRegistrySimulator.cs   # Симулятор перевірки в реєстрах ДЗК та ДРРП (включає DzkRegistryExtract)
-    │   ├── LandAgencyContext.cs      # Контекст Entity Framework Core (DbContext)
-    │   ├── CabinetViewModel.cs       # Типізовані ViewModels (CabinetViewModel, CatalogViewModel, RealtorDealsViewModel, LawyerQueueViewModel, LawyerConclusionViewModel)
-    │   ├── RealtorRequestsViewModel.cs # Модель даних для сторінки заявок рієлтора
-    │   └── ErrorViewModel.cs         # Модель для відображення системних помилок
-    │
-    ├── Services/                     # Прикладні сервіси бізнес-логіки (Dependency Injection)
-    │   ├── AutoMatchingService.cs    # Автоматичний підбір ділянок під критерії клієнтів
-    │   └── CadastralValidationService.cs # Перевірка КОАТУУ, НГО, ДЗК/ДРРП та цінових аномалій
-    │
-    ├── Controllers/                  # Контролери обробки HTTP-запитів
-    │   ├── AccountController.cs      # Вхід (Login), реєстрація (Register), вихід (Logout)
-    │   ├── ClientController.cs       # Каталог, кабінет, додавання ділянки, перегляди, заявка на купівлю, оплата
-    │   ├── RealtorController.cs      # Заявки на підбір, перегляди, оформлення угод, нотаріус
-    │   ├── LawyerController.cs       # Черга експертизи ділянок, висновки ДЗК, погодження угод
-    │   └── HomeController.cs         # Головна сторінка, редиректи, обробка помилок
-    │
-    ├── Views/                        # Чисті Razor-представлення (суворо без бізнес-логіки, без ViewBag та без inline-стилів)
-    │   ├── Account/                  # Сторінки авторизації та реєстрації (Login, Register, AccessDenied)
-    │   ├── Client/                   # Інтерфейс клієнта (Catalog, Cabinet, CreatePlot, Details, Receipt)
-    │   ├── Realtor/                  # Інтерфейс рієлтора (Requests, Viewings, Deals, PrintContract)
-    │   ├── Lawyer/                   # Інтерфейс юриста (Queue, Conclusion, Contracts)
-    │   ├── Shared/                   # Спільні компоненти (_Layout, _PlotCard, _DzkLinks, _AlertMessages, рольові навбари)
-    │   ├── _ViewImports.cshtml       # Глобальні using-директиви для Razor
-    │   └── _ViewStart.cshtml         # Налаштування базового шаблону за замовчуванням
-    │
-    └── wwwroot/                      # Статичні ресурси клієнтської частини
-        ├── css/                      # Єдина таблиця стилів (site.css) з атомарними UI-класами
-        ├── js/                       # Клієнтські JavaScript-скрипти
-        └── lib/                      # Бібліотеки (Bootstrap, jQuery)
+├── Program.cs                      DI, автентифікація, фільтр помилок БД, SQLite із синхронізацією FULL
+├── landagency_seed.sql             Схема й початкові дані (13 користувачів, 20 ділянок (5 опублікованих), 19 висновків, 14 угод)
+├── Controllers/
+│   ├── AccountController.cs        UC-07 клієнтський вхід і реєстрація, UC-16 службовий вхід
+│   ├── ClientController*.cs        Покупець і продавець (partial-файли за темами)
+│   │   ├── .Catalog.cs             Каталог, запити на підбір, картка ділянки
+│   │   ├── .Viewings.cs            Огляди: замовити, скасувати, перенести
+│   │   ├── .Deals.cs               Заявка на купівлю, оплата, підпис у нотаріуса, квитанція
+│   │   ├── .SellerPlots.cs         Ділянки продавця: створити, змінити, вилучити, документи
+│   │   └── .Cabinet.cs             Особистий кабінет і профіль
+│   ├── RealtorController*.cs       Рієлтор (partial-файли за темами)
+│   │   ├── .Requests.cs            Запити на підбір
+│   │   ├── .Viewings.cs            Огляди
+│   │   ├── .Plots.cs               Ділянки: координати, фото, відео, документи, вилучення
+│   │   ├── .Deals.cs               Угоди, рахунки, оплати, договір
+│   │   ├── .Clients.cs             CRM клієнтів
+│   │   └── .Analytics.cs           Фінансова аналітика
+│   ├── LawyerController.cs         Перевірка ділянок, висновки, договори, реєстрація права
+│   └── QueriesController.cs        Переспрямування старих посилань
+├── Models/                         Сутності, перелічення, форми, симулятор ДЗК
+├── Services/                       AutoMatchingService, CadastralValidationService, LandAgencyQueries,
+│                                   PlotMediaStorage, PlotRemovalService
+├── Filters/DatabaseExceptionFilter.cs   Зрозумілі повідомлення про конфлікти й порушення цілісності
+├── Data/SqliteDurabilityInterceptor.cs  PRAGMA synchronous = FULL на кожному з'єднанні
+├── Views/                          Razor-види (Account, Client, Realtor, Lawyer, Shared)
+└── wwwroot/                        Стилі (site.css), скрипти, завантажені файли (uploads)
 ```
 
----
+## 4. Карта прецедентів
 
-## 4. Детальний опис моделей даних (`Models/`)
+Нумерація йде по діаграмі ЛР1 зверху вниз і зліва направо. Кожна дія в коді має в XML-документації рядок `UC-nn`,
+тому прецедент знаходиться пошуком по `UC-05` у всьому проєкті.
 
-### 1. `Enums.cs` — Ключові стани системи:
-- **`UserRole`**:
-  - `Client` — звичайний користувач (покупець або продавець).
-  - `Realtor` — сертифікований рієлтор агентства.
-  - `Lawyer` — юрист агентства із земельними правами.
-- **`PlotStatus`**:
-  - `PendingLegalCheck` — додано клієнтом, очікує перевірки юристом у реєстрах ДЗК/ДРРП.
-  - `VerifiedInCatalog` — схвалено юристом, опубліковано у відкритому каталозі.
-  - `RejectedByLawyer` — виявлено арешти/обтяження, сформовано акт ризиків, відхилено.
-  - `Sold` — право власності переоформлено, ділянку продано.
-- **`ViewingStatus`**:
-  - `NewRequest` -> `Scheduled` -> `Completed` -> `PlotRejectedByBuyer` / `Cancelled`.
-- **`DealStatus`**:
-  - `DraftPreparedByRealtor` (Рієлтор сформував чернетку).
-  - `ReturnedForRevision` (Юрист повернув договір на доопрацювання).
-  - `ApprovedByLawyerForNotary` (Юрист погодив договір до нотаріуса).
-  - `SignedAtNotary` (Посвідчено нотаріусом).
-  - `CompletedAtNotary` (Договір зареєстровано в ДРРП, угоду закрито).
-  - `Cancelled` (Угоду скасовано).
+<!-- use-case-map:start -->
+| № | Прецедент | Актор | Зв'язок | Дії (контролер, сервіс) | Види | Модель, домен |
+|---|---|---|---|---|---|---|
+| **UC-01** | Подати запит на підбір ділянки | Покупець | include UC-02 | [`SubmitSelectionRequest`](LandAgencyMvc/Controllers/ClientController.Catalog.cs#L137) | [Catalog.cshtml](LandAgencyMvc/Views/Client/Catalog.cshtml) | [`MatchPlots`](LandAgencyMvc/Models/SelectionRequest.cs#L70) |
+| **UC-02** | Автоматичний підбір ділянок за критеріями | Система автоматизації | включається в UC-01 | [`MatchRequestAsync`](LandAgencyMvc/Services/AutoMatchingService.cs#L22)<br>[`MatchNewOrUpdatedPlotAsync`](LandAgencyMvc/Services/AutoMatchingService.cs#L46) | — | [`MatchPlots`](LandAgencyMvc/Models/SelectionRequest.cs#L70) |
+| **UC-03** | Замовити виїзний огляд ділянки | Покупець | — | [`CreateViewing`](LandAgencyMvc/Controllers/ClientController.Viewings.cs#L17) | [Details.cshtml](LandAgencyMvc/Views/Client/Details.cshtml) | [`ConfirmViewing`](LandAgencyMvc/Models/ViewingRequest.cs#L112) |
+| **UC-04** | Перенести дату огляду | Покупець | extend UC-03 | [`RescheduleViewingByClient`](LandAgencyMvc/Controllers/ClientController.Viewings.cs#L92) | [_BuyerCabinet.cshtml](LandAgencyMvc/Views/Client/_BuyerCabinet.cshtml) | [`Reschedule`](LandAgencyMvc/Models/ViewingRequest.cs#L97) |
+| **UC-05** | Підписати договір купівлі-продажу у нотаріуса | Покупець | include UC-06 | [`SignContractAtNotary`](LandAgencyMvc/Controllers/ClientController.Deals.cs#L181) | [_BuyerCabinet.cshtml](LandAgencyMvc/Views/Client/_BuyerCabinet.cshtml) | [`SignByParties`](LandAgencyMvc/Models/SaleDeal.cs#L228) |
+| **UC-06** | Здійснити оплату / завдаток через банк | Покупець, Банківська система | включається в UC-05 | [`SubmitPayment`](LandAgencyMvc/Controllers/ClientController.Deals.cs#L96)<br>[`VerifyClientPayment`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L200) | [_BuyerCabinet.cshtml](LandAgencyMvc/Views/Client/_BuyerCabinet.cshtml)<br>[Deals.cshtml](LandAgencyMvc/Views/Realtor/Deals.cshtml) | [`SubmitPayment`](LandAgencyMvc/Models/Payment.cs#L103)<br>[`VerifyPayment`](LandAgencyMvc/Models/Payment.cs#L125) |
+| **UC-07** | Реєстрація та авторизація клієнта | Покупець, Продавець | — | [`Register`](LandAgencyMvc/Controllers/AccountController.cs#L118) / [`Register`](LandAgencyMvc/Controllers/AccountController.cs#L133)<br>[`Login`](LandAgencyMvc/Controllers/AccountController.cs#L25) / [`Login`](LandAgencyMvc/Controllers/AccountController.cs#L61) | [Register.cshtml](LandAgencyMvc/Views/Account/Register.cshtml)<br>[Login.cshtml](LandAgencyMvc/Views/Account/Login.cshtml) | [`Authenticate`](LandAgencyMvc/Models/AppUser.cs#L84) |
+| **UC-08** | Зареєструвати ділянку на продаж | Продавець | include UC-09 | [`CreatePlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L14) / [`CreatePlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L37) | [CreatePlot.cshtml](LandAgencyMvc/Views/Client/CreatePlot.cshtml) | [`ValidateCadastralFormat`](LandAgencyMvc/Models/LandPlot.cs#L212) |
+| **UC-09** | Перевірити кадастровий номер та реєстрацію в ДЗК | Державний земельний кадастр | включається в UC-08 | [`ValidateKoatuuFormat`](LandAgencyMvc/Services/CadastralValidationService.cs#L54) | — | [`QueryRegistriesAsync`](LandAgencyMvc/Models/DzkRegistrySimulator.cs#L17) |
+| **UC-10** | Встановити ціну та умови продажу | Продавець | — | [`UpdatePlotTerms`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L171)<br>[`EditOwnPlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L228) / [`EditOwnPlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L254) | [_SellerCabinet.cshtml](LandAgencyMvc/Views/Client/_SellerCabinet.cshtml)<br>[EditOwnPlot.cshtml](LandAgencyMvc/Views/Client/EditOwnPlot.cshtml) | [`UpdateSaleConditions`](LandAgencyMvc/Models/LandPlot.cs#L188) |
+| **UC-11** | Завантажити правовстановлюючі документи | Продавець | — | [`AddPlotDocument`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L343) | [_SellerCabinet.cshtml](LandAgencyMvc/Views/Client/_SellerCabinet.cshtml) | [`AttachFile`](LandAgencyMvc/Models/PlotDocument.cs#L85) |
+| **UC-12** | Скласти опис ділянки з фото, відео та координатами | Рієлтор | — | [`EditPlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L232) / [`EditPlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L266)<br>[`AddPlotMedia`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L328) | [EditPlot.cshtml](LandAgencyMvc/Views/Realtor/EditPlot.cshtml)<br>[_PlotMediaManager.cshtml](LandAgencyMvc/Views/Shared/_PlotMediaManager.cshtml) | [`PlotMedia`](LandAgencyMvc/Models/PlotMedia.cs#L14)<br>[`SaveAsync`](LandAgencyMvc/Services/PlotMediaStorage.cs#L36) |
+| **UC-13** | Організувати виїзд та показ ділянки на місці | Рієлтор | — | [`Viewings`](LandAgencyMvc/Controllers/RealtorController.Viewings.cs#L16)<br>[`UpdateViewingStatus`](LandAgencyMvc/Controllers/RealtorController.Viewings.cs#L36) | [Viewings.cshtml](LandAgencyMvc/Views/Realtor/Viewings.cshtml) | [`CompleteViewing`](LandAgencyMvc/Models/ViewingRequest.cs#L127) |
+| **UC-14** | Підготувати пакет документів для нотаріуса | Рієлтор | include UC-15 | [`CreateDeal`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L63)<br>[`PrintContract`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L321) | [Deals.cshtml](LandAgencyMvc/Views/Realtor/Deals.cshtml)<br>[PrintContract.cshtml](LandAgencyMvc/Views/Realtor/PrintContract.cshtml) | [`PrepareContractDraft`](LandAgencyMvc/Models/SaleDeal.cs#L161) |
+| **UC-15** | Автоматичний розрахунок комісії агентства | Система | включається в UC-14 | — | — | [`CalculateCommission`](LandAgencyMvc/Models/SaleDeal.cs#L173) |
+| **UC-16** | Службова авторизація співробітника | Рієлтор, Юрист | — | [`StaffLogin`](LandAgencyMvc/Controllers/AccountController.cs#L45) / [`StaffLogin`](LandAgencyMvc/Controllers/AccountController.cs#L66) | [StaffLogin.cshtml](LandAgencyMvc/Views/Account/StaffLogin.cshtml) | [`OnRedirectToLogin`](LandAgencyMvc/Program.cs#L40) |
+| **UC-17** | Перевірити обмеження використання ділянки | Юрист | include UC-18 | [`Queue`](LandAgencyMvc/Controllers/LawyerController.cs#L51)<br>[`Conclusion`](LandAgencyMvc/Controllers/LawyerController.cs#L79) | [Queue.cshtml](LandAgencyMvc/Views/Lawyer/Queue.cshtml)<br>[Conclusion.cshtml](LandAgencyMvc/Views/Lawyer/Conclusion.cshtml) | [`AnalyzePricePerSotkaAsync`](LandAgencyMvc/Services/CadastralValidationService.cs#L103) |
+| **UC-18** | Онлайн-запит витягу з бази ДЗК | Державний земельний кадастр | включається в UC-17 | — | — | [`QueryRegistriesAsync`](LandAgencyMvc/Models/DzkRegistrySimulator.cs#L17) |
+| **UC-19** | Оформити юридичний звіт щодо ділянки | Юрист | extend UC-20 | [`SubmitLegalConclusion`](LandAgencyMvc/Controllers/LawyerController.cs#L125)<br>[`RevokeLegalConclusion`](LandAgencyMvc/Controllers/LawyerController.cs#L323) | [Conclusion.cshtml](LandAgencyMvc/Views/Lawyer/Conclusion.cshtml) | [`Approve`](LandAgencyMvc/Models/LegalConclusion.cs#L41) |
+| **UC-20** | Скласти акт про виявлені ризики | Юрист | розширює UC-19 | [`SubmitLegalConclusion`](LandAgencyMvc/Controllers/LawyerController.cs#L125) | [Conclusion.cshtml](LandAgencyMvc/Views/Lawyer/Conclusion.cshtml) | [`Reject`](LandAgencyMvc/Models/LegalConclusion.cs#L55) |
+| **UC-21** | Зареєструвати перехід права власності в ДЗК | Юрист | — | [`RegisterOwnershipTransfer`](LandAgencyMvc/Controllers/LawyerController.cs#L377) | [Contracts.cshtml](LandAgencyMvc/Views/Lawyer/Contracts.cshtml) | [`RegisterOwnershipRight`](LandAgencyMvc/Models/SaleDeal.cs#L244) |
+<!-- use-case-map:end -->
 
-### 2. `LandPlot.cs` — Земельна ділянка:
-Містить кадастровий номер (`CadastralNumber`), назву, локацію, площу в гектарах (`AreaHectares`), цільове призначення (`Purpose`), ціну в USD (`PriceUsd`), номер документа про право власності, банківський IBAN продавця (`SellerBankIban`) та прив'язку до продавця (`SellerId`).
-- Обчислювані властивості (`[NotMapped]`): `AreaSotky`, `PricePerSotkaUsd`, `KadastrLiveUrl`, `OpenDataBotUrl`, `EffectiveSellerIban`, `PrimaryDocument`, `StatusDisplayName`, `StatusBadgeClass`.
-- Статичний довідник `StandardPurposes` — централізований перелік цільових призначень за УКЦВЗ (`Code`, `FullValue`, `ShortLabel`) для всіх форм і фільтрів.
-- Метод `ValidateCadastralFormat()` перевіряє регулярним виразом формат кадастрового номера: `^\d{10}:\d{2}:\d{3}:\d{4}$`.
+## 5. Модель даних
 
-### 3. `SaleDeal.cs` та `Payment.cs` — Угода та розрахунки:
-- Фіксує ціну (`FinalPriceUsd`), комісію агентства (`AgencyCommissionUsd`), нотаріальну контору, дату посвідчення, номер у реєстрі нотаріуса.
-- Метод `CalculateCommission(double ratePercent = 3.0)` автоматично обраховує 3% комісійних.
-- Метод `CreateDefaultPayments(...)` створює 2 платіжні записи:
-  1. Оплата вартості ділянки безпосередньо продавцю на його IBAN.
-  2. Оплата винагороди агентства на офіційний IBAN агентства.
+Дев'ять таблиць (`Models/LandAgencyContext.cs`):
+`Users`, `LandPlots`, `PlotDocuments`, `PlotMedia`, `LegalConclusions`, `ViewingRequests`, `SelectionRequests`, `SaleDeals`, `Payments`.
 
-### 4. `DzkRegistrySimulator.cs` — Симулятор державних реєстрів:
-Аналізує кадастровий номер та параметри ділянки за офіційними кадастровими правилами:
-- Якщо кадастровий номер закінчується на `:0000` або `:9999` — симулюється виявлення обтяження чи судового арешту в ДРРП з високим рівнем ризику.
-- Якщо закінчується на `:0009` — симулюється наявність земельного сервітуту або охоронної зони інженерних мереж у ДЗК.
-- Перевіряє валідність структури КОАТУУ та динамічно визначає область України за першими двома цифрами коду.
-- Розраховує нормативну грошову оцінку (НГО) за ставками залежно від коду призначення (`02.*` — будівництво, `03.*` — комерція тощо).
+- Один клас `AppUser` із полем `Role` замість окремих класів-нащадків: специфічні поля (ліцензія, свідоцтво) необов'язкові. Це спрощена реалізація узагальнення «Користувач → Покупець, Продавець, Рієлтор, Юрист» з діаграми класів.
+- Композиція з діаграми класів: документи й медіа каскадно видаляються з ділянкою; фінансова історія захищена `Restrict`.
+- Колонка `Version` у `LandPlots` і `SaleDeals` — маркер для оптимістичної паралельності.
+- `decimal` у SQLite зберігається як `TEXT`, тому суми сортуються й групуються в пам'яті (LINQ to Objects), а умови відбору йдуть у SQL.
 
----
+## 6. CRUD для всіх даних
 
-## 5. Контролери та їхня відповідальність (`Controllers/`)
+Платежі не редагуються довільно: сума виводиться з ціни угоди, статус змінюється лише через подання й підтвердження, а вилучаються вони разом з угодою.
+Облікові записи співробітників створює агенція (сід), тому CRUD акаунтів у застосунку є для клієнтів.
 
-| Контролер | Основні дії (Actions) | Призначення |
-| :--- | :--- | :--- |
-| **`AccountController`** | `Login`, `Register`, `Logout`, `AccessDenied` | Безпечна автентифікація на базі ASP.NET Core Cookie Authentication (`LandAgency.Auth`) та криптографічного хешування паролів PBKDF2 (`PasswordHasher<AppUser>`). Реєстрація клієнтів суворо призначає роль `Client`. |
-| **`ClientController`** | `Catalog`, `Details`, `CreatePlot`, `Cabinet`, `CreateViewing`, `RequestPurchaseFromViewing`, `SubmitSelectionRequest`, `SubmitPayment`, `DownloadReceipt`, `ChangePassword` | Перегляд публічного каталогу, пошук та фільтрація, подача ділянки на продаж із КЕП та SHA-256 хешуванням документів, автоматичний підбір (`AutoMatchingService`), запис на огляд, подача заявки на купівлю після проведеного огляду, повідомлення про оплату за IBAN. |
-| **`RealtorController`** | `Requests`, `MatchPlotsForRequest`, `Viewings`, `UpdateViewingStatus`, `Deals`, `CreateDeal`, `VerifyClientPayment`, `RejectClientPayment`, `SignDealAtNotary`, `CompleteNotaryDeal`, `CancelDeal`, `PrintContract` | Робота рієлтора: автоматизований підбір ділянок, узгодження виїзних оглядів, створення проєктів угод з виставленням рахунків-фактур, верифікація банківських виписок, супровід у нотаріуса та реєстрація в ДРРП. |
-| **`LawyerController`** | `Queue`, `Conclusion`, `SubmitLegalConclusion`, `Contracts`, `ApproveDealContract` | Робота юриста: черга ділянок на аудит у ДЗК/ДРРП (`CadastralValidationService` + `DzkRegistrySimulator`), затвердження або відхилення ділянки з актом ризиків, правова віза договорів перед нотаріусом. |
+<!-- crud-matrix:start -->
+| Таблиця | Create | Read | Update | Delete | Код |
+|---|---|---|---|---|---|
+| `Users` | Покупець/Продавець: Register; рієлтор: AddClient | Рієлтор: Clients; клієнт: Cabinet | Клієнт: ChangePassword; рієлтор: UpdateClient | Рієлтор: DeleteClient (лише клієнти) | [`Register`](LandAgencyMvc/Controllers/AccountController.cs#L118) / [`Register`](LandAgencyMvc/Controllers/AccountController.cs#L133)<br>[`AddClient`](LandAgencyMvc/Controllers/RealtorController.Clients.cs#L63)<br>[`Cabinet`](LandAgencyMvc/Controllers/ClientController.Cabinet.cs#L67)<br>[`ChangePassword`](LandAgencyMvc/Controllers/ClientController.Cabinet.cs#L13)<br>[`UpdateClient`](LandAgencyMvc/Controllers/RealtorController.Clients.cs#L97)<br>[`DeleteClient`](LandAgencyMvc/Controllers/RealtorController.Clients.cs#L127) |
+| `LandPlots` | Продавець: CreatePlot; рієлтор: CreatePlot | Покупець: Catalog, Details; продавець: Cabinet; рієлтор: Plots; юрист: Queue | Продавець: UpdatePlotTerms, EditOwnPlot; рієлтор: EditPlot (юридичні факти закриті після перевірки); юрист: SubmitLegalConclusion | Продавець: DeleteOwnPlot; рієлтор: DeletePlotConfirmed (лише ділянки без юридичного висновку) | [`CreatePlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L14) / [`CreatePlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L37)<br>[`CreatePlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L131) / [`CreatePlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L147)<br>[`Catalog`](LandAgencyMvc/Controllers/ClientController.Catalog.cs#L19)<br>[`Plots`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L95)<br>[`EditOwnPlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L228) / [`EditOwnPlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L254)<br>[`EditPlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L232) / [`EditPlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L266)<br>[`DeleteOwnPlot`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L296)<br>[`DeletePlotConfirmed`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L447) |
+| `PlotDocuments` | Продавець: AddPlotDocument, CreatePlot | Details, Cabinet | Рієлтор: EditPlot (неверифіковані); юрист: SubmitLegalConclusion (верифікація) | Рієлтор: DeletePlotDocument (неверифіковані) | [`AddPlotDocument`](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L343)<br>[`EditPlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L232) / [`EditPlot`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L266)<br>[`DeletePlotDocument`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L382) |
+| `PlotMedia` | Рієлтор: AddPlotMedia | Покупець: Details | не редагується: вилучити й додати знову | Рієлтор: DeletePlotMedia | [`AddPlotMedia`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L328)<br>[`DeletePlotMedia`](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L362) |
+| `LegalConclusions` | Юрист: SubmitLegalConclusion | Юрист: Conclusion, Queue | Юрист: SubmitLegalConclusion (повторно) | Юрист: RevokeLegalConclusion | [`SubmitLegalConclusion`](LandAgencyMvc/Controllers/LawyerController.cs#L125)<br>[`Conclusion`](LandAgencyMvc/Controllers/LawyerController.cs#L79)<br>[`RevokeLegalConclusion`](LandAgencyMvc/Controllers/LawyerController.cs#L323) |
+| `ViewingRequests` | Покупець: CreateViewing; рієлтор: CreateViewingByRealtor | Покупець: Cabinet; рієлтор: Viewings | Покупець: RescheduleViewingByClient, CancelViewingByClient; рієлтор: UpdateViewingStatus, EditViewing (лише допустимі переходи) | Рієлтор: DeleteViewing (лише нові, скасовані, відхилені) | [`CreateViewing`](LandAgencyMvc/Controllers/ClientController.Viewings.cs#L17)<br>[`CreateViewingByRealtor`](LandAgencyMvc/Controllers/RealtorController.Viewings.cs#L106)<br>[`Viewings`](LandAgencyMvc/Controllers/RealtorController.Viewings.cs#L16)<br>[`RescheduleViewingByClient`](LandAgencyMvc/Controllers/ClientController.Viewings.cs#L92)<br>[`EditViewing`](LandAgencyMvc/Controllers/RealtorController.Viewings.cs#L135)<br>[`DeleteViewing`](LandAgencyMvc/Controllers/RealtorController.Viewings.cs#L175) |
+| `SelectionRequests` | Покупець: SubmitSelectionRequest; рієлтор: CreateSelectionRequest | Покупець: Cabinet; рієлтор: Requests | Покупець: EditSelectionRequestByClient; рієлтор: EditSelectionRequest | Покупець: DeleteSelectionRequestByClient; рієлтор: DeleteSelectionRequest | [`SubmitSelectionRequest`](LandAgencyMvc/Controllers/ClientController.Catalog.cs#L137)<br>[`CreateSelectionRequest`](LandAgencyMvc/Controllers/RealtorController.Requests.cs#L85)<br>[`Requests`](LandAgencyMvc/Controllers/RealtorController.Requests.cs#L16)<br>[`EditSelectionRequestByClient`](LandAgencyMvc/Controllers/ClientController.Catalog.cs#L186)<br>[`EditSelectionRequest`](LandAgencyMvc/Controllers/RealtorController.Requests.cs#L113)<br>[`DeleteSelectionRequestByClient`](LandAgencyMvc/Controllers/ClientController.Catalog.cs#L227)<br>[`DeleteSelectionRequest`](LandAgencyMvc/Controllers/RealtorController.Requests.cs#L139) |
+| `SaleDeals` | Рієлтор: CreateDeal; покупець: RequestPurchaseFromViewing | Рієлтор: Deals; юрист: Contracts; покупець: Cabinet | Рієлтор: EditDeal, SendDealToLawyer; юрист: ApproveDealContract, RegisterOwnershipTransfer; покупець: SignContractAtNotary | Рієлтор: DeleteDealConfirmed, CancelDeal | [`CreateDeal`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L63)<br>[`RequestPurchaseFromViewing`](LandAgencyMvc/Controllers/ClientController.Deals.cs#L16)<br>[`Deals`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L17)<br>[`EditDeal`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L367) / [`EditDeal`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L408)<br>[`RegisterOwnershipTransfer`](LandAgencyMvc/Controllers/LawyerController.cs#L377)<br>[`SignContractAtNotary`](LandAgencyMvc/Controllers/ClientController.Deals.cs#L181)<br>[`DeleteDealConfirmed`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L465)<br>[`CancelDeal`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L296) |
+| `Payments` | Система: створюються разом з угодою (CreateDeal) | Покупець: Cabinet, DownloadReceipt; рієлтор: Deals | Покупець: SubmitPayment; рієлтор: VerifyClientPayment, RejectClientPayment (лише з «на перевірці») | Разом з угодою (DeleteDealConfirmed) | [`CreateDeal`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L63)<br>[`DownloadReceipt`](LandAgencyMvc/Controllers/ClientController.Deals.cs#L218)<br>[`SubmitPayment`](LandAgencyMvc/Controllers/ClientController.Deals.cs#L96)<br>[`VerifyClientPayment`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L200)<br>[`DeleteDealConfirmed`](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L465) |
+<!-- crud-matrix:end -->
 
----
+### Правила логічності та збереження історії
 
-## 6. Як працює база даних (`LandAgencyContext.cs`)
+Принцип роботи: роль виконує лише природні для неї операції, а відомості, на яких тримаються звітність і аудит, ніколи не знищуються.
+Правила закладено в доменну модель та на сервер (приховування кнопок лише дублює їх).
 
-База даних створюється та наповнюється початковими демонстраційними даними автоматично при старті програми в методі `InitializeDatabase()`:
-- `EnsureSchemaUpToDate()` перевіряє актуальність схеми таблиць.
-- За замовчуванням створюються демонстраційні облікові записи та набір земельних ділянок, документів з SHA-256/КЕП, юридичних висновків, заявок та угод:
-  - **Рієлтор**: `realtor@landagency.ua` / пароль: `realtor123`
-  - **Юрист**: `lawyer@landagency.ua` / пароль: `lawyer123`
-  - **Клієнт (Продавець)**: `seller@landagency.ua` / пароль: `client123`
-  - **Клієнт (Покупець)**: `buyer@landagency.ua` / пароль: `client123`
-- Файл бази даних зберігається локально: `LandAgencyMvc/landagency.db`.
+| Операція | Правило | Чому |
+|---|---|---|
+| Зміна юридичних фактів перевіреної ділянки | кадастровий номер, площа, призначення, власник і номер документа закриті; змінити їх можна, лише коли юрист відкликає висновок (`LandPlot.AreLegalFactsLocked`) | ділянка не лишається «перевіреною» з іншими фактами |
+| Верифіковані документи | рієлтор їх не змінює й не вилучає; новий документ рієлтора не верифікований | верифікацію надає лише юрист |
+| Вилучення ділянки | лише ділянка без юридичного висновку (`LandPlot.CanBeDeleted`); решту спершу повертає на перевірку юрист | висновки й акти про ризики потрібні для аудиту |
+| Підтвердження й відхилення платежу | лише платіж, поданий покупцем (`Payment.VerifyPayment`, `RejectPayment`) | оборот у звітності не змінюється заднім числом |
+| Вилучення огляду | лише нова, скасована або відхилена покупцем заявка (`ViewingRequest.CanBeDeleted`) | проведений огляд є підставою для угоди |
+| Статус огляду | лише допустимі переходи (`ViewingRequest.CanChangeStatusTo`) | послідовність процесу |
+| Платежі, акаунти співробітників | немає довільного створення, зміни чи вилучення в інтерфейсі | фінансова історія недоторканна; ролі за діаграмою, адміністратора немає |
 
----
+## 7. ACID
 
-## 7. Практичний посібник: Як редагувати цей код
+SQLite підтримує транзакції; поверх них налаштовано кожну властивість окремо.
 
-### Сценарій А: Зміна бізнес-правила (наприклад, зміна ставки комісії)
-1. Відкрийте файл [`SaleDeal.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Models/SaleDeal.cs).
-2. Знайдіть метод `CalculateCommission(double ratePercent = 3.0)` та замініть значення за замовчуванням або алгоритм обрахунку.
-3. Якщо потрібно змінити ставку за замовчуванням для рієлтора, відкрийте [`AppUser.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Models/AppUser.cs) та змініть значення поля `CommissionRate`.
+<!-- acid-map:start -->
+| Властивість | Механізм | Де в коді |
+|---|---|---|
+| Atomicity | Транзакція навколо кількох збережень | [ClientController.Catalog.cs:169](LandAgencyMvc/Controllers/ClientController.Catalog.cs#L169), [ClientController.Catalog.cs:212](LandAgencyMvc/Controllers/ClientController.Catalog.cs#L212), [ClientController.Deals.cs:50](LandAgencyMvc/Controllers/ClientController.Deals.cs#L50), [ClientController.SellerPlots.cs:122](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L122), [ClientController.SellerPlots.cs:279](LandAgencyMvc/Controllers/ClientController.SellerPlots.cs#L279), [LawyerController.cs:151](LandAgencyMvc/Controllers/LawyerController.cs#L151), [LawyerController.cs:343](LandAgencyMvc/Controllers/LawyerController.cs#L343), [RealtorController.Deals.cs:141](LandAgencyMvc/Controllers/RealtorController.Deals.cs#L141), [RealtorController.Plots.cs:193](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L193), [RealtorController.Plots.cs:311](LandAgencyMvc/Controllers/RealtorController.Plots.cs#L311), [LandAgencyQueries.cs:365](LandAgencyMvc/Services/LandAgencyQueries.cs#L365), [LandAgencyQueries.cs:467](LandAgencyMvc/Services/LandAgencyQueries.cs#L467) |
+| Consistency | CHECK-обмеження | [LandAgencyContext.cs:40](LandAgencyMvc/Models/LandAgencyContext.cs#L40) |
+| Consistency | Одна активна угода на ділянку (частковий унікальний індекс) | [LandAgencyContext.cs:37](LandAgencyMvc/Models/LandAgencyContext.cs#L37) |
+| Consistency | Зовнішні ключі та Restrict/Cascade | [LandAgencyContext.cs:64](LandAgencyMvc/Models/LandAgencyContext.cs#L64) |
+| Isolation | Токен версії рядка | [LandAgencyContext.cs:25](LandAgencyMvc/Models/LandAgencyContext.cs#L25) |
+| Isolation | Оновлення версії при кожному збереженні | [LandAgencyContext.cs:173](LandAgencyMvc/Models/LandAgencyContext.cs#L173) |
+| Isolation | Версія з форми редагування | [LandAgencyContext.cs:161](LandAgencyMvc/Models/LandAgencyContext.cs#L161) |
+| Isolation | Повідомлення про конфлікт замість помилки | [DatabaseExceptionFilter.cs:28](LandAgencyMvc/Filters/DatabaseExceptionFilter.cs#L28) |
+| Durability | synchronous = FULL на кожному з'єднанні | [SqliteDurabilityInterceptor.cs:13](LandAgencyMvc/Data/SqliteDurabilityInterceptor.cs#L13) |
+<!-- acid-map:end -->
 
-### Сценарій Б: Додавання нового поля до сутності (наприклад, «Газифікація ділянки» у `LandPlot`)
-1. **Зміна моделі**:
-   - Відкрийте [`LandPlot.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Models/LandPlot.cs).
-   - Додайте нову властивість:
-     ```csharp
-     public bool HasGasSupply { get; set; } = false;
-     ```
-2. **Оновлення контролера**:
-   - Відкрийте [`ClientController.cs`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Controllers/ClientController.cs).
-   - У методі `CreatePlot(...)` збережіть нову властивість моделі.
-3. **Оновлення форми у View**:
-   - Відкрийте форму створення [`Views/Client/CreatePlot.cshtml`](file:///Users/mac/Desktop/projects/LandAgencyMvc/LandAgencyMvc/Views/Client/CreatePlot.cshtml) та додайте відповідне поле вводу.
+**Атомарність.** Дії з кількома збереженнями (створення угоди, реєстрація ділянки, заявка на купівлю, висновок юриста тощо) виконуються в
+`BeginTransactionAsync`: якщо другий крок падає, перший скасовується. Файли не входять у транзакцію БД, тому при помилці реєстрації ділянки завантажений файл вилучається вручну (`DeleteUploadedFile`).
 
----
+**Узгодженість.** Правила діють у самій базі, а не лише в коді: `CHECK` (площа й ціна додатні, координати в межах України, роль 0–3, суми угод і платежів),
+частковий унікальний індекс «одна активна угода на ділянку», зовнішні ключі `Restrict`/`Cascade`.
 
-## 8. Запуск та тестування проєкту
+**Ізоляція.** SQLite виконує запис по одному (serializable). Для втрачених оновлень між запитами є токен `Version`: форма редагування передає версію,
+з якою її відкрили, і збереження зі застарілою версією відхиляється. Це типовий приклад оптимістичної паралельності.
 
-### Запуск через термінал:
+**Довговічність.** `PRAGMA synchronous = FULL` на кожному з'єднанні: підтверджена транзакція записана на диск до відповіді.
+
+### Сценарій демонстрації для захисту
+
+1. **Атомарність.** Підмінити в БД номер рахунку так, щоб при створенні угоди другий крок (рахунки) порушив унікальність. Угода не лишається в базі, а користувач бачить повідомлення «Усі зміни скасовано».
+2. **Узгодженість.** У консолі SQLite вставити ділянку з площею 0 або другу активну угоду на ту саму ділянку: база відхиляє запис (`CHECK constraint failed`, `UNIQUE constraint failed`).
+3. **Ізоляція.** Відкрити форму редагування ділянки рієлтором, змінити ту саму ділянку з іншого вікна й зберегти першу форму: з'являється повідомлення, що дані змінив інший користувач, а чужі зміни не затерті.
+4. **Довговічність.** Створити запис, зупинити застосунок командою `kill -9`, запустити знову: запис на місці.
+
+## 8. Запуск
+
 ```bash
-cd /Users/mac/Desktop/projects/LandAgencyMvc
-
-# Збірка проєкту
-dotnet build
-
-# Запуск веб-сервера
-dotnet run --project LandAgencyMvc
+cd LandAgencyMvc
+rm -f landagency.db landagency.db-shm landagency.db-wal   # після зміни схеми базу потрібно створити заново
+dotnet run
 ```
 
-### Тестові дані для швидкого входу:
-- **Рієлтор**: email `realtor@landagency.ua`, пароль `realtor123`
-- **Юрист**: email `lawyer@landagency.ua`, пароль `lawyer123`
-- **Клієнт-Продавець**: email `seller@landagency.ua`, пароль `client123`
-- **Клієнт-Покупець**: email `buyer@landagency.ua`, пароль `client123`
+Базу створює `EnsureCreated()`, а `landagency_seed.sql` наповнює її при першому запуску. Якщо змінюєте модель, видаліть `landagency.db` і оновіть сід (колонки в `INSERT` позиційні).
 
+### Як змінити код
+
+- **Ставка комісії:** `SaleDeal.CalculateCommission` (UC-15), значення за замовчуванням у `AppUser.CommissionRate`.
+- **Нове поле ділянки:** додайте властивість у `LandPlot` (в кінець класу, щоб колонка стала останньою), форму й дію контролера, видаліть `landagency.db` і додайте значення до `INSERT INTO LandPlots` у сіді.
+- **Нова дія:** додайте її в потрібний partial-файл контролера, роль у `[Authorize(Roles = AppRoles.…)]` і рядок `UC-nn` у документацію.
+
+## 9. Питання на захисті
+
+| Питання | Відповідь і де в коді |
+|---|---|
+| Де обмежено права ролі? | Атрибути `[Authorize(Roles = AppRoles.…)]` на діях; імена ролей у `Models/AppRoles.cs`; видимість кнопок у `_AuthNavbar` та кабінетах (це лише зручність, захист на сервері). |
+| Чому ролі саме такі? | Вони взяті з діаграми прецедентів ЛР1: Покупець, Продавець, Рієлтор, Юрист. Службовий і клієнтський входи розділені (UC-16 і UC-07). |
+| Де реалізовано CRUD? | Таблиця розділу 6; у кожної сутності є Create/Read/Update/Delete для відповідальних ролей. |
+| Як гарантується атомарність? | `BeginTransactionAsync` у діях із кількома збереженнями (розділ 7). |
+| Що буде при одночасному редагуванні? | Токен `Version`: другий користувач отримує повідомлення замість мовчазного перезапису. |
+| Чому не можна вилучити ділянку з угодою чи висновком? | Зовнішній ключ `Restrict` і `LandPlot.CanBeDeleted`: фінансова історія й юридичний висновок зберігаються для звітності та аудиту. |
+| Чому рієлтор не змінює кадастровий номер перевіреної ділянки? | `LandPlot.AreLegalFactsLocked`: після перевірки юриста ці факти закриті, змінити їх можна лише після відкликання висновку. |
+| Чому не можна довільно змінити чи вилучити платіж? | Сума виводиться з ціни угоди, статус змінюється лише через подання й підтвердження (`Payment.VerifyPayment`); інакше змінився б оборот, уже врахований у звітах. |
+| Де обчислюється комісія? | `SaleDeal.CalculateCommission` (UC-15), викликається з `PrepareContractDraft` у `CreateDeal` (UC-14). |
+| Чому рієлтор не підписує договір? | За діаграмою договір підписує покупець (UC-05), а перехід права реєструє юрист (UC-21). |
+| Чи справжні ДЗК і банк? | Ні, це емуляція: `DzkRegistrySimulator`, IBAN і підтвердження платежу рієлтором. |
+| Чому SQLite? | Розробка на macOS, де SQL Server LocalDB недоступний; EF Core однаково працює з обома. |
+| Чому суми рахуються в пам'яті? | У SQLite `decimal` зберігається як текст, тож агрегація й сортування в SQL були б лексикографічними. |
+| Де успадкування `Користувач → …`? | Один `AppUser` із полем `Role`; на рівні форм є `PlotEditViewModel : PlotCreateViewModel`. |

@@ -23,6 +23,7 @@
     <form method="post" asp-action="EditDeal" asp-route-id="@Model.Id">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="Version" />
         <input type="hidden" asp-for="DraftContractNumber" />
         <input type="hidden" asp-for="PlotTitle" />
         <input type="hidden" asp-for="CadastralNumber" />
@@ -48,7 +49,7 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label asp-for="FinalPriceUsd" class="la-label"></label>
-                    <input asp-for="FinalPriceUsd" type="number" step="100" class="la-input" id="dealPriceInput" />
+                    <input asp-for="FinalPriceUsd" type="number" class="la-input" id="dealPriceInput" />
                     <span asp-validation-for="FinalPriceUsd" class="text-danger small"></span>
                 </div>
 

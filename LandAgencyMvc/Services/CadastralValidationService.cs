@@ -48,6 +48,9 @@ public class CadastralValidationService : ICadastralValidationService
         _db = db;
     }
 
+    /// <summary>
+    /// UC-09 «Перевірити кадастровий номер та реєстрацію в ДЗК»: формат номера й код області.
+    /// </summary>
     public KoatuuValidationResult ValidateKoatuuFormat(string cadastralNumber)
     {
         if (string.IsNullOrWhiteSpace(cadastralNumber))

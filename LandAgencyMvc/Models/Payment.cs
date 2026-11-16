@@ -118,13 +118,15 @@ public class Payment
     }
 
     /// <summary>
-    /// Рієлтор або бухгалтер агентства підтверджує зарахування коштів за банківською випискою.
+    /// Рієлтор підтверджує зарахування коштів за банківською випискою. Підтверджується лише платіж, який покупець
+    /// уже подав: не можна підтвердити грошей, про які покупець не повідомляв, чи повторно змінити підтверджений платіж.
     /// </summary>
-    public void VerifyPayment(int verifierUserId, string? notes = null)
+    /// <returns>False, якщо платіж не очікує перевірки або угоду скасовано.</returns>
+    public bool VerifyPayment(int verifierUserId, string? notes = null)
     {
-        if (SaleDeal?.Status == DealStatus.Cancelled)
+        if (Status != PaymentStatus.PendingVerification || SaleDeal?.Status == DealStatus.Cancelled)
         {
-            return;
+            return false;
         }
 
         Status = PaymentStatus.Confirmed;
@@ -134,17 +136,20 @@ public class Payment
         VerificationNotes = !string.IsNullOrWhiteSpace(notes)
             ? notes.Trim()
             : "Платіж підтверджено згідно з банківською випискою IBAN.";
+        return true;
     }
 
     /// <summary>
     /// Відхиляє подану клієнтом квитанцію у разі невідповідності банківській виписці IBAN,
-    /// повертаючи можливість повторного подання коректного коду транзакції.
+    /// повертаючи можливість повторного подання коректного коду транзакції. Підтверджений платіж
+    /// скасувати не можна: це змінило б уже врахований у звітності оборот.
     /// </summary>
-    public void RejectPayment(int verifierUserId, string? reason = null)
+    /// <returns>False, якщо платіж не очікує перевірки або угоду скасовано.</returns>
+    public bool RejectPayment(int verifierUserId, string? reason = null)
     {
-        if (SaleDeal?.Status == DealStatus.CompletedAtNotary)
+        if (Status != PaymentStatus.PendingVerification || SaleDeal?.Status == DealStatus.Cancelled)
         {
-            return;
+            return false;
         }
 
         Status = PaymentStatus.Rejected;
@@ -154,6 +159,7 @@ public class Payment
         VerificationNotes = !string.IsNullOrWhiteSpace(reason)
             ? reason.Trim()
             : "Платіж не знайдено у банківській виписці за вказаним референсом.";
+        return true;
     }
 
     /// <summary>
