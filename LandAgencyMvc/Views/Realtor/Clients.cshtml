@@ -31,7 +31,14 @@
                     </div>
                 </div>
 
-                <div class="la-grid-2 mb-3">
+                <div class="la-grid-3 mb-3">
+                    <div>
+                        <label class="la-label">Роль клієнта</label>
+                        <select name="Role" class="la-input mb-0">
+                            <option value="@nameof(UserRole.Buyer)">Покупець</option>
+                            <option value="@nameof(UserRole.Seller)">Продавець</option>
+                        </select>
+                    </div>
                     <div>
                         <label class="la-label">Початковий пароль облікового запису</label>
                         <input name="Password" type="password" class="la-input mb-0" placeholder="Мінімум 4 символи" required />
@@ -82,6 +89,7 @@
                             <td class="text-center">#@u.Id</td>
                             <td>
                                 <strong>@u.FullName</strong>
+                                <span class="la-badge la-badge-indigo ms-1">@u.RoleDisplayName</span>
                                 <br />
                                 <span class="la-meta">@u.Email</span>
                             </td>

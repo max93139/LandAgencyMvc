@@ -47,7 +47,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Робоча черга заявок на підбір ділянок з автоматичним двигуном підбору.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> Requests(int? matchedRequestId)
     {
@@ -88,7 +88,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Запуск ручного або повторного підбору для конкретної заявки клієнта.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MatchPlotsForRequest(int requestId, string? realtorNotes)
@@ -111,7 +111,7 @@ public class RealtorController : Controller
         return RedirectToAction(nameof(Requests), new { matchedRequestId = requestId });
     }
 
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePlot(
@@ -173,7 +173,7 @@ public class RealtorController : Controller
         return RedirectToAction(nameof(Requests));
     }
 
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePlotDescription(int plotId, string description)
@@ -200,7 +200,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Реєстр запланованих та проведених виїзних оглядів ділянок з покупцями.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> Viewings()
     {
@@ -218,7 +218,7 @@ public class RealtorController : Controller
     /// Оновлює стан огляду: узгоджує дату, фіксує успішний огляд або відмову покупця
     /// з поверненням запиту клієнта на повторний підбір.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateViewingStatus(int viewingId, ViewingStatus status, string? resultNotes)
@@ -269,7 +269,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Реєстр нотаріальних угод купівлі-продажу з візуальним відображенням стадій правового супроводу.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> Deals(int? plotId, int? buyerId)
     {
@@ -280,7 +280,7 @@ public class RealtorController : Controller
             .ToListAsync();
 
         var clients = await _db.Users
-            .Where(u => u.Role == UserRole.Client)
+            .Where(u => u.Role == UserRole.Buyer)
             .ToListAsync();
 
         var deals = await _db.SaleDeals
@@ -313,7 +313,7 @@ public class RealtorController : Controller
     /// Створює проєкт угоди: розраховує 3% комісію агентства, формує графік рахунків-фактур (IBAN)
     /// та направляє проект договору юристу для отримання правової візи.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateDeal(
@@ -330,7 +330,7 @@ public class RealtorController : Controller
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .FirstOrDefaultAsync(p => p.Id == landPlotId);
-        var buyer = await _db.Users.FirstOrDefaultAsync(u => u.Id == buyerId && u.Role == UserRole.Client);
+        var buyer = await _db.Users.FirstOrDefaultAsync(u => u.Id == buyerId && u.Role == UserRole.Buyer);
 
         if (plot == null || plot.Status != PlotStatus.VerifiedInCatalog)
         {
@@ -445,7 +445,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Перевірка та підтвердження банківського зарахування коштів за квитанцією клієнта.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> VerifyClientPayment(int paymentId, string? verificationNotes)
@@ -474,7 +474,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Відхилення поданого клієнтом коду квитанції у разі невідповідності банківській виписці.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RejectClientPayment(int paymentId, string? rejectionNotes)
@@ -500,7 +500,7 @@ public class RealtorController : Controller
         return RedirectToAction(nameof(Deals));
     }
 
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SendDealToLawyer(int dealId)
@@ -527,7 +527,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Нотаріальне підписання договору: перевіряє правову візу юриста та факт зарахування гарантійного внеску/комісії.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SignDealAtNotary(int dealId, string? notarialRegistryNumber)
@@ -567,7 +567,7 @@ public class RealtorController : Controller
     /// фіксує перехід права власності в ДРРП, змінює статус ділянки на 'Sold'
     /// та автоматично скасовує всі інші активні заявки на виїзний огляд цього об'єкта.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CompleteNotaryDeal(int dealId, string? notarialRegistryNumber)
@@ -627,7 +627,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Скасовує активну угоду до моменту реєстрації права власності в ДРРП.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelDeal(int dealId, string? reason)
@@ -696,7 +696,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Особиста фінансова аналітика та результативність поточного рієлтора за обраний період (день, місяць, півріччя або довільний).
     /// </summary>
-    [Authorize(Roles = "Realtor,Admin")]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> Analytics(
         PeriodKind kind = PeriodKind.Month,
@@ -752,12 +752,12 @@ public class RealtorController : Controller
     /// Реєстр клієнтів агентства (CRM).
     /// Забезпечує пошук за email, додавання, редагування та безпечне вилучення клієнтів.
     /// </summary>
-    [Authorize(Roles = "Realtor,Admin")]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> Clients(string? searchEmail = null)
     {
         var clientsQuery = _db.Users
-            .Where(u => u.Role == UserRole.Client)
+            .Where(u => AppRoles.ClientRoles.Contains(u.Role))
             .Include(u => u.OwnedPlots)
             .Include(u => u.ViewingRequests)
             .AsNoTracking();
@@ -776,7 +776,7 @@ public class RealtorController : Controller
         if (!string.IsNullOrWhiteSpace(searchEmail))
         {
             foundUser = clients.FirstOrDefault(u => u.Email.Equals(searchEmail.Trim(), StringComparison.OrdinalIgnoreCase))
-                ?? await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Client && u.Email == searchEmail.Trim());
+                ?? await _db.Users.FirstOrDefaultAsync(u => AppRoles.ClientRoles.Contains(u.Role) && u.Email == searchEmail.Trim());
 
             if (foundUser == null)
             {
@@ -798,7 +798,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Додавання нового клієнта з початковою заявкою в одній транзакції.
     /// </summary>
-    [Authorize(Roles = "Realtor,Admin")]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddClient(AddUserFormModel model)
@@ -809,10 +809,16 @@ public class RealtorController : Controller
             return RedirectToAction(nameof(Clients));
         }
 
+        if (!AppRoles.ClientRoles.Contains(model.Role))
+        {
+            TempData["ErrorMessage"] = "Через CRM можна створити лише клієнта: Покупця або Продавця.";
+            return RedirectToAction(nameof(Clients));
+        }
+
         try
         {
             var user = await _queries.AddUserAsync(
-                model.FullName, model.Email, model.Phone, UserRole.Client, model.Password, model.BankDetails);
+                model.FullName, model.Email, model.Phone, model.Role, model.Password, model.BankDetails);
             TempData["SuccessMessage"] = $"Успішно створено картку клієнта {user.FullName} ({user.Email}).";
         }
         catch (Exception ex)
@@ -826,7 +832,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Оновлення персональних даних, контактів, бюджету та статусу активності клієнта.
     /// </summary>
-    [Authorize(Roles = "Realtor,Admin")]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateClient(UpdateUserFormModel model)
@@ -856,7 +862,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Безпечне вилучення користувача з контролем обмеження цілісності Restrict.
     /// </summary>
-    [Authorize(Roles = "Realtor,Admin")]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteClient(int id)
@@ -877,7 +883,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Реєстр земельних ділянок агентства з повним набором операцій CRUD.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> Plots(string? search, PlotStatus? status)
     {
@@ -913,12 +919,12 @@ public class RealtorController : Controller
     /// <summary>
     /// Форма створення нової земельної ділянки (базова модель PlotCreateViewModel).
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> CreatePlot()
     {
         ViewBag.Sellers = await _db.Users
-            .Where(u => u.Role == UserRole.Client && u.IsActive)
+            .Where(u => u.Role == UserRole.Seller && u.IsActive)
             .OrderBy(u => u.FullName)
             .ToListAsync();
 
@@ -928,7 +934,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Збереження нової ділянки з валідацією КОАТУУ та первинним документом.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreatePlot(PlotCreateViewModel vm)
@@ -950,7 +956,7 @@ public class RealtorController : Controller
         if (!ModelState.IsValid)
         {
             ViewBag.Sellers = await _db.Users
-                .Where(u => u.Role == UserRole.Client && u.IsActive)
+                .Where(u => u.Role == UserRole.Seller && u.IsActive)
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
             return View(vm);
@@ -1007,7 +1013,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Форма редагування земельної ділянки та її документів (похідна модель PlotEditViewModel : PlotCreateViewModel).
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> EditPlot(int id)
     {
@@ -1028,7 +1034,7 @@ public class RealtorController : Controller
         }
 
         ViewBag.Sellers = await _db.Users
-            .Where(u => u.Role == UserRole.Client && u.IsActive)
+            .Where(u => u.Role == UserRole.Seller && u.IsActive)
             .OrderBy(u => u.FullName)
             .ToListAsync();
 
@@ -1038,7 +1044,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Збереження змін у ділянці та синхронізація її документів.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditPlot(int id, PlotEditViewModel vm)
@@ -1076,7 +1082,7 @@ public class RealtorController : Controller
         if (!ModelState.IsValid)
         {
             ViewBag.Sellers = await _db.Users
-                .Where(u => u.Role == UserRole.Client && u.IsActive)
+                .Where(u => u.Role == UserRole.Seller && u.IsActive)
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
             return View(vm);
@@ -1093,7 +1099,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Вилучення окремого документа ділянки.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeletePlotDocument(int documentId, int plotId)
@@ -1119,7 +1125,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Сторінка підтвердження видалення ділянки з демонстрацією некаскадного та каскадного режимів.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> DeletePlot(int id)
     {
@@ -1152,7 +1158,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Виконання вилучення ділянки: некаскадного (з контролем Restrict) або каскадного.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost, ActionName("DeletePlotConfirmed")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeletePlotConfirmed(int id, bool cascade = false)
@@ -1219,7 +1225,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Створення нової заявки клієнта на підбір ділянки.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateSelectionRequest(int buyerId, string desiredDistrict, double minAreaHa, decimal maxBudgetUsd, string purpose)
@@ -1247,7 +1253,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Коригування параметрів заявки на підбір.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditSelectionRequest(int id, string desiredDistrict, double minAreaHa, decimal maxBudgetUsd, string purpose, string? realtorNotes)
@@ -1273,7 +1279,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Вилучення заявки на підбір.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteSelectionRequest(int id)
@@ -1292,7 +1298,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Призначення виїзного огляду ділянки з клієнтом.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateViewingByRealtor(int landPlotId, int buyerId, DateTime preferredDate, string timeSlot, string? comment)
@@ -1320,7 +1326,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Коригування параметрів виїзного огляду.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditViewing(int viewingId, DateTime preferredDate, string timeSlot, ViewingStatus status, string? comment)
@@ -1343,7 +1349,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Фізичне вилучення запису про огляд.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteViewing(int viewingId)
@@ -1362,7 +1368,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Форма редагування чернетки угоди.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> EditDeal(int id)
     {
@@ -1401,7 +1407,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Збереження змінених умов угоди з перерахунком комісії та рахунків.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditDeal(int id, DealEditViewModel vm)
@@ -1436,7 +1442,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Сторінка підтвердження каскадного вилучення чернетки угоди разом з рахунками.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> DeleteDeal(int id)
     {
@@ -1457,7 +1463,7 @@ public class RealtorController : Controller
     /// <summary>
     /// Каскадне вилучення угоди та її платежів.
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Realtor))]
+    [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost, ActionName("DeleteDealConfirmed")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteDealConfirmed(int id)

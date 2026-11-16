@@ -31,17 +31,7 @@ public class AccountController : Controller
                 return Redirect(returnUrl);
             }
 
-            if (User.IsInRole(nameof(UserRole.Realtor)) || User.IsInRole("Admin"))
-            {
-                return RedirectToAction("Requests", "Realtor");
-            }
-
-            if (User.IsInRole(nameof(UserRole.Lawyer)))
-            {
-                return RedirectToAction("Queue", "Lawyer");
-            }
-
-            return RedirectToAction("Cabinet", "Client");
+            return RedirectToWorkspace(GetSignedInRole());
         }
 
         ViewData["ReturnUrl"] = returnUrl;
@@ -78,12 +68,7 @@ public class AccountController : Controller
             return Redirect(returnUrl);
         }
 
-        return user.Role switch
-        {
-            UserRole.Realtor => RedirectToAction("Requests", "Realtor"),
-            UserRole.Lawyer => RedirectToAction("Queue", "Lawyer"),
-            _ => RedirectToAction("Cabinet", "Client")
-        };
+        return RedirectToWorkspace(user.Role);
     }
 
     [HttpGet]
@@ -91,17 +76,7 @@ public class AccountController : Controller
     {
         if (User.Identity?.IsAuthenticated == true)
         {
-            if (User.IsInRole(nameof(UserRole.Realtor)) || User.IsInRole("Admin"))
-            {
-                return RedirectToAction("Requests", "Realtor");
-            }
-
-            if (User.IsInRole(nameof(UserRole.Lawyer)))
-            {
-                return RedirectToAction("Queue", "Lawyer");
-            }
-
-            return RedirectToAction("Cabinet", "Client");
+            return RedirectToWorkspace(GetSignedInRole());
         }
 
         return View();
@@ -109,7 +84,14 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Register(string fullName, string email, string phone, string password, string? taxId = null, string? bankDetails = null)
+    public async Task<IActionResult> Register(
+        string fullName,
+        string email,
+        string phone,
+        string password,
+        UserRole accountType = UserRole.Buyer,
+        string? taxId = null,
+        string? bankDetails = null)
     {
         var cleanFullName = (fullName ?? string.Empty).Trim();
         var cleanEmail = (email ?? string.Empty).Trim();
@@ -118,6 +100,12 @@ public class AccountController : Controller
         if (string.IsNullOrWhiteSpace(cleanFullName) || string.IsNullOrWhiteSpace(cleanEmail) || string.IsNullOrWhiteSpace(password))
         {
             TempData["RegisterError"] = "Заповніть обов'язкові поля ПІБ, електронної пошти та пароля.";
+            return RedirectToAction(nameof(Register));
+        }
+
+        if (!AppRoles.ClientRoles.Contains(accountType))
+        {
+            TempData["RegisterError"] = "Зареєструватися можна лише як Покупець або Продавець. Службові ролі створює агентство.";
             return RedirectToAction(nameof(Register));
         }
 
@@ -135,7 +123,7 @@ public class AccountController : Controller
             Phone = (phone ?? string.Empty).Trim(),
             TaxId = (taxId ?? string.Empty).Trim(),
             BankDetails = (bankDetails ?? string.Empty).Trim(),
-            Role = UserRole.Client
+            Role = accountType
         };
         user.SetPassword(password);
 
@@ -147,6 +135,19 @@ public class AccountController : Controller
         TempData["CabinetMessage"] = "Обліковий запис клієнта успішно створено. Ласкаво просимо до LandAgency UA!";
         return RedirectToAction("Cabinet", "Client");
     }
+
+    /// <summary>
+    /// Робоче місце, на яке потрапляє користувач після входу: рієлтор, юрист або особистий кабінет клієнта.
+    /// </summary>
+    private IActionResult RedirectToWorkspace(UserRole role) => role switch
+    {
+        UserRole.Realtor => RedirectToAction("Requests", "Realtor"),
+        UserRole.Lawyer => RedirectToAction("Queue", "Lawyer"),
+        _ => RedirectToAction("Cabinet", "Client")
+    };
+
+    private UserRole GetSignedInRole() =>
+        Enum.TryParse<UserRole>(User.FindFirstValue(ClaimTypes.Role), out var role) ? role : UserRole.Buyer;
 
     private async Task SignInUserAsync(AppUser user)
     {

@@ -377,7 +377,7 @@ public class LandAgencyQueries : ILandAgencyQueries
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
-        if (role == UserRole.Client)
+        if (role == UserRole.Buyer)
         {
             var defaultRequest = new SelectionRequest
             {
@@ -413,11 +413,6 @@ public class LandAgencyQueries : ILandAgencyQueries
         var user = await _db.Users.FindAsync(id)
             ?? throw new InvalidOperationException($"Користувача з ID={id} не знайдено.");
 
-        if (user.Email.ToLower().Contains("admin") && !isActive)
-        {
-            throw new InvalidOperationException("Обліковий запис головного адміністратора не можна заблокувати.");
-        }
-
         var normalizedEmail = NormalizeEmail(email);
         if (string.IsNullOrWhiteSpace(normalizedEmail))
         {
@@ -450,9 +445,10 @@ public class LandAgencyQueries : ILandAgencyQueries
             .FirstOrDefaultAsync(u => u.Id == id)
             ?? throw new InvalidOperationException($"Користувача з ID={id} не знайдено.");
 
-        if (user.Email.ToLower().Contains("admin"))
+        if (!AppRoles.ClientRoles.Contains(user.Role))
         {
-            throw new InvalidOperationException("Обліковий запис головного адміністратора не підлягає видаленню.");
+            throw new InvalidOperationException(
+                $"Обліковий запис {user.FullName} належить співробітнику агентства. Через розділ клієнтів можна вилучати лише Покупців і Продавців.");
         }
 
         if (user.OwnedPlots.Any())
@@ -505,7 +501,7 @@ public class LandAgencyQueries : ILandAgencyQueries
         var allViewings = await _db.ViewingRequests.AsNoTracking().ToListAsync();
 
         int totalBuyersWithAnyViewing = allUsers
-            .Count(u => u.Role == UserRole.Client && allViewings.Any(v => v.BuyerId == u.Id));
+            .Count(u => u.Role == UserRole.Buyer && allViewings.Any(v => v.BuyerId == u.Id));
 
         var allDistinctPurposes = allPlots
             .Select(p => p.Purpose)
@@ -529,7 +525,7 @@ public class LandAgencyQueries : ILandAgencyQueries
         var allMarketRegionsUnion = sellerDistricts.Union(buyerRequestedDistricts).OrderBy(r => r).ToList();
 
         var allClients = allUsers
-            .Where(u => u.Role == UserRole.Client)
+            .Where(u => u.Role == UserRole.Buyer)
             .Select(u => u.FullName)
             .ToList();
 

@@ -45,7 +45,7 @@ public class AddUserFormModel
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
-    public UserRole Role { get; set; } = UserRole.Client;
+    public UserRole Role { get; set; } = UserRole.Buyer;
     public string Password { get; set; } = string.Empty;
     public string? BankDetails { get; set; }
 }

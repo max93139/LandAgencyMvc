@@ -48,7 +48,7 @@ public class ClientController : Controller
     /// Підтримує відбір за довільним поєднанням критеріїв (призначення, діапазон бюджету,
     /// площа, дати публікації, текстовий пошук) та багатоваріантне впорядкування (LINQ to Entities + LINQ to Objects).
     /// </summary>
-    [Authorize(Roles = nameof(UserRole.Client))]
+    [Authorize(Roles = AppRoles.Buyer)]
     [HttpGet("/Catalog")]
     [HttpGet("/Client/Catalog")]
     public async Task<IActionResult> Catalog(
@@ -164,7 +164,7 @@ public class ClientController : Controller
     /// Створює заявку покупця на індивідуальний підбір ділянок рієлтором
     /// та негайно запускає автоматичний двигун підбору (AutoMatchingService).
     /// </summary>
-    [Authorize]
+    [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitSelectionRequest(
@@ -246,7 +246,7 @@ public class ClientController : Controller
     /// <summary>
     /// Оформлює заявку на виїзний огляд обраної ділянки із зазначенням бажаної дати та таймслоту.
     /// </summary>
-    [Authorize]
+    [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateViewing(int landPlotId, DateTime preferredDate, string timeSlot, string comment)
@@ -290,7 +290,7 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize]
+    [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelViewingByClient(int viewingId)
@@ -308,7 +308,7 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize]
+    [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RequestPurchaseFromViewing(int viewingId)
@@ -377,7 +377,7 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize(Roles = nameof(UserRole.Client))]
+    [Authorize(Roles = AppRoles.Seller)]
     [HttpGet("/Plots/Create")]
     [HttpGet("/Client/CreatePlot")]
     public async Task<IActionResult> CreatePlot()
@@ -394,7 +394,7 @@ public class ClientController : Controller
     /// Реєстрація ділянки продавцем: валідація КОАТУУ, завантаження документа з SHA-256 хешуванням,
     /// накладення електронного підпису та передача в чергу аудиту ДЗК/ДРРП.
     /// </summary>
-    [Authorize]
+    [Authorize(Roles = AppRoles.Seller)]
     [HttpPost("/Plots/Create")]
     [HttpPost("/Client/CreatePlot")]
     [ValidateAntiForgeryToken]
@@ -505,7 +505,7 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize]
+    [Authorize(Roles = AppRoles.Seller)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePlotPrice(int plotId, decimal newPriceUsd)
@@ -547,7 +547,7 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize]
+    [Authorize(Roles = AppRoles.Seller)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddPlotDocument(
@@ -593,7 +593,7 @@ public class ClientController : Controller
     /// Подання клієнтом реквізитів банківської оплати (код квитанції, IBAN) за виставленим рахунком-фактурою.
     /// Переводить платіж у статус очікування підтвердження виписки агентством.
     /// </summary>
-    [Authorize]
+    [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitPayment(int paymentId, string paymentReference, string? senderIban)
@@ -643,7 +643,7 @@ public class ClientController : Controller
     /// <summary>
     /// Альтернативний обробник для зворотної сумісності форми кабінету.
     /// </summary>
-    [Authorize]
+    [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ConfirmPayment(int dealId, string? payerIban, string? paymentReference)
@@ -707,7 +707,7 @@ public class ClientController : Controller
         return View("Receipt", deal);
     }
 
-    [Authorize]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangePassword(string? fullName, string? phone, string currentPassword, string newPassword, string? bankDetails, string? taxId)
@@ -757,7 +757,11 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
-    [Authorize(Roles = nameof(UserRole.Client))]
+    /// <summary>
+    /// Особистий кабінет клієнта. Продавець бачить власні ділянки, їхні документи та угоди з продажу;
+    /// покупець бачить запити на підбір, заявки на огляд, угоди купівлі та рахунки на оплату.
+    /// </summary>
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpGet("/Cabinet")]
     [HttpGet("/Client/Cabinet")]
     public async Task<IActionResult> Cabinet()
@@ -768,60 +772,76 @@ public class ClientController : Controller
             return RedirectToAction("Login", "Account");
         }
 
-        int activeUserId = currentUser.Id;
+        var viewModel = new CabinetViewModel { CurrentUser = currentUser };
 
-        var mySelectionRequests = await _db.SelectionRequests
-            .Where(r => r.BuyerId == activeUserId)
+        if (currentUser.Role == UserRole.Seller)
+        {
+            await LoadSellerCabinetAsync(viewModel);
+        }
+        else
+        {
+            await LoadBuyerCabinetAsync(viewModel);
+        }
+
+        return View(viewModel);
+    }
+
+    private async Task LoadSellerCabinetAsync(CabinetViewModel viewModel)
+    {
+        int sellerId = viewModel.CurrentUser!.Id;
+
+        viewModel.MyPlots = await _db.LandPlots
+            .Include(p => p.Documents)
+            .Include(p => p.LegalConclusion)
+            .Where(p => p.SellerId == sellerId)
+            .OrderByDescending(p => p.Id)
+            .ToListAsync();
+
+        viewModel.MySellerDeals = await _db.SaleDeals
+            .Include(d => d.LandPlot)
+            .Include(d => d.Buyer)
+            .Include(d => d.Payments)
+            .Where(d => d.LandPlot != null && d.LandPlot.SellerId == sellerId)
+            .OrderByDescending(d => d.Id)
+            .ToListAsync();
+    }
+
+    private async Task LoadBuyerCabinetAsync(CabinetViewModel viewModel)
+    {
+        int buyerId = viewModel.CurrentUser!.Id;
+
+        viewModel.MySelectionRequests = await _db.SelectionRequests
+            .Where(r => r.BuyerId == buyerId)
             .OrderByDescending(r => r.Id)
             .ToListAsync();
 
-        var matchedIds = mySelectionRequests
+        var matchedIds = viewModel.MySelectionRequests
             .SelectMany(r => r.GetMatchedPlotIds())
             .Distinct()
             .ToList();
 
-        var matchedPlots = matchedIds.Any()
-            ? await _db.LandPlots
-                .Where(p => matchedIds.Contains(p.Id) && p.Status == PlotStatus.VerifiedInCatalog)
-                .ToListAsync()
-            : new List<LandPlot>();
-
-        var viewModel = new CabinetViewModel
+        if (matchedIds.Any())
         {
-            CurrentUser = currentUser,
-            MyPlots = await _db.LandPlots
-                .Include(p => p.Documents)
-                .Include(p => p.LegalConclusion)
-                .Where(p => p.SellerId == activeUserId)
-                .OrderByDescending(p => p.Id)
-                .ToListAsync(),
-            MySelectionRequests = mySelectionRequests,
-            MatchedPlotsForUser = matchedPlots,
-            MyViewings = await _db.ViewingRequests
-                .Include(v => v.LandPlot)
-                .Include(v => v.Realtor)
-                .Where(v => v.BuyerId == activeUserId)
-                .OrderByDescending(v => v.Id)
-                .ToListAsync(),
-            MyDeals = await _db.SaleDeals
-                .Include(d => d.LandPlot)
-                .ThenInclude(p => p!.Seller)
-                .Include(d => d.Buyer)
-                .Include(d => d.Payments)
-                .Where(d => d.BuyerId == activeUserId)
-                .OrderByDescending(d => d.Id)
-                .ToListAsync(),
-            MySellerDeals = await _db.SaleDeals
-                .Include(d => d.LandPlot)
-                .ThenInclude(p => p!.Seller)
-                .Include(d => d.Buyer)
-                .Include(d => d.Payments)
-                .Where(d => d.LandPlot != null && d.LandPlot.SellerId == activeUserId && d.BuyerId != activeUserId)
-                .OrderByDescending(d => d.Id)
-                .ToListAsync()
-        };
+            viewModel.MatchedPlotsForUser = await _db.LandPlots
+                .Where(p => matchedIds.Contains(p.Id) && p.Status == PlotStatus.VerifiedInCatalog)
+                .ToListAsync();
+        }
 
-        return View(viewModel);
+        viewModel.MyViewings = await _db.ViewingRequests
+            .Include(v => v.LandPlot)
+            .Include(v => v.Realtor)
+            .Where(v => v.BuyerId == buyerId)
+            .OrderByDescending(v => v.Id)
+            .ToListAsync();
+
+        viewModel.MyDeals = await _db.SaleDeals
+            .Include(d => d.LandPlot)
+            .ThenInclude(p => p!.Seller)
+            .Include(d => d.Buyer)
+            .Include(d => d.Payments)
+            .Where(d => d.BuyerId == buyerId)
+            .OrderByDescending(d => d.Id)
+            .ToListAsync();
     }
 
     private async Task<(string fileUrl, byte[] fileBytes, string mimeType)> SaveUploadedDocumentAsync(

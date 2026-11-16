@@ -57,11 +57,11 @@
 
             <div class="la-row-between mt-4">
                 <button onclick="window.print()" class="la-btn la-btn-dark">Друкувати договір</button>
-                @if (User.IsInRole(nameof(LandAgencyMvc.Models.UserRole.Realtor)))
+                @if (User.IsInRole(AppRoles.Realtor))
                 {
                     <a asp-controller="Realtor" asp-action="Deals" class="la-btn la-btn-gray">← Повернутися до панелі угод</a>
                 }
-                else if (User.IsInRole(nameof(LandAgencyMvc.Models.UserRole.Lawyer)))
+                else if (User.IsInRole(AppRoles.Lawyer))
                 {
                     <a asp-controller="Lawyer" asp-action="Contracts" class="la-btn la-btn-gray">← Повернутися до погодження договорів</a>
                 }
