@@ -293,7 +293,7 @@ public partial class ClientController
     [Authorize(Roles = AppRoles.Seller)]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteOwnPlot(int plotId)
+    public async Task<IActionResult> DeleteOwnPlot(int plotId, string? reason)
     {
         var currentUser = await GetCurrentUserAsync();
         int currentUserId = currentUser?.Id ?? 0;
@@ -327,9 +327,15 @@ public partial class ClientController
             return RedirectToAction(nameof(Cabinet));
         }
 
-        await _plotRemoval.RemoveWithDependentsAsync(plot);
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["CabinetError"] = "Вкажіть причину вилучення оголошення.";
+            return RedirectToAction(nameof(Cabinet));
+        }
 
-        TempData["CabinetMessage"] = $"Оголошення {plot.CadastralNumber} вилучено разом із документами.";
+        await _plotRemoval.RemoveWithDependentsAsync(plot, reason, currentUser!);
+
+        TempData["CabinetMessage"] = $"Оголошення {plot.CadastralNumber} вилучено разом із документами. Копію збережено в архіві агентства.";
         return RedirectToAction(nameof(Cabinet));
     }
 

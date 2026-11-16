@@ -116,6 +116,7 @@
     {
         <div class="la-card mb-4">
             <h3 class="la-card-title mb-3">Оберіть режим вилучення</h3>
+            <p class="small text-muted">Перед вилученням копія ділянки з причиною, автором і часом записується в <a asp-action="PlotArchive">архів вилучених ділянок</a>. Архів змінювати не можна.</p>
 
             <div class="row g-4">
                 <div class="col-md-6">
@@ -127,6 +128,8 @@
                         <form method="post" asp-action="DeletePlotConfirmed" asp-route-id="@Model.Plot.Id">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="cascade" value="false" />
+                            <label class="form-label small fw-semibold">Причина вилучення (збережеться в архіві)</label>
+                            <input type="text" name="reason" class="form-control mb-2" required maxlength="300" />
                             <button type="submit" class="la-btn la-btn-outline-dark" onclick="return confirm('Виконати некаскадне вилучення ділянки @Model.Plot.CadastralNumber?');">
                                 Видалити некаскадно (Restrict)
                             </button>
@@ -143,6 +146,8 @@
                         <form method="post" asp-action="DeletePlotConfirmed" asp-route-id="@Model.Plot.Id">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="cascade" value="true" />
+                            <label class="form-label small fw-semibold">Причина вилучення (збережеться в архіві)</label>
+                            <input type="text" name="reason" class="form-control mb-2" required maxlength="300" />
                             <button type="submit" class="la-btn la-btn-danger" onclick="return confirm('УВАГА! Всі прикріплені документи, огляди та висновок юриста будуть ВИДАЛЕНІ КАСКАДНО разом із ділянкою. Продовжити?');">
                                 Видалити каскадно (Cascade)
                             </button>

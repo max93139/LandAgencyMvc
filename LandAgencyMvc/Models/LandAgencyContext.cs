@@ -13,6 +13,7 @@ public class LandAgencyContext : DbContext
     public DbSet<LegalConclusion> LegalConclusions { get; set; } = null!;
     public DbSet<SaleDeal> SaleDeals { get; set; } = null!;
     public DbSet<Payment> Payments { get; set; } = null!;
+    public DbSet<ArchivedPlot> ArchivedPlots { get; set; } = null!;
 
     public LandAgencyContext(DbContextOptions<LandAgencyContext> options) : base(options)
     {
@@ -56,6 +57,9 @@ public class LandAgencyContext : DbContext
 
         modelBuilder.Entity<Payment>().ToTable(t => t.HasCheckConstraint(
             "CK_Payments_Amount", "CAST(\"AmountUsd\" AS REAL) > 0"));
+
+        modelBuilder.Entity<ArchivedPlot>().ToTable(t => t.HasCheckConstraint(
+            "CK_ArchivedPlots_Reason", "length(trim(\"Reason\")) > 0"));
 
         modelBuilder.Entity<LandPlot>()
             .HasOne(p => p.Seller)
@@ -181,6 +185,7 @@ public class LandAgencyContext : DbContext
     public void InitializeDatabase()
     {
         Database.EnsureCreated();
+        CreateArchiveProtectionTriggers();
 
         if (!Users.Any())
         {
@@ -204,5 +209,19 @@ public class LandAgencyContext : DbContext
                 command.ExecuteNonQuery();
             }
         }
+    }
+
+    /// <summary>
+    /// Робить архів вилучених ділянок «лише доповнюваним»: UPDATE і DELETE рядків ArchivedPlots відхиляє сама база,
+    /// навіть якщо до неї звертаються поза застосунком.
+    /// </summary>
+    private void CreateArchiveProtectionTriggers()
+    {
+        Database.ExecuteSqlRaw(
+            "CREATE TRIGGER IF NOT EXISTS TR_ArchivedPlots_NoUpdate BEFORE UPDATE ON \"ArchivedPlots\" " +
+            "BEGIN SELECT RAISE(ABORT, 'Архів вилучених ділянок не можна змінювати'); END;");
+        Database.ExecuteSqlRaw(
+            "CREATE TRIGGER IF NOT EXISTS TR_ArchivedPlots_NoDelete BEFORE DELETE ON \"ArchivedPlots\" " +
+            "BEGIN SELECT RAISE(ABORT, 'Архів вилучених ділянок не можна видаляти'); END;");
     }
 }
