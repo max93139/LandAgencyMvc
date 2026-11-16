@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.RegularExpressions;
 
@@ -63,11 +64,36 @@ public class LandPlot
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+    /// <summary>
+    /// Широта центру ділянки (WGS-84). Координати вносить рієлтор під час складання опису (UC-12).
+    /// </summary>
+    public double? Latitude { get; set; }
+
+    public double? Longitude { get; set; }
+
+    public const int MaxSaleConditionsLength = 500;
+
+    /// <summary>
+    /// Умови продажу, які задає продавець (UC-10): форма розрахунку, строки, торг, обтяження.
+    /// </summary>
+    public string SaleConditions { get; set; } = string.Empty;
+
     public LegalConclusion? LegalConclusion { get; set; }
 
     public ICollection<PlotDocument> Documents { get; set; } = new List<PlotDocument>();
 
+    public ICollection<PlotMedia> Media { get; set; } = new List<PlotMedia>();
+
     public ICollection<ViewingRequest> ViewingRequests { get; set; } = new List<ViewingRequest>();
+
+    [NotMapped]
+    public bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
+
+    [NotMapped]
+    public string MapUrl => HasCoordinates
+        ? string.Create(CultureInfo.InvariantCulture,
+            $"https://www.openstreetmap.org/?mlat={Latitude}&mlon={Longitude}#map=16/{Latitude}/{Longitude}")
+        : string.Empty;
 
     [NotMapped]
     public double AreaSotky => Math.Round(AreaHectares * 100.0, 2);
@@ -139,6 +165,20 @@ public class LandPlot
         {
             PriceUsd = newPriceUsd;
         }
+    }
+
+    /// <summary>
+    /// Оновлює умови продажу, якщо ділянку ще не відчужено. Текст обрізається до дозволеної довжини.
+    /// </summary>
+    public void UpdateSaleConditions(string? conditions)
+    {
+        if (Status == PlotStatus.Sold)
+        {
+            return;
+        }
+
+        var trimmed = (conditions ?? string.Empty).Trim();
+        SaleConditions = trimmed.Length > MaxSaleConditionsLength ? trimmed[..MaxSaleConditionsLength] : trimmed;
     }
 
     /// <summary>

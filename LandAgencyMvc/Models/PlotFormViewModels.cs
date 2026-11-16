@@ -51,6 +51,18 @@ public class PlotCreateViewModel
     [Display(Name = "Комерційний опис об'єкта")]
     public string Description { get; set; } = string.Empty;
 
+    [StringLength(LandPlot.MaxSaleConditionsLength, ErrorMessage = "Умови продажу: не більше 500 символів")]
+    [Display(Name = "Умови продажу")]
+    public string SaleConditions { get; set; } = string.Empty;
+
+    [Range(44.0, 53.0, ErrorMessage = "Широта України: від 44 до 53 градусів")]
+    [Display(Name = "Широта (WGS-84)")]
+    public double? Latitude { get; set; }
+
+    [Range(22.0, 41.0, ErrorMessage = "Довгота України: від 22 до 41 градуса")]
+    [Display(Name = "Довгота (WGS-84)")]
+    public double? Longitude { get; set; }
+
     [Display(Name = "Назва первинного документа")]
     public string? DocTitle { get; set; }
 
@@ -108,6 +120,8 @@ public class PlotEditViewModel : PlotCreateViewModel
 
     public List<DocumentEditItem> Documents { get; set; } = new();
 
+    public List<PlotMedia> Media { get; set; } = new();
+
     public static PlotEditViewModel From(LandPlot plot)
     {
         var vm = new PlotEditViewModel
@@ -123,6 +137,10 @@ public class PlotEditViewModel : PlotCreateViewModel
             OwnershipDocNumber = plot.OwnershipDocNumber,
             SellerBankIban = plot.SellerBankIban,
             Description = plot.Description,
+            SaleConditions = plot.SaleConditions,
+            Latitude = plot.Latitude,
+            Longitude = plot.Longitude,
+            Media = plot.Media.OrderBy(m => m.Id).ToList(),
             Status = plot.Status,
             Documents = plot.Documents.Select(d => new DocumentEditItem
             {
@@ -158,6 +176,9 @@ public class PlotEditViewModel : PlotCreateViewModel
         plot.OwnershipDocNumber = OwnershipDocNumber.Trim();
         plot.SellerBankIban = SellerBankIban.Trim().ToUpperInvariant();
         plot.Description = (Description ?? string.Empty).Trim();
+        plot.UpdateSaleConditions(SaleConditions);
+        plot.Latitude = Latitude;
+        plot.Longitude = Longitude;
 
         foreach (var item in Documents)
         {

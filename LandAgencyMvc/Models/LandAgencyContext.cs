@@ -7,6 +7,7 @@ public class LandAgencyContext : DbContext
     public DbSet<AppUser> Users { get; set; } = null!;
     public DbSet<LandPlot> LandPlots { get; set; } = null!;
     public DbSet<PlotDocument> PlotDocuments { get; set; } = null!;
+    public DbSet<PlotMedia> PlotMedia { get; set; } = null!;
     public DbSet<SelectionRequest> SelectionRequests { get; set; } = null!;
     public DbSet<ViewingRequest> ViewingRequests { get; set; } = null!;
     public DbSet<LegalConclusion> LegalConclusions { get; set; } = null!;
@@ -92,6 +93,12 @@ public class LandAgencyContext : DbContext
             .WithMany(p => p.Documents)
             .HasForeignKey(d => d.LandPlotId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PlotMedia>()
+            .HasOne(m => m.LandPlot)
+            .WithMany(p => p.Media)
+            .HasForeignKey(m => m.LandPlotId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<LegalConclusion>()
             .HasOne(c => c.LandPlot)
