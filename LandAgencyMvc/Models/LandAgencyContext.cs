@@ -28,6 +28,32 @@ public class LandAgencyContext : DbContext
         modelBuilder.Entity<SaleDeal>().HasIndex(d => d.DraftContractNumber).IsUnique();
         modelBuilder.Entity<Payment>().HasIndex(p => p.InvoiceNumber).IsUnique();
 
+        modelBuilder.Entity<SaleDeal>()
+            .HasIndex(d => d.LandPlotId)
+            .IsUnique()
+            .HasDatabaseName("UX_SaleDeals_LandPlotId_Active")
+            .HasFilter($"\"Status\" <> {(int)DealStatus.Cancelled}");
+
+        modelBuilder.Entity<AppUser>().ToTable(t => t.HasCheckConstraint(
+            "CK_Users_Role", "\"Role\" BETWEEN 0 AND 3"));
+
+        modelBuilder.Entity<LandPlot>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_LandPlots_Area", "\"AreaHectares\" > 0");
+            t.HasCheckConstraint("CK_LandPlots_Price", "CAST(\"PriceUsd\" AS REAL) > 0");
+            t.HasCheckConstraint("CK_LandPlots_Latitude", "\"Latitude\" IS NULL OR \"Latitude\" BETWEEN 44 AND 53");
+            t.HasCheckConstraint("CK_LandPlots_Longitude", "\"Longitude\" IS NULL OR \"Longitude\" BETWEEN 22 AND 41");
+        });
+
+        modelBuilder.Entity<SaleDeal>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_SaleDeals_Price", "CAST(\"FinalPriceUsd\" AS REAL) > 0");
+            t.HasCheckConstraint("CK_SaleDeals_Commission", "CAST(\"AgencyCommissionUsd\" AS REAL) >= 0");
+        });
+
+        modelBuilder.Entity<Payment>().ToTable(t => t.HasCheckConstraint(
+            "CK_Payments_Amount", "CAST(\"AmountUsd\" AS REAL) > 0"));
+
         modelBuilder.Entity<LandPlot>()
             .HasOne(p => p.Seller)
             .WithMany(u => u.OwnedPlots)

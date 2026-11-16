@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using LandAgencyMvc.Data;
 using LandAgencyMvc.Models;
 using LandAgencyMvc.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -18,8 +19,9 @@ builder.Services.Configure<WebEncoderOptions>(options =>
 {
     options.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All);
 });
-builder.Services.AddDbContext<LandAgencyContext>(options =>
-    options.UseSqlite("Data Source=landagency.db"));
+builder.Services.AddDbContext<LandAgencyContext>(options => options
+    .UseSqlite("Data Source=landagency.db;Foreign Keys=True")
+    .AddInterceptors(new SqliteDurabilityInterceptor()));
 
 builder.Services.AddScoped<ICadastralValidationService, CadastralValidationService>();
 builder.Services.AddScoped<IAutoMatchingService, AutoMatchingService>();
