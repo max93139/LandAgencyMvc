@@ -73,8 +73,8 @@ function makeLandscapePng(width, height) {
     ]);
 }
 
-async function login(page, email, password, staff) {
-    await page.goto(`${BASE}${staff ? '/Account/StaffLogin' : '/Account/Login'}`);
+async function login(page, email, password) {
+    await page.goto(`${BASE}/Account/Login`);
     await page.fill('input[name=email]', email);
     await page.fill('input[name=password]', password);
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
@@ -110,13 +110,13 @@ async function elementShot(locator, name) {
     let page = await anon.newPage();
     await page.goto(`${BASE}/Account/Register`);
     await shot(page, 'lab5_fig01_register.png');
-    await page.goto(`${BASE}/Account/StaffLogin`);
-    await shot(page, 'lab5_fig02_staff_login.png');
+    await page.goto(`${BASE}/Account/Login`);
+    await shot(page, 'lab5_fig02_login.png');
     await anon.close();
 
     const seller = await newContext();
     page = await seller.newPage();
-    await login(page, 'seller@landagency.ua', 'client123', false);
+    await login(page, 'seller@landagency.ua', 'client123');
     await page.goto(`${BASE}/Cabinet`);
     await shot(page, 'lab5_fig03_seller_cabinet.png');
     await page.goto(`${BASE}/Client/EditOwnPlot/17`);
@@ -127,7 +127,7 @@ async function elementShot(locator, name) {
 
     const realtor = await newContext();
     page = await realtor.newPage();
-    await login(page, 'realtor@landagency.ua', 'realtor123', true);
+    await login(page, 'realtor@landagency.ua', 'realtor123');
     await page.goto(`${BASE}/Realtor/EditPlot/17`);
     await page.setInputFiles('input[name=mediaFile]', photo);
     await page.fill('input[name=caption]', 'Вид із південної межі ділянки');
@@ -140,7 +140,7 @@ async function elementShot(locator, name) {
 
     const buyer = await newContext();
     page = await buyer.newPage();
-    await login(page, 'buyer@landagency.ua', 'client123', false);
+    await login(page, 'buyer@landagency.ua', 'client123');
     await page.goto(`${BASE}/Client/Details/17`);
     await shot(page, 'lab5_fig07_buyer_details.png', { fullPage: true });
     await page.goto(`${BASE}/Catalog`);
@@ -188,7 +188,7 @@ async function elementShot(locator, name) {
     const dealId = sql("select Id from SaleDeals where DraftContractNumber='ДГ-ДЕМО-2';");
     const lawyer = await newContext();
     const lawyerPage = await lawyer.newPage();
-    await login(lawyerPage, 'lawyer@landagency.ua', 'lawyer123', true);
+    await login(lawyerPage, 'lawyer@landagency.ua', 'lawyer123');
     await postForm(lawyer, '/Lawyer/Contracts', '/Lawyer/ApproveDealContract', { dealId, lawyerNotes: 'Погоджено', decision: 'approve' });
     const payments = sql(`select Id||'|'||PaymentType from Payments where SaleDealId=${dealId};`).split('\n').map((row) => row.split('|'));
     const feeId = payments.find(([, type]) => type.startsWith('Комісійна'))[0];

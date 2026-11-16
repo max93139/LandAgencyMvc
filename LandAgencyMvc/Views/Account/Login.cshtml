@@ -8,7 +8,7 @@
     <div class="la-body la-auth-page">
         <div class="la-card la-auth-card">
             <h4 class="mb-1">Вхід в особистий кабінет</h4>
-            <p class="la-meta mb-3">Введіть вашу електронну пошту та пароль для доступу до системи</p>
+            <p class="la-meta mb-3">Покупці, продавці, рієлтори й юристи входять тут: після входу відкриється робоче місце вашої ролі</p>
 
             <partial name="_AlertMessages" />
 
@@ -24,10 +24,6 @@
             </form>
 
             <div class="la-text-sm text-center mt-3">
-                Ви співробітник агентства? <a asp-controller="Account" asp-action="StaffLogin" class="fw-bold text-success text-decoration-none">Службовий вхід</a>
-            </div>
-
-            <div class="la-text-sm text-center mt-2">
                 Ще не маєте акаунту? <a asp-controller="Account" asp-action="Register" class="fw-bold text-success text-decoration-none">Зареєструватися</a>
             </div>
         </div>

@@ -37,15 +37,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.LoginPath = "/Account/Login";
-        options.Events.OnRedirectToLogin = context =>
-        {
-            var isStaffArea = context.Request.Path.StartsWithSegments("/Realtor")
-                || context.Request.Path.StartsWithSegments("/Lawyer");
-            var loginPath = isStaffArea ? "/Account/StaffLogin" : "/Account/Login";
-            var returnUrl = Uri.EscapeDataString(context.Request.Path + context.Request.QueryString);
-            context.Response.Redirect($"{loginPath}?ReturnUrl={returnUrl}");
-            return Task.CompletedTask;
-        };
         options.LogoutPath = "/Account/Logout";
         options.AccessDeniedPath = "/Account/AccessDenied";
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
