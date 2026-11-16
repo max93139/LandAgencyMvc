@@ -72,6 +72,18 @@
                         {
                             <span class="la-badge la-badge-indigo">Угоду сформовано ✓</span>
                         }
+                        @if (v.CanRescheduleByClient)
+                        {
+                            <details class="la-text-xs">
+                                <summary class="fw-bold text-primary">Перенести дату огляду</summary>
+                                <form asp-controller="Client" asp-action="RescheduleViewingByClient" method="post" class="la-inline-form mt-2">
+                                    <input type="hidden" name="viewingId" value="@v.Id" />
+                                    <input type="date" name="newDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" class="la-input-inline" required />
+                                    <input type="time" name="newTimeSlot" class="la-input-inline" required />
+                                    <button type="submit" class="la-btn la-btn-blue la-btn-sm">Перенести</button>
+                                </form>
+                            </details>
+                        }
                         @if (v.CanCancelByClient)
                         {
                             <form asp-controller="Client" asp-action="CancelViewingByClient" method="post">
@@ -138,6 +150,14 @@
                 </div>
 
                 <div class="la-action-row">
+                    @if (d.CanSignAtNotary)
+                    {
+                        <form asp-controller="Client" asp-action="SignContractAtNotary" method="post">
+                            <input type="hidden" name="dealId" value="@d.Id" />
+                            <button type="submit" class="la-btn la-btn-blue la-btn-sm" disabled="@(!d.IsAgencyFeePaid)"
+                                    title="@(d.IsAgencyFeePaid ? "Підписати договір у нотаріуса" : "Спершу потрібна підтверджена оплата рахунку агентства")">Підписати договір у нотаріуса</button>
+                        </form>
+                    }
                     <a class="la-btn la-btn-white la-btn-sm" asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" target="_blank">Квитанція та рахунки</a>
                     <a class="la-btn la-btn-link la-btn-sm" asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank">Текст договору</a>
                 </div>

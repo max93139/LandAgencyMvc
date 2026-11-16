@@ -308,6 +308,40 @@ public class ClientController : Controller
         return RedirectToAction(nameof(Cabinet));
     }
 
+    /// <summary>
+    /// UC-04 «Перенести дату огляду» (extend до UC-03 «Замовити виїзний огляд ділянки»).
+    /// Покупець змінює дату й час власного огляду; заявка повертається рієлтору на повторне підтвердження.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Buyer)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RescheduleViewingByClient(int viewingId, DateTime newDate, string newTimeSlot)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var viewing = await _db.ViewingRequests.FirstOrDefaultAsync(v => v.Id == viewingId && v.BuyerId == currentUserId);
+        if (viewing == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (newDate.Date < DateTime.Today || string.IsNullOrWhiteSpace(newTimeSlot))
+        {
+            TempData["CabinetError"] = "Вкажіть дату огляду не раніше сьогоднішньої та бажаний час.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (!viewing.Reschedule(newDate, newTimeSlot))
+        {
+            TempData["CabinetError"] = $"Огляд у статусі «{viewing.StatusDisplayName}» перенести неможливо.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        await _db.SaveChangesAsync();
+        TempData["CabinetMessage"] = $"Огляд #{viewingId} перенесено на {viewing.PreferredDate:dd.MM.yyyy} о {viewing.TimeSlot}. Рієлтор підтвердить нову дату.";
+        return RedirectToAction(nameof(Cabinet));
+    }
+
     [Authorize(Roles = AppRoles.Buyer)]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -669,6 +703,46 @@ public class ClientController : Controller
             }
         }
 
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
+    /// UC-05 «Підписати договір купівлі-продажу у нотаріуса» (include UC-06 «Здійснити оплату / завдаток через банк»).
+    /// Покупець підписує договір, коли юрист погодив його, а банківська виписка про оплату рахунку агентства підтверджена.
+    /// Реєстровий номер нотаріальної дії присвоюється автоматично.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Buyer)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SignContractAtNotary(int dealId)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var deal = await _db.SaleDeals
+            .Include(d => d.Payments)
+            .FirstOrDefaultAsync(d => d.Id == dealId && d.BuyerId == currentUserId);
+
+        if (deal == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (!deal.CanSignAtNotary)
+        {
+            TempData["CabinetError"] = $"Договір {deal.DraftContractNumber} ще не погоджено юристом або вже підписаний.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (!deal.IsAgencyFeePaid)
+        {
+            TempData["CabinetError"] = $"Підписання можливе після оплати рахунку агентства {deal.AgencyPayment?.InvoiceNumber}: очікується підтвердження банківської виписки.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        deal.SignByParties($"НР-{DateTime.Now:yyyy}-{deal.Id:D4}");
+        await _db.SaveChangesAsync();
+
+        TempData["CabinetMessage"] = $"Договір {deal.DraftContractNumber} підписано у нотаріуса (реєстровий №{deal.NotarialRegistryNumber}). Далі юрист зареєструє перехід права власності.";
         return RedirectToAction(nameof(Cabinet));
     }
 

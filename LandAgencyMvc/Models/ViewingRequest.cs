@@ -60,6 +60,29 @@ public class ViewingRequest
     [NotMapped]
     public bool CanCancelByClient => Status is ViewingStatus.NewRequest or ViewingStatus.Scheduled;
 
+    [NotMapped]
+    public bool CanRescheduleByClient => CanCancelByClient;
+
+    /// <summary>
+    /// Переносить огляд на нову дату та час на прохання покупця. Заявка повертається у статус
+    /// «Нова заявка», бо рієлтор має підтвердити нову дату.
+    /// </summary>
+    /// <returns>False, якщо огляд у поточному статусі перенести не можна.</returns>
+    public bool Reschedule(DateTime newDate, string newTimeSlot)
+    {
+        if (!CanRescheduleByClient)
+        {
+            return false;
+        }
+
+        var previousSlot = $"{PreferredDate:dd.MM.yyyy} {TimeSlot}";
+        PreferredDate = newDate.Date;
+        TimeSlot = newTimeSlot.Trim();
+        Status = ViewingStatus.NewRequest;
+        Comment = $"{Comment} [Дату перенесено покупцем, було {previousSlot}]".Trim();
+        return true;
+    }
+
     public void ConfirmViewing(int? realtorId)
     {
         RealtorId = realtorId;
