@@ -310,6 +310,59 @@ public class LawyerController : Controller
     }
 
     /// <summary>
+    /// Відкликає юридичний висновок: ділянка повертається на повторну перевірку, документи втрачають позначку
+    /// верифікації, активні заявки на огляд скасовуються, а збіги із запитами на підбір перераховуються.
+    /// Неможливе, якщо ділянку продано або за нею є активна угода.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeLegalConclusion(int landPlotId)
+    {
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .Include(p => p.LegalConclusion)
+            .FirstOrDefaultAsync(p => p.Id == landPlotId);
+
+        if (plot?.LegalConclusion == null)
+        {
+            return RedirectToAction(nameof(Queue));
+        }
+
+        bool hasActiveDeal = await _db.SaleDeals.AnyAsync(d =>
+            d.LandPlotId == landPlotId && d.Status != DealStatus.Cancelled);
+        if (plot.Status == PlotStatus.Sold || hasActiveDeal)
+        {
+            TempData["LawyerError"] = $"Висновок щодо ділянки {plot.CadastralNumber} відкликати не можна: ділянку продано або за нею є активна угода.";
+            return RedirectToAction(nameof(Queue));
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+
+        _db.LegalConclusions.Remove(plot.LegalConclusion);
+        plot.ChangeStatus(PlotStatus.PendingLegalCheck);
+        foreach (var doc in plot.Documents)
+        {
+            doc.IsVerified = false;
+        }
+
+        var activeViewings = await _db.ViewingRequests
+            .Where(v => v.LandPlotId == landPlotId &&
+                        (v.Status == ViewingStatus.NewRequest || v.Status == ViewingStatus.Scheduled))
+            .ToListAsync();
+        foreach (var viewing in activeViewings)
+        {
+            viewing.CancelViewing("Ділянку знято з публікації: юридичний висновок відкликано.");
+        }
+
+        await _db.SaveChangesAsync();
+        await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+        await transaction.CommitAsync();
+
+        TempData["LawyerMessage"] = $"Юридичний висновок щодо ділянки {plot.CadastralNumber} відкликано. Ділянку повернуто на перевірку.";
+        return RedirectToAction(nameof(Queue));
+    }
+
+    /// <summary>
     /// UC-21 «Зареєструвати перехід права власності в ДЗК».
     /// Юрист фіксує державну реєстрацію права за покупцем після нотаріального посвідчення та повного
     /// підтвердження банківських розрахунків: угода завершується, ділянка стає «Продано», а решта заявок
