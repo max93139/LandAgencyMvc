@@ -95,6 +95,11 @@ public class DocumentEditItem
 
     [Display(Name = "Вилучити цей документ")]
     public bool Remove { get; set; }
+
+    /// <summary>
+    /// Лише для показу: верифікований юристом документ рієлтор не змінює й не вилучає.
+    /// </summary>
+    public bool IsVerified { get; set; }
 }
 
 /// <summary>
@@ -108,6 +113,8 @@ public class PlotEditViewModel : PlotCreateViewModel
     public Guid Version { get; set; }
 
     public PlotStatus Status { get; set; }
+
+    public bool LegalFactsLocked => Status == PlotStatus.VerifiedInCatalog;
 
     public string StatusDisplayName => Status switch
     {
@@ -149,7 +156,8 @@ public class PlotEditViewModel : PlotCreateViewModel
                 Title = d.Title,
                 DocType = d.DocType,
                 DocumentNumber = d.DocumentNumber,
-                IssueDate = d.IssueDate
+                IssueDate = d.IssueDate,
+                IsVerified = d.IsVerified
             }).ToList()
         };
 
@@ -167,14 +175,18 @@ public class PlotEditViewModel : PlotCreateViewModel
 
     public void ApplyTo(LandPlot plot)
     {
-        plot.SellerId = SellerId;
-        plot.CadastralNumber = CadastralNumber.Trim();
+        if (!plot.AreLegalFactsLocked)
+        {
+            plot.SellerId = SellerId;
+            plot.CadastralNumber = CadastralNumber.Trim();
+            plot.AreaHectares = AreaHectares;
+            plot.Purpose = Purpose.Trim();
+            plot.OwnershipDocNumber = OwnershipDocNumber.Trim();
+        }
+
         plot.Title = Title.Trim();
         plot.Location = Location.Trim();
-        plot.AreaHectares = AreaHectares;
-        plot.Purpose = Purpose.Trim();
         plot.PriceUsd = PriceUsd;
-        plot.OwnershipDocNumber = OwnershipDocNumber.Trim();
         plot.SellerBankIban = SellerBankIban.Trim().ToUpperInvariant();
         plot.Description = (Description ?? string.Empty).Trim();
         plot.UpdateSaleConditions(SaleConditions);
@@ -186,7 +198,7 @@ public class PlotEditViewModel : PlotCreateViewModel
             if (item.Id.HasValue && item.Id.Value > 0)
             {
                 var doc = plot.Documents.FirstOrDefault(d => d.Id == item.Id.Value);
-                if (doc != null)
+                if (doc != null && !doc.IsVerified)
                 {
                     if (item.Remove)
                     {
@@ -210,7 +222,7 @@ public class PlotEditViewModel : PlotCreateViewModel
                     DocType = item.DocType.Trim(),
                     DocumentNumber = item.DocumentNumber.Trim(),
                     IssueDate = item.IssueDate,
-                    IsVerified = plot.Status == PlotStatus.VerifiedInCatalog
+                    IsVerified = false
                 };
                 var dummyBytes = System.Text.Encoding.UTF8.GetBytes($"{newDoc.DocType} №{newDoc.DocumentNumber} для ділянки {plot.CadastralNumber}");
                 newDoc.AttachFile(string.Empty, dummyBytes, "application/pdf");
@@ -234,7 +246,7 @@ public class DeletePlotConfirmationViewModel
     public bool CanBeDeletedNonCascade =>
         DealsCount == 0 && DocumentsCount == 0 && ViewingsCount == 0 && !HasLegalConclusion;
 
-    public bool CanBeDeletedCascade => DealsCount == 0 && Plot.Status != PlotStatus.Sold;
+    public bool CanBeDeletedCascade => DealsCount == 0 && Plot.CanBeDeleted;
 }
 
 /// <summary>

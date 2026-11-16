@@ -150,8 +150,21 @@ public class LandPlot : IVersioned
     [NotMapped]
     public bool IsEditable => Status != PlotStatus.Sold;
 
+    /// <summary>
+    /// Після перевірки юристом кадастровий номер, площа, призначення, власник і номер правовстановлюючого документа
+    /// закриті для змін: інакше опублікована ділянка лишалась би «перевіреною» з іншими фактами.
+    /// Щоб їх змінити, юрист відкликає висновок, і ділянка проходить перевірку знову.
+    /// </summary>
     [NotMapped]
-    public bool CanBeDeleted => Status != PlotStatus.Sold;
+    public bool AreLegalFactsLocked => Status == PlotStatus.VerifiedInCatalog;
+
+    /// <summary>
+    /// Фізично вилучити можна лише ділянку без юридичного висновку: висновок і акт про ризики зберігаються
+    /// для аудиту земельного банку. Ділянку з висновком спершу повертає на перевірку юрист, відкликаючи його.
+    /// Потрібне завантаження навігації LegalConclusion.
+    /// </summary>
+    [NotMapped]
+    public bool CanBeDeleted => Status != PlotStatus.Sold && LegalConclusion == null;
 
     [NotMapped]
     public bool HasDependentRecords =>

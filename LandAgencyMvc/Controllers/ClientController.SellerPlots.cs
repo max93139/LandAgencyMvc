@@ -315,6 +315,12 @@ public partial class ClientController
             return RedirectToAction(nameof(Cabinet));
         }
 
+        if (!plot.CanBeDeleted)
+        {
+            TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} не можна вилучити: її перевірив юрист, і висновок зберігається для аудиту.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
         if (plot.ViewingRequests.Any(v => v.Status is ViewingStatus.NewRequest or ViewingStatus.Scheduled))
         {
             TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} не можна вилучити: є активні заявки покупців на огляд.";

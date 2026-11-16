@@ -49,29 +49,66 @@
                         @for (int i = 0; i < Model.Documents.Count; i++)
                         {
                             var isNewRow = !Model.Documents[i].Id.HasValue || Model.Documents[i].Id == 0;
+                            var verified = Model.Documents[i].IsVerified;
                             <tr class="@(isNewRow ? "table-light" : "")">
                                 <td>
                                     <input type="hidden" asp-for="Documents[i].Id" />
-                                    <input asp-for="Documents[i].Title" class="la-input mb-0" placeholder="@(isNewRow ? "+ Додати новий документ" : "Назва документа")" />
-                                    <span asp-validation-for="Documents[i].Title" class="text-danger small"></span>
+                                    @if (verified)
+                                    {
+                                        <input type="hidden" asp-for="Documents[i].Title" />
+                                        <span>@Model.Documents[i].Title</span>
+                                    }
+                                    else
+                                    {
+                                        <input asp-for="Documents[i].Title" class="la-input mb-0" placeholder="@(isNewRow ? "+ Додати новий документ" : "Назва документа")" />
+                                        <span asp-validation-for="Documents[i].Title" class="text-danger small"></span>
+                                    }
                                 </td>
                                 <td>
-                                    <select asp-for="Documents[i].DocType" class="la-input mb-0">
-                                        <option value="Витяг з ДЗК">Витяг з ДЗК</option>
-                                        <option value="Витяг з ДРРП">Витяг з ДРРП</option>
-                                        <option value="Державний акт">Державний акт на право власності</option>
-                                        <option value="Договір купівлі-продажу">Договір купівлі-продажу</option>
-                                        <option value="Технічна документація">Технічна документація із землеустрою</option>
-                                    </select>
+                                    @if (verified)
+                                    {
+                                        <input type="hidden" asp-for="Documents[i].DocType" />
+                                        <span>@Model.Documents[i].DocType</span>
+                                    }
+                                    else
+                                    {
+                                        <select asp-for="Documents[i].DocType" class="la-input mb-0">
+                                            <option value="Витяг з ДЗК">Витяг з ДЗК</option>
+                                            <option value="Витяг з ДРРП">Витяг з ДРРП</option>
+                                            <option value="Державний акт">Державний акт на право власності</option>
+                                            <option value="Договір купівлі-продажу">Договір купівлі-продажу</option>
+                                            <option value="Технічна документація">Технічна документація із землеустрою</option>
+                                        </select>
+                                    }
                                 </td>
                                 <td>
-                                    <input asp-for="Documents[i].DocumentNumber" class="la-input mb-0" placeholder="Номер документа..." />
+                                    @if (verified)
+                                    {
+                                        <input type="hidden" asp-for="Documents[i].DocumentNumber" />
+                                        <span>@Model.Documents[i].DocumentNumber</span>
+                                    }
+                                    else
+                                    {
+                                        <input asp-for="Documents[i].DocumentNumber" class="la-input mb-0" placeholder="Номер документа..." />
+                                    }
                                 </td>
                                 <td>
-                                    <input asp-for="Documents[i].IssueDate" type="date" class="la-input mb-0" />
+                                    @if (verified)
+                                    {
+                                        <input type="hidden" asp-for="Documents[i].IssueDate" />
+                                        <span>@Model.Documents[i].IssueDate.ToString("dd.MM.yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <input asp-for="Documents[i].IssueDate" type="date" class="la-input mb-0" />
+                                    }
                                 </td>
                                 <td class="text-center">
-                                    @if (!isNewRow)
+                                    @if (verified)
+                                    {
+                                        <span class="la-badge la-badge-green">Верифіковано юристом</span>
+                                    }
+                                    else if (!isNewRow)
                                     {
                                         <div class="form-check d-inline-block">
                                             <input asp-for="Documents[i].Remove" class="form-check-input" id="remove_@i" />

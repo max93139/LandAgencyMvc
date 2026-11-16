@@ -17,8 +17,6 @@ public partial class RealtorController
         int plotId,
         string? title,
         string? location,
-        double? areaHectares,
-        string? purpose,
         decimal? priceUsd,
         string? description)
     {
@@ -42,16 +40,6 @@ public partial class RealtorController
                 plot.Location = location.Trim();
             }
 
-            if (areaHectares.HasValue && areaHectares.Value > 0)
-            {
-                plot.AreaHectares = areaHectares.Value;
-            }
-
-            if (!string.IsNullOrWhiteSpace(purpose))
-            {
-                plot.Purpose = purpose.Trim();
-            }
-
             if (priceUsd.HasValue && priceUsd.Value > 0)
             {
                 plot.PriceUsd = priceUsd.Value;
@@ -62,7 +50,7 @@ public partial class RealtorController
                 plot.Description = description.Trim();
             }
 
-            plot.AssignedRealtorId = currentUser?.Id;
+            plot.AssignedRealtorId ??= currentUser?.Id;
             await _db.SaveChangesAsync();
             await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
 
@@ -91,7 +79,7 @@ public partial class RealtorController
             }
 
             plot.Description = (description ?? string.Empty).Trim();
-            plot.AssignedRealtorId = currentUser?.Id;
+            plot.AssignedRealtorId ??= currentUser?.Id;
             await _db.SaveChangesAsync();
             TempData["RealtorMessage"] = $"Комерційний опис ділянки {plot.CadastralNumber} оновлено.";
         }
@@ -403,6 +391,12 @@ public partial class RealtorController
                 return RedirectToAction(nameof(EditPlot), new { id = plotId });
             }
 
+            if (doc.IsVerified)
+            {
+                TempData["RealtorError"] = $"Документ «{doc.Title}» верифіковано юристом, тому рієлтор його не вилучає. Щоб змінити документи, юрист відкликає висновок.";
+                return RedirectToAction(nameof(EditPlot), new { id = plotId });
+            }
+
             _db.PlotDocuments.Remove(doc);
             await _db.SaveChangesAsync();
             TempData["RealtorMessage"] = $"Документ «{doc.Title}» вилучено.";
@@ -467,7 +461,9 @@ public partial class RealtorController
         int dealsCount = await _db.SaleDeals.CountAsync(d => d.LandPlotId == id);
         if (dealsCount > 0 || !plot.CanBeDeleted)
         {
-            TempData["RealtorError"] = $"Неможливо вилучити ділянку {plot.CadastralNumber}: за об'єктом зареєстровано {dealsCount} угод купівлі-продажу. Правило цілісності (Restrict) блокує видалення.";
+            TempData["RealtorError"] = dealsCount > 0 || plot.Status == PlotStatus.Sold
+                ? $"Неможливо вилучити ділянку {plot.CadastralNumber}: за об'єктом зареєстровано {dealsCount} угод купівлі-продажу. Правило цілісності (Restrict) блокує видалення."
+                : $"Неможливо вилучити ділянку {plot.CadastralNumber}: є юридичний висновок №{plot.LegalConclusion?.ConclusionNumber}, який зберігається для аудиту. Щоб вилучити ділянку, юрист має відкликати висновок.";
             return RedirectToAction(nameof(DeletePlot), new { id });
         }
 
