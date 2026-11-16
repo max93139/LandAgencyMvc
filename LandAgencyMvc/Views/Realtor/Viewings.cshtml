@@ -86,6 +86,12 @@
                         {
                             <span class="la-badge la-badge-green">Ділянку продано ✓</span>
                         }
+
+                        <form asp-action="DeleteViewing" method="post" class="d-inline ms-auto" onsubmit="return confirm('Вилучити цей запис огляду з графіка?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="viewingId" value="@v.Id" />
+                            <button type="submit" class="la-btn la-btn-danger la-btn-sm">Вилучити</button>
+                        </form>
                     </div>
                 </div>
             }

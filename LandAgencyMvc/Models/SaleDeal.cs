@@ -115,6 +115,44 @@ public class SaleDeal
     [NotMapped]
     public bool CanCancel => Status != DealStatus.CompletedAtNotary && Status != DealStatus.Cancelled;
 
+    [NotMapped]
+    public bool IsEditable =>
+        (Status is DealStatus.DraftPreparedByRealtor or DealStatus.ReturnedForRevision) &&
+        !Payments.Any(p => p.IsPaid);
+
+    [NotMapped]
+    public bool CanBeDeleted =>
+        (Status is DealStatus.DraftPreparedByRealtor or DealStatus.ReturnedForRevision or DealStatus.Cancelled) &&
+        !Payments.Any(p => p.IsPaid);
+
+    /// <summary>
+    /// Оновлює фінансові та нотаріальні умови чернетки угоди з автоматичним перерахунком комісії та рахунків.
+    /// </summary>
+    public void UpdateDraftTerms(decimal newPriceUsd, string notaryOffice, DateTime notaryDate, double commissionRatePercent = 3.0)
+    {
+        if (!IsEditable)
+        {
+            throw new InvalidOperationException("Редагування угоди заблоковано: договір вже погоджено або проведено оплату.");
+        }
+
+        FinalPriceUsd = newPriceUsd;
+        NotaryOffice = (notaryOffice ?? string.Empty).Trim();
+        NotaryDate = notaryDate;
+        CalculateCommission(commissionRatePercent);
+
+        foreach (var payment in Payments)
+        {
+            if (payment.PaymentType.Contains("Комісійна") || payment.PaymentType.Contains("комісійна"))
+            {
+                payment.AmountUsd = AgencyCommissionUsd;
+            }
+            else
+            {
+                payment.AmountUsd = FinalPriceUsd;
+            }
+        }
+    }
+
     /// <summary>
     /// Ініціалізує чернетку договору купівлі-продажу та розраховує комісію агентства.
     /// </summary>

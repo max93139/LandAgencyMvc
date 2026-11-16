@@ -181,6 +181,14 @@
                 }
 
                 <div class="la-action-row mt-3">
+                    @if (d.IsEditable)
+                    {
+                        <a asp-controller="Realtor" asp-action="EditDeal" asp-route-id="@d.Id" class="la-btn la-btn-outline-dark la-btn-xs">Редагувати умови</a>
+                    }
+                    @if (d.CanBeDeleted)
+                    {
+                        <a asp-controller="Realtor" asp-action="DeleteDeal" asp-route-id="@d.Id" class="la-btn la-btn-danger la-btn-xs">Видалити чернетку</a>
+                    }
                     <a asp-controller="Realtor" asp-action="PrintContract" asp-route-dealId="@d.Id" target="_blank" class="la-btn la-btn-link la-btn-xs">Друкована форма договору (PDF)</a>
                     <a asp-controller="Client" asp-action="DownloadReceipt" asp-route-dealId="@d.Id" target="_blank" class="la-btn la-btn-white la-btn-xs">Рахунок-фактура та квитанція</a>
                 </div>
