@@ -21,19 +21,22 @@ public class RealtorController : Controller
     private readonly ILandAgencyQueries _queries;
     private readonly ICadastralValidationService _cadastralService;
     private readonly IPlotMediaStorage _mediaStorage;
+    private readonly IPlotRemovalService _plotRemoval;
 
     public RealtorController(
         LandAgencyContext context,
         IAutoMatchingService autoMatchingService,
         ILandAgencyQueries queries,
         ICadastralValidationService cadastralService,
-        IPlotMediaStorage mediaStorage)
+        IPlotMediaStorage mediaStorage,
+        IPlotRemovalService plotRemoval)
     {
         _db = context;
         _autoMatchingService = autoMatchingService;
         _queries = queries;
         _cadastralService = cadastralService;
         _mediaStorage = mediaStorage;
+        _plotRemoval = plotRemoval;
     }
 
     private async Task<AppUser?> GetCurrentRealtorAsync()
@@ -1167,26 +1170,7 @@ public class RealtorController : Controller
         int docsRemoved = plot.Documents.Count;
         int viewingsRemoved = plot.ViewingRequests.Count;
 
-        if (cascade)
-        {
-            if (plot.Documents.Any())
-            {
-                _db.PlotDocuments.RemoveRange(plot.Documents);
-            }
-            if (plot.ViewingRequests.Any())
-            {
-                _db.ViewingRequests.RemoveRange(plot.ViewingRequests);
-            }
-            if (plot.LegalConclusion != null)
-            {
-                _db.LegalConclusions.Remove(plot.LegalConclusion);
-            }
-        }
-
-        var mediaFiles = plot.Media.ToList();
-        _db.LandPlots.Remove(plot);
-        await _db.SaveChangesAsync();
-        mediaFiles.ForEach(_mediaStorage.DeleteFile);
+        await _plotRemoval.RemoveWithDependentsAsync(plot);
 
         if (cascade)
         {

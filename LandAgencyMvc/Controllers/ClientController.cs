@@ -19,17 +19,20 @@ public class ClientController : Controller
     private readonly IWebHostEnvironment _env;
     private readonly ICadastralValidationService _cadastralService;
     private readonly IAutoMatchingService _autoMatchingService;
+    private readonly IPlotRemovalService _plotRemoval;
 
     public ClientController(
         LandAgencyContext context,
         IWebHostEnvironment env,
         ICadastralValidationService cadastralService,
-        IAutoMatchingService autoMatchingService)
+        IAutoMatchingService autoMatchingService,
+        IPlotRemovalService plotRemoval)
     {
         _db = context;
         _env = env;
         _cadastralService = cadastralService;
         _autoMatchingService = autoMatchingService;
+        _plotRemoval = plotRemoval;
     }
 
     private async Task<AppUser?> GetCurrentUserAsync()
@@ -594,18 +597,10 @@ public class ClientController : Controller
                 return RedirectToAction(nameof(Cabinet));
             }
 
-            if (plot.Status == PlotStatus.Sold)
+            var editBlock = await GetEditBlockReasonAsync(plot);
+            if (editBlock != null)
             {
-                TempData["CabinetError"] = "Неможливо змінити ціну вже проданої земельної ділянки.";
-                return RedirectToAction(nameof(Cabinet));
-            }
-
-            bool hasSignedDeal = await _db.SaleDeals.AnyAsync(d =>
-                d.LandPlotId == plot.Id &&
-                (d.Status == DealStatus.SignedAtNotary || d.Status == DealStatus.CompletedAtNotary));
-            if (hasSignedDeal)
-            {
-                TempData["CabinetError"] = $"По ділянці {plot.CadastralNumber} договір вже підписано у нотаріуса. Зміна ціни неможлива.";
+                TempData["CabinetError"] = editBlock;
                 return RedirectToAction(nameof(Cabinet));
             }
 
@@ -618,6 +613,133 @@ public class ClientController : Controller
             TempData["CabinetMessage"] = $"Ціну й умови продажу ділянки {plot.CadastralNumber} оновлено: ${newPriceUsd:N0}.";
         }
 
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
+    /// Причина, з якої продавець не може змінювати чи вилучати ділянку, або null, якщо може: ділянку продано
+    /// або за нею вже підписано договір у нотаріуса.
+    /// </summary>
+    private async Task<string?> GetEditBlockReasonAsync(LandPlot plot)
+    {
+        if (plot.Status == PlotStatus.Sold)
+        {
+            return $"Ділянку {plot.CadastralNumber} вже продано, зміни неможливі.";
+        }
+
+        bool hasSignedDeal = await _db.SaleDeals.AnyAsync(d =>
+            d.LandPlotId == plot.Id &&
+            (d.Status == DealStatus.SignedAtNotary || d.Status == DealStatus.CompletedAtNotary));
+
+        return hasSignedDeal
+            ? $"По ділянці {plot.CadastralNumber} договір вже підписано у нотаріуса, зміни неможливі."
+            : null;
+    }
+
+    /// <summary>
+    /// Форма редагування власного оголошення продавцем: назва, адреса, ціна, IBAN, опис і умови продажу.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Seller)]
+    [HttpGet]
+    public async Task<IActionResult> EditOwnPlot(int id)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == id && p.SellerId == currentUserId);
+        if (plot == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        var editBlock = await GetEditBlockReasonAsync(plot);
+        if (editBlock != null)
+        {
+            TempData["CabinetError"] = editBlock;
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        return View(SellerPlotEditViewModel.From(plot));
+    }
+
+    /// <summary>
+    /// Зберігає зміни власного оголошення. Якщо ділянку змінили в проміжку (інший користувач), збереження відхиляється.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Seller)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditOwnPlot(int id, SellerPlotEditViewModel vm)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == id && p.SellerId == currentUserId);
+        if (plot == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        var editBlock = await GetEditBlockReasonAsync(plot);
+        if (editBlock != null)
+        {
+            TempData["CabinetError"] = editBlock;
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (!ModelState.IsValid)
+        {
+            vm.ShowReadOnlyFieldsOf(plot);
+            return View(vm);
+        }
+
+        _db.UseSubmittedVersion(plot, vm.Version);
+
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        vm.ApplyTo(plot);
+        await _db.SaveChangesAsync();
+        await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
+        await transaction.CommitAsync();
+
+        TempData["CabinetMessage"] = $"Оголошення {plot.CadastralNumber} оновлено.";
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
+    /// Вилучення власного оголошення разом із документами, оглядами та юридичним висновком.
+    /// Неможливе, якщо за ділянкою є угода (навіть скасована) або активні заявки на огляд.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Seller)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteOwnPlot(int plotId)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .Include(p => p.Media)
+            .Include(p => p.ViewingRequests)
+            .Include(p => p.LegalConclusion)
+            .FirstOrDefaultAsync(p => p.Id == plotId && p.SellerId == currentUserId);
+
+        if (plot == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (await _db.SaleDeals.AnyAsync(d => d.LandPlotId == plot.Id))
+        {
+            TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} не можна вилучити: за нею є угода, яку агентство зберігає в історії.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (plot.ViewingRequests.Any(v => v.Status is ViewingStatus.NewRequest or ViewingStatus.Scheduled))
+        {
+            TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} не можна вилучити: є активні заявки покупців на огляд.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        await _plotRemoval.RemoveWithDependentsAsync(plot);
+
+        TempData["CabinetMessage"] = $"Оголошення {plot.CadastralNumber} вилучено разом із документами.";
         return RedirectToAction(nameof(Cabinet));
     }
 

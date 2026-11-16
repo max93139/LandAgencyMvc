@@ -34,6 +34,16 @@
                     <div class="la-text-xs mt-1">
                         Призначення: @myPlot.Purpose • IBAN: @myPlot.EffectiveSellerIban
                     </div>
+                    @if (myPlot.Status != LandAgencyMvc.Models.PlotStatus.Sold)
+                    {
+                        <div class="la-action-row mt-2">
+                            <a asp-controller="Client" asp-action="EditOwnPlot" asp-route-id="@myPlot.Id" class="la-btn la-btn-outline la-btn-xs">Редагувати оголошення</a>
+                            <form asp-controller="Client" asp-action="DeleteOwnPlot" method="post" onsubmit="return confirm('Вилучити оголошення разом із документами?');">
+                                <input type="hidden" name="plotId" value="@myPlot.Id" />
+                                <button type="submit" class="la-btn la-btn-red la-btn-xs">Вилучити оголошення</button>
+                            </form>
+                        </div>
+                    }
                     @if (myPlot.LegalConclusion != null)
                     {
                         <div class="la-text-xs mt-1 @(myPlot.LegalConclusion.IsApproved ? "text-success" : "text-danger") fw-bold">

@@ -174,17 +174,28 @@ public class SelectionRequest
             return false;
         }
 
-        if (currentIds.Remove(plot.Id))
+        return RemoveMatch(plot.Id);
+    }
+
+    /// <summary>
+    /// Прибирає ділянку зі списку підібраних. Якщо збігів не лишилось, заявка знову вважається необробленою.
+    /// </summary>
+    /// <returns>True, якщо ділянка була у списку.</returns>
+    public bool RemoveMatch(int plotId)
+    {
+        var currentIds = GetMatchedPlotIds().ToList();
+        if (!currentIds.Remove(plotId))
         {
-            MatchedPlotIds = string.Join(",", currentIds);
-            MatchedPlotsCount = currentIds.Count;
-            if (currentIds.Count == 0)
-            {
-                IsProcessedByRealtor = false;
-            }
-            return true;
+            return false;
         }
 
-        return false;
+        MatchedPlotIds = string.Join(",", currentIds);
+        MatchedPlotsCount = currentIds.Count;
+        if (currentIds.Count == 0)
+        {
+            IsProcessedByRealtor = false;
+        }
+
+        return true;
     }
 }
