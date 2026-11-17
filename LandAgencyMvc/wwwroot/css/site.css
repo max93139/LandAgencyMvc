@@ -485,3 +485,52 @@ input[type="number"] {
     border-radius: 8px;
     margin-top: 8px;
 }
+
+.la-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.la-page-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 4px;
+}
+
+.la-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.la-btn-danger { background: #dc2626; border: 1px solid #dc2626; color: #fff; }
+.la-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+
+.la-alert-danger {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+}
+
+.la-alert-warning {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+}
+
+/* Контурна кнопка задумана для темної панелі; на світлих сторінках вона має бути темною, інакше її не видно. */
+.la-body .la-btn-outline {
+    background: #ffffff;
+    color: #1e293b;
+    border: 1px solid #94a3b8;
+}
+
+.la-body .la-btn-outline:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
