@@ -20,42 +20,5 @@
                 <partial name="_BuyerCabinet" model="Model" />
             }
         </div>
-
-        <div class="la-card">
-            <h6>Налаштування профілю та реквізитів клієнта</h6>
-            <form asp-controller="Client" asp-action="ChangePassword" method="post">
-                <div class="la-grid-2">
-                    <div>
-                        <label class="la-label">Прізвище, ім'я та по батькові</label>
-                        <input name="fullName" value="@Model.CurrentUser?.FullName" class="la-input" placeholder="ПІБ" required />
-                    </div>
-                    <div>
-                        <label class="la-label">Контактний телефон</label>
-                        <input name="phone" value="@Model.CurrentUser?.Phone" class="la-input" placeholder="+380..." />
-                    </div>
-                </div>
-                <div class="la-grid-2">
-                    <div>
-                        <label class="la-label">РНОКПП для угод</label>
-                        <input name="taxId" value="@Model.CurrentUser?.TaxId" class="la-input" placeholder="10 цифр" />
-                    </div>
-                    <div>
-                        <label class="la-label">Мій банківський рахунок IBAN</label>
-                        <input name="bankDetails" value="@Model.CurrentUser?.BankDetails" class="la-input text-uppercase" placeholder="UAXXXXXXXXXXXXXXXXXXXXXXXXXXX" maxlength="29" minlength="29" pattern="^UA[0-9]{27}$" title="Формат IBAN України: UA та 27 цифр (рівно 29 символів)" />
-                    </div>
-                </div>
-                <div class="la-grid-2">
-                    <div>
-                        <label class="la-label">Поточний пароль (за потреби зміни)</label>
-                        <input type="password" name="currentPassword" class="la-input" placeholder="Для зміни пароля" />
-                    </div>
-                    <div>
-                        <label class="la-label">Новий пароль (за потреби зміни)</label>
-                        <input type="password" name="newPassword" class="la-input" placeholder="Новий пароль" />
-                    </div>
-                </div>
-                <button type="submit" class="la-btn la-btn-dark la-btn-sm">Зберегти дані профілю</button>
-            </form>
-        </div>
     </div>
 </div>
