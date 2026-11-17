@@ -1,6 +1,8 @@
 @model LandAgencyMvc.Models.PlotCreateViewModel
 @{
-    var locked = (Model as LandAgencyMvc.Models.PlotEditViewModel)?.LegalFactsLocked == true;
+    var editModel = Model as LandAgencyMvc.Models.PlotEditViewModel;
+    var locked = editModel?.LegalFactsLocked == true;
+    var onLegalCheck = editModel?.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck;
     var sellerName = (ViewBag.Sellers as IEnumerable<LandAgencyMvc.Models.AppUser>)?.FirstOrDefault(s => s.Id == Model.SellerId)?.FullName;
 }
 
@@ -10,7 +12,16 @@
     <h3 class="la-card-title mb-3">Основні реквізити земельної ділянки</h3>
     @if (locked)
     {
-        <p class="la-meta mb-3">Кадастровий номер, площа, призначення, власник і номер документа закриті: ділянку перевірив юрист. Щоб змінити їх, юрист відкликає висновок, і ділянка пройде перевірку знову.</p>
+        <p class="la-meta mb-3">
+            @if (onLegalCheck)
+            {
+                <span>Кадастровий номер, площа, призначення, власник і номер документа закриті, поки ділянку перевіряє юрист: він має перевіряти незмінні дані. Якщо в них помилка, юрист відхилить ділянку, і тоді їх можна буде виправити.</span>
+            }
+            else
+            {
+                <span>Кадастровий номер, площа, призначення, власник і номер документа закриті: ділянку перевірив юрист. Щоб змінити їх, юрист відкликає висновок і відхиляє ділянку; після виправлення вона повернеться на перевірку.</span>
+            }
+        </p>
     }
     <div class="row g-3">
         <div class="col-md-6">

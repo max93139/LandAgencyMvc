@@ -151,12 +151,30 @@ public class LandPlot : IVersioned
     public bool IsEditable => Status != PlotStatus.Sold;
 
     /// <summary>
-    /// Після перевірки юристом кадастровий номер, площа, призначення, власник і номер правовстановлюючого документа
-    /// закриті для змін: інакше опублікована ділянка лишалась би «перевіреною» з іншими фактами.
-    /// Щоб їх змінити, юрист відкликає висновок, і ділянка проходить перевірку знову.
+    /// Кадастровий номер, площа, призначення, власник і номер правовстановлюючого документа закриті, поки ділянку
+    /// перевіряє юрист і після того, як він її схвалив: юрист має перевіряти незмінні дані, а опублікована ділянка
+    /// не може лишатися «перевіреною» з іншими фактами. Виправити їх можна лише після відхилення юристом.
     /// </summary>
     [NotMapped]
-    public bool AreLegalFactsLocked => Status == PlotStatus.VerifiedInCatalog;
+    public bool AreLegalFactsLocked => LegalFactsLockedFor(Status);
+
+    public static bool LegalFactsLockedFor(PlotStatus status) =>
+        status is PlotStatus.PendingLegalCheck or PlotStatus.VerifiedInCatalog;
+
+    /// <summary>
+    /// Відхилену юристом ділянку після виправлення повертає на повторну перевірку.
+    /// Повертає true, якщо статус змінено.
+    /// </summary>
+    public bool ResubmitForLegalCheck()
+    {
+        if (Status != PlotStatus.RejectedByLawyer)
+        {
+            return false;
+        }
+
+        Status = PlotStatus.PendingLegalCheck;
+        return true;
+    }
 
     /// <summary>
     /// Фізично вилучити можна лише ділянку без юридичного висновку: висновок і акт про ризики зберігаються

@@ -310,11 +310,14 @@ public partial class RealtorController
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
         vm.ApplyTo(plot);
+        bool resubmitted = plot.ResubmitForLegalCheck();
         await _db.SaveChangesAsync();
         await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
         await transaction.CommitAsync();
 
-        TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} та її документів збережено.";
+        TempData["RealtorMessage"] = resubmitted
+            ? $"Виправлення ділянки {plot.CadastralNumber} збережено, ділянку повернуто юристу на повторну перевірку."
+            : $"Дані земельної ділянки {plot.CadastralNumber} та її документів збережено.";
         return RedirectToAction(nameof(Plots));
     }
 

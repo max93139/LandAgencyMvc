@@ -114,7 +114,7 @@ public class PlotEditViewModel : PlotCreateViewModel
 
     public PlotStatus Status { get; set; }
 
-    public bool LegalFactsLocked => Status == PlotStatus.VerifiedInCatalog;
+    public bool LegalFactsLocked => LandPlot.LegalFactsLockedFor(Status);
 
     public string StatusDisplayName => Status switch
     {
