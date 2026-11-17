@@ -7,22 +7,12 @@
         ? currentUser.CertificateNumber
         : User.FindFirst("StaffCredential")?.Value;
     var cert = !string.IsNullOrEmpty(rawCert) ? $" ({rawCert})" : "";
-    var plotId = (Model as LandAgencyMvc.Models.LawyerConclusionViewModel)?.Plot?.Id
-        ?? (Model as LandAgencyMvc.Models.LandPlot)?.Id;
 }
 
 <div class="la-topbar la-topbar-lawyer">
     <div class="la-nav-links">
         <span class="la-badge la-badge-indigo me-2">ЮРИСТ</span>
         <a class="@(activeNav == "Queue" ? "active" : "")" asp-controller="Lawyer" asp-action="Queue">Черга перевірки ДЗК</a>
-        @if (plotId.HasValue && plotId.Value > 0)
-        {
-            <a class="@(activeNav == "Conclusion" ? "active" : "")" asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@plotId.Value">Юридичний висновок</a>
-        }
-        else
-        {
-            <a class="@(activeNav == "Conclusion" ? "active" : "")" asp-controller="Lawyer" asp-action="Conclusion">Юридичний висновок</a>
-        }
         <a class="@(activeNav == "Contracts" ? "active" : "")" asp-controller="Lawyer" asp-action="Contracts">Погодження договорів</a>
         <a class="@(activeNav == "LandBank" ? "active" : "")" asp-controller="Lawyer" asp-action="LandBank">Земельний банк</a>
     </div>
