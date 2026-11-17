@@ -33,7 +33,9 @@ public partial class RealtorController
             if (selectedReq != null)
             {
                 var ids = selectedReq.GetMatchedPlotIds();
-                matchedPreview = allPlots.Where(p => ids.Contains(p.Id)).ToList();
+                matchedPreview = allPlots
+                    .Where(p => ids.Contains(p.Id) && p.Status == PlotStatus.VerifiedInCatalog)
+                    .ToList();
             }
         }
 

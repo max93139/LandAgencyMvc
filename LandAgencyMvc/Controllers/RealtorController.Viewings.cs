@@ -22,6 +22,10 @@ public partial class RealtorController
             .Include(v => v.Realtor)
             .OrderByDescending(v => v.Id)
             .ToListAsync();
+
+        ViewBag.BuyerByPlot = await _db.SaleDeals
+            .Where(d => d.Status == DealStatus.CompletedAtNotary)
+            .ToDictionaryAsync(d => d.LandPlotId, d => d.BuyerId);
         return View(viewings);
     }
 
@@ -62,6 +66,18 @@ public partial class RealtorController
         if (!viewing.CanChangeStatusTo(target))
         {
             return $"Огляд у статусі «{viewing.StatusDisplayName}» не можна перевести в статус «{ViewingRequest.DisplayNameOf(target)}».";
+        }
+
+        if (target is ViewingStatus.Scheduled or ViewingStatus.Completed)
+        {
+            var plotStatus = await _db.LandPlots
+                .Where(p => p.Id == viewing.LandPlotId)
+                .Select(p => p.Status)
+                .FirstOrDefaultAsync();
+            if (plotStatus != PlotStatus.VerifiedInCatalog)
+            {
+                return "Ділянка вже не продається (продана або знята з публікації), тому огляд можна лише скасувати.";
+            }
         }
 
         switch (target)

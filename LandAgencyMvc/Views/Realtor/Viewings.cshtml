@@ -84,7 +84,15 @@
                         }
                         else if (v.Status == LandAgencyMvc.Models.ViewingStatus.Completed && v.LandPlot?.Status == LandAgencyMvc.Models.PlotStatus.Sold)
                         {
-                            <span class="la-badge la-badge-green">Ділянку продано ✓</span>
+                            var buyerByPlot = ViewBag.BuyerByPlot as Dictionary<int, int>;
+                            if (buyerByPlot != null && buyerByPlot.TryGetValue(v.LandPlotId, out var soldTo) && soldTo == v.BuyerId)
+                            {
+                                <span class="la-badge la-badge-green">Ділянку продано цьому покупцю ✓</span>
+                            }
+                            else
+                            {
+                                <span class="la-badge la-badge-amber" title="Огляд проведено, але ділянку купив інший клієнт.">Ділянку продано іншому покупцю</span>
+                            }
                         }
 
                         @if (v.CanBeDeleted)

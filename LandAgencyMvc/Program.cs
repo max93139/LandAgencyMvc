@@ -47,10 +47,23 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+bool seeded;
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<LandAgencyContext>();
-    db.InitializeDatabase();
+    seeded = db.InitializeDatabase();
+}
+
+if (seeded)
+{
+    // Збіги заявок у початкових даних узгоджуються з поточними правилами підбору: продані й неопубліковані ділянки прибираються.
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<LandAgencyContext>();
+    var matching = scope.ServiceProvider.GetRequiredService<IAutoMatchingService>();
+    foreach (var plotId in db.LandPlots.Select(p => p.Id).ToList())
+    {
+        await matching.MatchNewOrUpdatedPlotAsync(plotId);
+    }
 }
 
 app.UseRequestLocalization(new RequestLocalizationOptions
