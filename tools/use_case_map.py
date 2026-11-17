@@ -75,7 +75,7 @@ CRUD = [
      'Рієлтор: Clients; клієнт: Cabinet', 'Клієнт: ChangePassword; рієлтор: UpdateClient', 'Рієлтор: DeleteClient (лише клієнти)',
      [(ACCOUNT, 'Register'), (RT_CLIENTS, 'AddClient'), (CLIENT_CAB, 'Cabinet'), (CLIENT_CAB, 'ChangePassword'), (RT_CLIENTS, 'UpdateClient'), (RT_CLIENTS, 'DeleteClient')]),
     ('LandPlots', 'Продавець: CreatePlot; рієлтор: CreatePlot',
-     'Покупець: Catalog, Details; продавець: Cabinet; рієлтор: Plots; юрист: Queue', 'Продавець: UpdatePlotTerms, EditOwnPlot; рієлтор: EditPlot (юридичні факти закриті після перевірки); юрист: SubmitLegalConclusion', 'Продавець: DeleteOwnPlot; рієлтор: DeletePlotConfirmed (лише ділянки без юридичного висновку)',
+     'Покупець: Catalog, Details; продавець: Cabinet; рієлтор: Plots; юрист: Queue', 'Продавець: UpdatePlotTerms, EditOwnPlot; рієлтор: EditPlot (юридичні факти закриті під час і після перевірки); юрист: SubmitLegalConclusion', 'Продавець: DeleteOwnPlot; рієлтор: DeletePlotConfirmed (лише ділянки без юридичного висновку)',
      [(CLIENT_PLOTS, 'CreatePlot'), (RT_PLOTS, 'CreatePlot'), (CLIENT_CAT, 'Catalog'), (RT_PLOTS, 'Plots'), (CLIENT_PLOTS, 'EditOwnPlot'), (RT_PLOTS, 'EditPlot'), (CLIENT_PLOTS, 'DeleteOwnPlot'), (RT_PLOTS, 'DeletePlotConfirmed')]),
     ('PlotDocuments', 'Продавець: AddPlotDocument, CreatePlot',
      'Details, Cabinet', 'Рієлтор: EditPlot (неверифіковані); юрист: SubmitLegalConclusion (верифікація)', 'Рієлтор: DeletePlotDocument (неверифіковані)',
