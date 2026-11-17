@@ -2,10 +2,14 @@
 @{
     ViewData["Title"] = $"{Model.Title} — LandAgency UA";
     ViewData["ActiveNav"] = "Details";
+    var staffNavbar = User.IsInRole(LandAgencyMvc.Models.AppRoles.Realtor) ? "_RealtorNavbar"
+        : User.IsInRole(LandAgencyMvc.Models.AppRoles.Lawyer) ? "_LawyerNavbar"
+        : null;
+    var conclusion = Model.LegalConclusion;
 }
 
 <div class="la-window">
-    <partial name="_ClientNavbar" />
+    <partial name="@(staffNavbar ?? "_ClientNavbar")" />
 
     <div class="la-body">
         <partial name="_AlertMessages" />
@@ -109,6 +113,34 @@
                     </div>
                 }
 
+                @if (conclusion != null)
+                {
+                    <div class="la-subcard mb-3">
+                        <strong class="la-text-sm d-block mb-2">
+                            Юридичний висновок №@conclusion.ConclusionNumber
+                            <span class="@(conclusion.IsApproved ? "text-success" : "text-danger")">— @(conclusion.IsApproved ? "ділянку схвалено" : "виявлено ризики")</span>
+                        </strong>
+                        <div class="la-text-sm text-muted mb-2">
+                            @conclusion.CreatedAt.ToString("dd.MM.yyyy") • юрист @(conclusion.Lawyer?.FullName ?? "—") • рівень ризику: @conclusion.RiskLevel
+                            @if (!string.IsNullOrWhiteSpace(conclusion.DzkExtractNumber))
+                            {
+                                <span>• витяг ДЗК №@conclusion.DzkExtractNumber</span>
+                            }
+                        </div>
+                        <ul class="la-text-sm mb-2 ps-3">
+                            <li>@(conclusion.NoArrestsOrMortgages ? "✓" : "✗") арештів та іпотеки немає</li>
+                            <li>@(conclusion.NoServitudes ? "✓" : "✗") сервітутів немає</li>
+                            <li>@(conclusion.BoundariesMatchDzk ? "✓" : "✗") межі збігаються з ДЗК</li>
+                            <li>@(conclusion.SellerMatchesDrp ? "✓" : "✗") продавець збігається з власником у ДРРП</li>
+                            <li>@(conclusion.NoSanctions ? "✓" : "✗") санкцій щодо власника немає</li>
+                        </ul>
+                        @if (!string.IsNullOrWhiteSpace(conclusion.ConclusionText))
+                        {
+                            <div class="la-text-sm">@conclusion.ConclusionText</div>
+                        }
+                    </div>
+                }
+
                 @if (Model.Documents.Any())
                 {
                     <div>
@@ -134,8 +166,24 @@
             </div>
 
             <div class="la-card">
-                <h5>Записатися на виїзний огляд</h5>
-                @if (Model.IsOwnedBy(User))
+                <h5>@(staffNavbar != null ? "Дії співробітника" : "Записатися на виїзний огляд")</h5>
+                @if (User.IsInRole(AppRoles.Realtor))
+                {
+                    <div class="la-subcard la-text-sm mb-2">Ви переглядаєте картку ділянки так, як її бачать клієнти.</div>
+                    @if (Model.IsEditable)
+                    {
+                        <a asp-controller="Realtor" asp-action="EditPlot" asp-route-id="@Model.Id" class="la-btn la-btn-dark la-btn-sm">Редагувати ділянку</a>
+                    }
+                    <a asp-controller="Realtor" asp-action="Plots" class="la-btn la-btn-outline la-btn-sm">До реєстру ділянок</a>
+                }
+                else if (User.IsInRole(AppRoles.Lawyer))
+                {
+                    <div class="la-subcard la-text-sm mb-2">Ви переглядаєте картку ділянки так, як її бачать клієнти.</div>
+                    <a asp-controller="Lawyer" asp-action="Conclusion" asp-route-id="@Model.Id" class="la-btn la-btn-indigo la-btn-sm">
+                        @(Model.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck ? "Скласти висновок" : "Відкрити юридичний висновок")
+                    </a>
+                }
+                else if (Model.IsOwnedBy(User))
                 {
                     <div class="la-subcard la-text-sm">
                         Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" class="fw-bold">Мій кабінет</a>.
