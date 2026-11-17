@@ -7,6 +7,25 @@ namespace LandAgencyMvc.Controllers;
 
 public partial class ClientController
 {
+    /// <summary>
+    /// Окрема сторінка налаштувань клієнта: ПІБ, телефон, РНОКПП та IBAN для угод, зміна пароля.
+    /// </summary>
+    [Authorize(Roles = AppRoles.AnyClient)]
+    [HttpGet]
+    public async Task<IActionResult> Settings()
+    {
+        var currentUser = await GetCurrentUserAsync();
+        if (currentUser == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        return View(new CabinetViewModel { CurrentUser = currentUser });
+    }
+
+    /// <summary>
+    /// Зберігає налаштування профілю клієнта; пароль змінюється лише за правильного поточного пароля.
+    /// </summary>
     [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -31,7 +50,7 @@ public partial class ClientController
                 if (!System.Text.RegularExpressions.Regex.IsMatch(ibanClean, @"^UA\d{27}$"))
                 {
                     TempData["CabinetError"] = "Невірний формат IBAN. Банківський рахунок України має містити літери UA та 27 цифр (29 символів).";
-                    return RedirectToAction(nameof(Cabinet));
+                    return RedirectToAction(nameof(Settings));
                 }
                 currentUser.BankDetails = ibanClean;
             }
@@ -46,7 +65,7 @@ public partial class ClientController
                 if (!currentUser.ChangePassword(currentPassword, newPassword))
                 {
                     TempData["CabinetError"] = "Невірний поточний пароль. Пароль не змінено.";
-                    return RedirectToAction(nameof(Cabinet));
+                    return RedirectToAction(nameof(Settings));
                 }
             }
 
@@ -54,7 +73,7 @@ public partial class ClientController
             TempData["CabinetMessage"] = "Налаштування профілю та реквізити успішно оновлено.";
         }
 
-        return RedirectToAction(nameof(Cabinet));
+        return RedirectToAction(nameof(Settings));
     }
 
     /// <summary>
