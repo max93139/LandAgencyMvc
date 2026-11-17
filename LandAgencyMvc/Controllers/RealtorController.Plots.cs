@@ -99,6 +99,7 @@ public partial class RealtorController
             .Include(p => p.Documents)
             .Include(p => p.ViewingRequests)
             .Include(p => p.LegalConclusion)
+            .Where(p => p.Status != PlotStatus.Sold)
             .AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -507,17 +508,30 @@ public partial class RealtorController
     }
 
     /// <summary>
-    /// Архів вилучених ділянок: хто, коли й чому вилучив ділянку. Лише перегляд, змінювати архів не можна.
+    /// Архів ділянок: продані ділянки з даними завершеної угоди та вилучені ділянки з причиною вилучення.
+    /// Продані ділянки не показуються в робочому реєстрі, бо з ними вже нічого не роблять. Лише перегляд.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
     public async Task<IActionResult> PlotArchive()
     {
-        var archive = await _db.ArchivedPlots
-            .AsNoTracking()
-            .OrderByDescending(a => a.RemovedAtUtc)
-            .ToListAsync();
+        var model = new PlotArchiveViewModel
+        {
+            SoldDeals = await _db.SaleDeals
+                .Include(d => d.LandPlot).ThenInclude(p => p!.Seller)
+                .Include(d => d.Buyer)
+                .Include(d => d.Realtor)
+                .Include(d => d.Lawyer)
+                .Where(d => d.Status == DealStatus.CompletedAtNotary)
+                .OrderByDescending(d => d.NotaryDate)
+                .AsNoTracking()
+                .ToListAsync(),
+            RemovedPlots = await _db.ArchivedPlots
+                .AsNoTracking()
+                .OrderByDescending(a => a.RemovedAtUtc)
+                .ToListAsync()
+        };
 
-        return View(archive);
+        return View(model);
     }
 }

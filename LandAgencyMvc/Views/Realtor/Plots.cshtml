@@ -14,7 +14,7 @@
             <div class="la-page-header">
                 <div>
                     <h1 class="la-page-title">Реєстр земельних ділянок агентства</h1>
-                    <p class="la-meta mb-0">Повний цикл управління об'єктами: реєстрація, коригування параметрів, робота з документами та видалення</p>
+                    <p class="la-meta mb-0">Ділянки в роботі: реєстрація, коригування параметрів, документи та вилучення. Продані ділянки зберігаються в <a asp-action="PlotArchive">архіві</a>.</p>
                 </div>
                 <div>
                     <a asp-action="CreatePlot" class="la-btn la-btn-dark">+ Додати земельну ділянку</a>
@@ -34,7 +34,6 @@
                             <option value="PendingLegalCheck" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)">На перевірці у юриста</option>
                             <option value="VerifiedInCatalog" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)">Опубліковано в каталозі</option>
                             <option value="RejectedByLawyer" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.RejectedByLawyer)">Відхилено юристом</option>
-                            <option value="Sold" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.Sold)">Продано</option>
                         </select>
                     </div>
                     <div class="col-md-3 d-flex gap-2">
