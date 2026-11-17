@@ -41,4 +41,8 @@ public class ArchivedPlot
     public UserRole RemovedByRole { get; set; }
 
     public DateTime RemovedAtUtc { get; set; }
+
+    public string StatusDisplayName => new LandPlot { Status = StatusAtRemoval }.StatusDisplayName;
+
+    public string RemovedByRoleDisplayName => new AppUser { Role = RemovedByRole }.RoleDisplayName;
 }
