@@ -31,6 +31,7 @@
                     <div class="col-md-4">
                         <select name="status" class="la-input mb-0">
                             <option value="">Всі статуси лістингу</option>
+                            <option value="Draft" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.Draft)">Чернетки (ще не надіслано юристу)</option>
                             <option value="PendingLegalCheck" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)">На перевірці у юриста</option>
                             <option value="VerifiedInCatalog" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)">Опубліковано в каталозі</option>
                             <option value="RejectedByLawyer" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.RejectedByLawyer)">Відхилено юристом</option>
@@ -104,17 +105,17 @@
                                                 <a asp-action="EditPlot" asp-route-id="@plot.Id" class="la-btn la-btn-outline-dark la-btn-sm">Редагувати</a>
                                             }
 
-                                            @if (plot.CanBeDeleted)
+                                            @if (plot.CanBeSentForLegalCheck)
+                                            {
+                                                <form asp-action="SendPlotForLegalCheck" asp-route-id="@plot.Id" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="la-btn la-btn-indigo la-btn-sm">Відправити юристу</button>
+                                                </form>
+                                            }
+
+                                            @if (plot.Status == LandAgencyMvc.Models.PlotStatus.Draft)
                                             {
                                                 <a asp-action="DeletePlot" asp-route-id="@plot.Id" class="la-btn la-btn-danger la-btn-sm">Видалити</a>
-                                            }
-                                            else if (plot.Status == LandAgencyMvc.Models.PlotStatus.Sold)
-                                            {
-                                                <span class="la-badge la-badge-green" title="Ділянку продано за нотаріальною угодою. Видалення заблоковано.">Продано</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="la-badge la-badge-indigo" title="Юридичний висновок зберігається для аудиту. Вилучити ділянку можна після того, як юрист відкличе висновок.">Є висновок юриста</span>
                                             }
                                         </div>
                                     </td>

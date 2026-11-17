@@ -102,7 +102,7 @@ public partial class ClientController
 
         model.SellerId = currentUser.Id;
         model.AssignedRealtorId = realtor?.Id;
-        model.Status = PlotStatus.PendingLegalCheck;
+        model.Status = PlotStatus.Draft;
         model.CreatedAt = DateTime.Now;
         model.UpdateSaleConditions(model.SaleConditions);
 
@@ -155,7 +155,7 @@ public partial class ClientController
 
         var registryExtract = await DzkRegistrySimulator.QueryRegistriesAsync(model, _cadastralService);
 
-        TempData["CabinetMessage"] = $"Ділянку {model.CadastralNumber} ({koatuu.RegionName}) подано на модерацію. " +
+        TempData["CabinetMessage"] = $"Ділянку {model.CadastralNumber} ({koatuu.RegionName}) збережено як чернетку; щоб юрист її перевірив, натисніть «Відправити юристу». " +
                                      $"Попередній запит до ДЗК/ДРРП (витяг {registryExtract.ExtractNumber}): {registryExtract.RecommendedRiskLevel}. " +
                                      "Документ зафіксовано з контрольною сумою SHA-256.";
         return RedirectToAction(nameof(Cabinet));
@@ -287,8 +287,72 @@ public partial class ClientController
     }
 
     /// <summary>
-    /// Вилучення власного оголошення разом із документами, оглядами та юридичним висновком.
-    /// Неможливе, якщо за ділянкою є угода (навіть скасована) або активні заявки на огляд.
+    /// UC-08/UC-09: продавець відправляє свою чернетку (або виправлену після відхилення ділянку) юристу.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Seller)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendOwnPlotForLegalCheck(int plotId)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .FirstOrDefaultAsync(p => p.Id == plotId && p.SellerId == currentUserId);
+
+        if (plot == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (!plot.SendForLegalCheck())
+        {
+            TempData["CabinetError"] = plot.Documents.Any()
+                ? $"Ділянку {plot.CadastralNumber} у статусі «{plot.StatusDisplayName}» відправити юристу не можна."
+                : $"Ділянку {plot.CadastralNumber} не можна відправити юристу: додайте хоча б один правовстановлюючий документ.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        await _db.SaveChangesAsync();
+        TempData["CabinetMessage"] = $"Ділянку {plot.CadastralNumber} відправлено юристу на перевірку.";
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
+    /// Продавець вилучає неверифікований документ власної чернетки або відхиленої ділянки.
+    /// Верифіковані юристом документи не вилучаються.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Seller)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteOwnPlotDocument(int documentId)
+    {
+        var currentUser = await GetCurrentUserAsync();
+        int currentUserId = currentUser?.Id ?? 0;
+        var doc = await _db.PlotDocuments
+            .Include(d => d.LandPlot)
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.LandPlot != null && d.LandPlot.SellerId == currentUserId);
+
+        if (doc == null)
+        {
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        if (doc.IsVerified || doc.LandPlot!.Status is not (PlotStatus.Draft or PlotStatus.RejectedByLawyer))
+        {
+            TempData["CabinetError"] = "Документ вилучити не можна: ділянка на перевірці або документ уже верифіковано юристом.";
+            return RedirectToAction(nameof(Cabinet));
+        }
+
+        _db.PlotDocuments.Remove(doc);
+        await _db.SaveChangesAsync();
+        TempData["CabinetMessage"] = $"Документ {doc.DocType} №{doc.DocumentNumber} вилучено.";
+        return RedirectToAction(nameof(Cabinet));
+    }
+
+    /// <summary>
+    /// Вилучення власного оголошення. Вилучити можна лише чернетку без документів; фото й відео
+    /// вилучаються разом із нею, а копія з причиною записується в архів.
     /// </summary>
     [Authorize(Roles = AppRoles.Seller)]
     [HttpPost]
@@ -309,21 +373,9 @@ public partial class ClientController
             return RedirectToAction(nameof(Cabinet));
         }
 
-        if (await _db.SaleDeals.AnyAsync(d => d.LandPlotId == plot.Id))
+        if (!plot.CanBeDeleted || await _db.SaleDeals.AnyAsync(d => d.LandPlotId == plot.Id))
         {
-            TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} не можна вилучити: за нею є угода, яку агентство зберігає в історії.";
-            return RedirectToAction(nameof(Cabinet));
-        }
-
-        if (!plot.CanBeDeleted)
-        {
-            TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} не можна вилучити: її перевірив юрист, і висновок зберігається для аудиту.";
-            return RedirectToAction(nameof(Cabinet));
-        }
-
-        if (plot.ViewingRequests.Any(v => v.Status is ViewingStatus.NewRequest or ViewingStatus.Scheduled))
-        {
-            TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} не можна вилучити: є активні заявки покупців на огляд.";
+            TempData["CabinetError"] = $"Ділянку {plot.CadastralNumber} вилучити не можна: вилучається лише чернетка без документів. Ділянка, яку бачив юрист, лишається в історії агентства.";
             return RedirectToAction(nameof(Cabinet));
         }
 
@@ -333,9 +385,9 @@ public partial class ClientController
             return RedirectToAction(nameof(Cabinet));
         }
 
-        await _plotRemoval.RemoveWithDependentsAsync(plot, reason, currentUser!);
+        await _plotRemoval.RemoveAsync(plot, reason, currentUser!);
 
-        TempData["CabinetMessage"] = $"Оголошення {plot.CadastralNumber} вилучено разом із документами. Копію збережено в архіві агентства.";
+        TempData["CabinetMessage"] = $"Оголошення {plot.CadastralNumber} вилучено. Копію збережено в архіві агентства.";
         return RedirectToAction(nameof(Cabinet));
     }
 

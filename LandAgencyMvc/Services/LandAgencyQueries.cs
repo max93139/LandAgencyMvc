@@ -276,6 +276,7 @@ public class LandAgencyQueries : ILandAgencyQueries
     public async Task<QueryResult<LandBankRow>> LandBankAuditAsync(LandBankFilter filter)
     {
         var query = from p in _db.LandPlots.AsNoTracking()
+                    where p.Status != PlotStatus.Draft
                     join u in _db.Users.AsNoTracking() on p.SellerId equals u.Id
                     join c in _db.LegalConclusions.AsNoTracking() on p.Id equals c.LandPlotId into conclusions
                     from c in conclusions.DefaultIfEmpty()

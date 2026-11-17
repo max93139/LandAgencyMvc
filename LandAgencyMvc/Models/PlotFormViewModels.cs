@@ -118,6 +118,7 @@ public class PlotEditViewModel : PlotCreateViewModel
 
     public string StatusDisplayName => Status switch
     {
+        PlotStatus.Draft => "Чернетка (ще не надіслано юристу)",
         PlotStatus.PendingLegalCheck => "На перевірці у юриста (ДЗК)",
         PlotStatus.VerifiedInCatalog => "Опубліковано ✓",
         PlotStatus.RejectedByLawyer => "Відхилено (Акт ризиків)",
@@ -233,20 +234,51 @@ public class PlotEditViewModel : PlotCreateViewModel
 }
 
 /// <summary>
-/// Модель сторінки підтвердження вилучення ділянки для демонстрації каскадного і некаскадного вилучення.
+/// Модель сторінки вилучення ділянки. Для кожного виду пов'язаних записів правило фіксоване:
+/// фото й відео вилучаються разом із ділянкою (CASCADE), а документи, висновок, огляди й угоди блокують вилучення (RESTRICT).
 /// </summary>
 public class DeletePlotConfirmationViewModel
 {
     public LandPlot Plot { get; set; } = null!;
     public int DocumentsCount { get; set; }
     public int ViewingsCount { get; set; }
+    public int MediaCount { get; set; }
     public bool HasLegalConclusion { get; set; }
     public int DealsCount { get; set; }
 
-    public bool CanBeDeletedNonCascade =>
-        DealsCount == 0 && DocumentsCount == 0 && ViewingsCount == 0 && !HasLegalConclusion;
+    public bool CanBeDeleted => DealsCount == 0 && Plot.CanBeDeleted;
 
-    public bool CanBeDeletedCascade => DealsCount == 0 && Plot.CanBeDeleted;
+    /// <summary>
+    /// Причини, з яких ділянку зараз вилучити не можна; порожній список означає, що вилучення дозволене.
+    /// </summary>
+    public IReadOnlyList<string> Blockers
+    {
+        get
+        {
+            var blockers = new List<string>();
+            if (Plot.Status != PlotStatus.Draft)
+            {
+                blockers.Add($"ділянка вже не чернетка (статус «{Plot.StatusDisplayName}»): її бачив юрист, тож вона лишається в історії");
+            }
+            if (DocumentsCount > 0)
+            {
+                blockers.Add($"до ділянки додано документи ({DocumentsCount}); спершу вилучіть їх у формі редагування");
+            }
+            if (HasLegalConclusion)
+            {
+                blockers.Add("є юридичний висновок, він зберігається для аудиту");
+            }
+            if (ViewingsCount > 0)
+            {
+                blockers.Add($"є заявки на огляд ({ViewingsCount})");
+            }
+            if (DealsCount > 0)
+            {
+                blockers.Add($"є угоди купівлі-продажу ({DealsCount})");
+            }
+            return blockers;
+        }
+    }
 }
 
 /// <summary>

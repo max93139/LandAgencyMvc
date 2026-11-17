@@ -55,6 +55,7 @@ public class LawyerController : Controller
             .Include(p => p.Seller)
             .Include(p => p.Documents)
             .Include(p => p.LegalConclusion)
+            .Where(p => p.Status != PlotStatus.Draft)
             .OrderByDescending(p => p.Id)
             .ToListAsync();
 
@@ -85,11 +86,13 @@ public class LawyerController : Controller
             .Include(p => p.LegalConclusion)
             .FirstOrDefaultAsync(p => p.Id == id);
 
-        if (plot == null)
+        if (plot == null || plot.Status == PlotStatus.Draft)
         {
             if (id > 0)
             {
-                TempData["LawyerError"] = $"Ділянку №{id} вилучено з реєстру, тому перевіряти її вже не потрібно.";
+                TempData["LawyerError"] = plot == null
+                    ? $"Ділянку №{id} вилучено з реєстру, тому перевіряти її вже не потрібно."
+                    : $"Ділянку №{id} ще не відправлено на перевірку.";
             }
 
             return RedirectToAction(nameof(Queue));
@@ -137,6 +140,12 @@ public class LawyerController : Controller
         if (plot == null)
         {
             TempData["LawyerError"] = $"Ділянку №{landPlotId} вилучили з реєстру, поки ви її перевіряли. Висновок не збережено.";
+            return RedirectToAction(nameof(Queue));
+        }
+
+        if (plot.Status == PlotStatus.Draft)
+        {
+            TempData["LawyerError"] = $"Ділянку {plot.CadastralNumber} ще не відправлено на перевірку.";
             return RedirectToAction(nameof(Queue));
         }
 
