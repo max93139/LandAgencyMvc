@@ -169,6 +169,25 @@ CREATE TABLE IF NOT EXISTS "Payments" (
     CONSTRAINT "FK_Payments_SaleDeals_SaleDealId" FOREIGN KEY ("SaleDealId") REFERENCES "SaleDeals" ("Id") ON DELETE CASCADE,
     CONSTRAINT "FK_Payments_Users_VerifiedByUserId" FOREIGN KEY ("VerifiedByUserId") REFERENCES "Users" ("Id")
 );
+CREATE TABLE IF NOT EXISTS "ArchivedPlots" (
+    "Id" INTEGER NOT NULL CONSTRAINT "PK_ArchivedPlots" PRIMARY KEY AUTOINCREMENT,
+    "OriginalPlotId" INTEGER NOT NULL,
+    "CadastralNumber" TEXT NOT NULL,
+    "Title" TEXT NOT NULL,
+    "Location" TEXT NOT NULL,
+    "AreaHectares" REAL NOT NULL,
+    "PriceUsd" TEXT NOT NULL,
+    "SellerName" TEXT NOT NULL,
+    "StatusAtRemoval" INTEGER NOT NULL,
+    "DocumentsCount" INTEGER NOT NULL,
+    "ViewingsCount" INTEGER NOT NULL,
+    "MediaCount" INTEGER NOT NULL,
+    "Reason" TEXT NOT NULL,
+    "RemovedByName" TEXT NOT NULL,
+    "RemovedByRole" INTEGER NOT NULL,
+    "RemovedAtUtc" TEXT NOT NULL,
+    CONSTRAINT "CK_ArchivedPlots_Reason" CHECK (length(trim("Reason")) > 0)
+);
 INSERT INTO Users VALUES(1,'Бондар Ігор Олександрович','realtor@landagency.ua','+380 67 555 44 33','2984512390','AQAAAAIAAYagAAAAEETRmxUxGKKy1JrUWQobpQ9jjqZcmVDSjuSeq0JkzuEhnKL87BIic1i59ayXHtSIEQ==',1,1,'UA903052990000026000001002003',NULL,0.0,NULL,'Сертифікований рієлтор АСНУ №RL-402','RL-402',3.0,'+380 44 220 10 20',NULL,NULL);
 INSERT INTO Users VALUES(2,'Коваленко Олена Вікторівна','lawyer@landagency.ua','+380 50 777 88 99','3051948271','AQAAAAIAAYagAAAAELpH5pfU+DqYTgszCAkIVir1gvXQ7h7+SgkESD+gTk5Fy3WrAQY7Tj9HPiXXogcFRg==',2,1,'',NULL,0.0,NULL,'Свідоцтво про право на заняття адвокатською діяльністю №LW-881',NULL,3.0,NULL,'LW-881','Земельне право, ДЗК та ДРРП');
 INSERT INTO Users VALUES(3,'Шевченко Тарас Григорович','seller@landagency.ua','+380 67 111 22 33','2845109283','AQAAAAIAAYagAAAAEHHr8wAU9cbpSLDLidQQd/htSbuCgvTPkKoqjmzNefIvywBTbtGQ1Dun7eFJkvOG4Q==',3,1,'UA213223130000026007233566001','ДРРП-59102847',0.0,NULL,NULL,NULL,3.0,NULL,NULL,NULL);
@@ -309,6 +328,10 @@ INSERT INTO Payments VALUES(25,13,'КВ-2026-0013-1','INV-2026-0013-1','28500.0'
 INSERT INTO Payments VALUES(26,13,'КВ-2026-0013-2','INV-2026-0013-2','855.0','2026-10-28 16:30:00','Комісійна винагорода агентства (3%)','UA673052990000026201234567892','UA903052990000026000001002003','TRX-IBAN-20261028-013',2,1,'2026-10-28 16:30:00','2026-10-28 16:30:00',1,'Зараховано та підтверджено банківською випискою IBAN.');
 INSERT INTO Payments VALUES(27,14,'КВ-2026-0014-1','INV-2026-0014-1','42000.0','2026-11-03 10:00:00','Оплата вартості земельної ділянки за договором (IBAN)','UA893052990000026201234567894','UA213223130000026007233566001','TRX-IBAN-20261103-014',2,1,'2026-11-03 10:00:00','2026-11-03 10:00:00',1,'Зараховано та підтверджено банківською випискою IBAN.');
 INSERT INTO Payments VALUES(28,14,'КВ-2026-0014-2','INV-2026-0014-2','1260.0','2026-11-03 10:00:00','Комісійна винагорода агентства (3%)','UA893052990000026201234567894','UA903052990000026000001002003','TRX-IBAN-20261103-014',2,1,'2026-11-03 10:00:00','2026-11-03 10:00:00',1,'Зараховано та підтверджено банківською випискою IBAN.');
+INSERT INTO ArchivedPlots VALUES(1,21,'3220884000:02:004:0112','Ділянка під ОСГ у с. Гора','Київська область, Бориспільський район, с. Гора, вул. Садова, 7',0.25,'18000.0','Шевченко Тарас Григорович',0,1,0,0,'Дублікат оголошення: цю ділянку вже зареєстровано іншим записом у реєстрі.','Бондар Ігор Олександрович',1,'2026-10-21 09:14:00');
+INSERT INTO ArchivedPlots VALUES(2,22,'4624881200:03:002:0315','Ділянка під садівництво біля м. Пустомити','Львівська область, Львівський район, м. Пустомити, вул. Лісна, 3',0.08,'9500.0','Кравченко Андрій Миколайович',0,1,0,1,'Власник вирішив не продавати ділянку цього року.','Кравченко Андрій Миколайович',3,'2026-10-28 16:40:00');
+INSERT INTO ArchivedPlots VALUES(3,23,'5110137500:02:001:0478','Комерційна ділянка біля траси М-05','Одеська область, Одеський район, с. Фонтанка, вул. Приморська, 52',0.5,'61000.0','Дмитренко Галина Василівна',0,2,1,2,'Помилка в кадастровому номері під час реєстрації; ділянку внесено заново з правильним номером.','Григоренко Сергій Петрович',1,'2026-11-05 11:02:00');
+UPDATE sqlite_sequence SET seq = 23 WHERE name = 'LandPlots';
 CREATE INDEX IF NOT EXISTS "IX_LandPlots_AssignedRealtorId" ON "LandPlots" ("AssignedRealtorId");
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_LandPlots_CadastralNumber" ON "LandPlots" ("CadastralNumber");
 CREATE INDEX IF NOT EXISTS "IX_LandPlots_SellerId" ON "LandPlots" ("SellerId");
