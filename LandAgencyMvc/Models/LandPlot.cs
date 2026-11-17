@@ -52,7 +52,7 @@ public class LandPlot : IVersioned
     /// <summary>
     /// Поточний статус ділянки у життєвому циклі лістингу.
     /// </summary>
-    public PlotStatus Status { get; set; } = PlotStatus.PendingLegalCheck;
+    public PlotStatus Status { get; set; } = PlotStatus.Draft;
 
     public int SellerId { get; set; }
 
@@ -122,6 +122,7 @@ public class LandPlot : IVersioned
     [NotMapped]
     public string StatusDisplayName => Status switch
     {
+        PlotStatus.Draft => "Чернетка (ще не надіслано юристу)",
         PlotStatus.PendingLegalCheck => "На перевірці у юриста (ДЗК)",
         PlotStatus.VerifiedInCatalog => "Опубліковано ✓",
         PlotStatus.RejectedByLawyer => "Відхилено (Акт ризиків)",
@@ -132,6 +133,7 @@ public class LandPlot : IVersioned
     [NotMapped]
     public string StatusBadgeClass => Status switch
     {
+        PlotStatus.Draft => "la-badge-indigo",
         PlotStatus.VerifiedInCatalog => "la-badge-green",
         PlotStatus.Sold => "la-badge-green",
         PlotStatus.RejectedByLawyer => "la-badge-red",
@@ -162,12 +164,21 @@ public class LandPlot : IVersioned
         status is PlotStatus.PendingLegalCheck or PlotStatus.VerifiedInCatalog;
 
     /// <summary>
-    /// Відхилену юристом ділянку після виправлення повертає на повторну перевірку.
-    /// Повертає true, якщо статус змінено.
+    /// Чернетку або відхилену юристом ділянку можна відправити на перевірку, лише коли до неї додано
+    /// хоча б один правовстановлюючий документ: без документа юристу нічого перевіряти.
+    /// Потрібне завантаження навігації Documents.
     /// </summary>
-    public bool ResubmitForLegalCheck()
+    [NotMapped]
+    public bool CanBeSentForLegalCheck =>
+        (Status is PlotStatus.Draft or PlotStatus.RejectedByLawyer) && Documents.Any();
+
+    /// <summary>
+    /// Відправляє ділянку юристу. Робить це користувач окремою дією, а не система автоматично.
+    /// </summary>
+    /// <returns>False, якщо ділянку зараз відправити не можна.</returns>
+    public bool SendForLegalCheck()
     {
-        if (Status != PlotStatus.RejectedByLawyer)
+        if (!CanBeSentForLegalCheck)
         {
             return false;
         }
@@ -177,16 +188,14 @@ public class LandPlot : IVersioned
     }
 
     /// <summary>
-    /// Фізично вилучити можна лише ділянку без юридичного висновку: висновок і акт про ризики зберігаються
-    /// для аудиту земельного банку. Ділянку з висновком спершу повертає на перевірку юрист, відкликаючи його.
-    /// Потрібне завантаження навігації LegalConclusion.
+    /// Вилучити можна лише чернетку, яку ще не відправляли юристу і до якої не додано документів.
+    /// Документи, висновок юриста, огляди й угоди потрібні для звітності, тому вони блокують вилучення,
+    /// а фото й відео ділянки вилучаються разом із нею каскадно.
+    /// Потрібне завантаження навігацій Documents, ViewingRequests і LegalConclusion.
     /// </summary>
     [NotMapped]
-    public bool CanBeDeleted => Status != PlotStatus.Sold && LegalConclusion == null;
-
-    [NotMapped]
-    public bool HasDependentRecords =>
-        Documents.Any() || ViewingRequests.Any() || LegalConclusion != null;
+    public bool CanBeDeleted =>
+        Status == PlotStatus.Draft && !Documents.Any() && !ViewingRequests.Any() && LegalConclusion == null;
 
     /// <summary>
     /// Оновлює запитувану вартість ділянки, якщо вона ще не була відчужена за нотаріальною угодою.

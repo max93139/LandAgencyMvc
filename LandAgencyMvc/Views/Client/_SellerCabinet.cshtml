@@ -38,12 +38,30 @@
                     {
                         <div class="la-action-row mt-2">
                             <a asp-controller="Client" asp-action="EditOwnPlot" asp-route-id="@myPlot.Id" class="la-btn la-btn-outline la-btn-xs">Редагувати оголошення</a>
-                            <form asp-controller="Client" asp-action="DeleteOwnPlot" method="post" onsubmit="return confirm('Вилучити оголошення разом із документами?');">
-                                <input type="hidden" name="plotId" value="@myPlot.Id" />
-                                <input type="text" name="reason" class="form-control form-control-sm" placeholder="Причина вилучення" required maxlength="300" />
-                                <button type="submit" class="la-btn la-btn-red la-btn-xs">Вилучити оголошення</button>
-                            </form>
+                            @if (myPlot.CanBeSentForLegalCheck)
+                            {
+                                <form asp-controller="Client" asp-action="SendOwnPlotForLegalCheck" method="post">
+                                    <input type="hidden" name="plotId" value="@myPlot.Id" />
+                                    <button type="submit" class="la-btn la-btn-indigo la-btn-xs">Відправити юристу</button>
+                                </form>
+                            }
+                            @if (myPlot.CanBeDeleted)
+                            {
+                                <form asp-controller="Client" asp-action="DeleteOwnPlot" method="post" onsubmit="return confirm('Вилучити чернетку разом із фото й відео?');">
+                                    <input type="hidden" name="plotId" value="@myPlot.Id" />
+                                    <input type="text" name="reason" class="form-control form-control-sm" placeholder="Причина вилучення" required maxlength="300" />
+                                    <button type="submit" class="la-btn la-btn-red la-btn-xs">Вилучити чернетку</button>
+                                </form>
+                            }
                         </div>
+                        @if (myPlot.Status == LandAgencyMvc.Models.PlotStatus.Draft)
+                        {
+                            <div class="la-text-xs text-muted mt-1">
+                                @(myPlot.Documents.Any()
+                                    ? "Чернетку бачите лише ви й рієлтор. Щоб її вилучити, спершу вилучіть документи; щоб опублікувати, відправте юристу."
+                                    : "Чернетку без документів можна вилучити. Щоб відправити юристу, додайте правовстановлюючий документ.")
+                            </div>
+                        }
                     }
                     @if (myPlot.LegalConclusion != null)
                     {
@@ -67,10 +85,19 @@
                                                 <span class="la-badge la-badge-green">Верифіковано юристом ✓</span>
                                             }
                                         </div>
-                                        @if (!string.IsNullOrEmpty(doc.FileUrl))
-                                        {
-                                            <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути файл ↗</a>
-                                        }
+                                        <div class="la-action-row">
+                                            @if (!string.IsNullOrEmpty(doc.FileUrl))
+                                            {
+                                                <a href="@doc.FileUrl" target="_blank" class="la-btn la-btn-white la-btn-xs">Переглянути файл ↗</a>
+                                            }
+                                            @if (!doc.IsVerified && myPlot.Status is LandAgencyMvc.Models.PlotStatus.Draft or LandAgencyMvc.Models.PlotStatus.RejectedByLawyer)
+                                            {
+                                                <form asp-controller="Client" asp-action="DeleteOwnPlotDocument" method="post" onsubmit="return confirm('Вилучити цей документ?');">
+                                                    <input type="hidden" name="documentId" value="@doc.Id" />
+                                                    <button type="submit" class="la-btn la-btn-red la-btn-xs">Вилучити документ</button>
+                                                </form>
+                                            }
+                                        </div>
                                     </div>
                                 </div>
                             }

@@ -14,10 +14,11 @@ public enum UserRole
 
 public enum PlotStatus
 {
-    PendingLegalCheck,
-    VerifiedInCatalog,
-    RejectedByLawyer,
-    Sold
+    PendingLegalCheck = 0,
+    VerifiedInCatalog = 1,
+    RejectedByLawyer = 2,
+    Sold = 3,
+    Draft = 4
 }
 
 public enum ViewingStatus

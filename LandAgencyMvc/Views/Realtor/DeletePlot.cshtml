@@ -15,7 +15,7 @@
                         <a asp-action="Plots" class="text-decoration-none">&larr; Повернутися до реєстру ділянок</a>
                     </div>
                     <h1 class="la-page-title text-danger">Вилучення земельної ділянки</h1>
-                    <p class="la-meta mb-0">Демонстрація механізмів цілісності бази даних: некаскадне обмеження (RESTRICT) та каскадне очищення (CASCADE)</p>
+                    <p class="la-meta mb-0">Фото й відео вилучаються разом із ділянкою, а документи, висновок, огляди й угоди блокують вилучення</p>
                 </div>
             </div>
 
@@ -52,113 +52,78 @@
             </div>
 
             <div class="la-card mb-4">
-                <h3 class="la-card-title mb-3">Аналіз залежних записів у базі даних (FK Relations)</h3>
+                <h3 class="la-card-title mb-3">Що станеться з пов'язаними записами</h3>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Пов'язана таблиця</th>
-                                <th>Кількість залежних записів</th>
-                                <th>Вплив на операцію вилучення</th>
+                                <th>Пов'язані записи</th>
+                                <th>Кількість</th>
+                                <th>Правило</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong>PlotDocuments</strong> (Правовстановлюючі документи)</td>
-                                <td><span class="la-badge @(Model.DocumentsCount > 0 ? "la-badge-indigo" : "la-badge-green")">@Model.DocumentsCount</span></td>
-                                <td>@(Model.DocumentsCount > 0 ? "Блокує некаскадне вилучення (Restrict). Видаляється при каскадному режимі." : "Немає записів.")</td>
+                                <td><strong>PlotMedia</strong> (фото й відео ділянки)</td>
+                                <td>@Model.MediaCount</td>
+                                <td>Вилучаються разом із ділянкою (ON DELETE CASCADE): без ділянки вони не мають сенсу і не є юридичними записами.</td>
                             </tr>
-                            <tr>
-                                <td><strong>ViewingRequests</strong> (Заявки на огляд ділянки)</td>
-                                <td><span class="la-badge @(Model.ViewingsCount > 0 ? "la-badge-amber" : "la-badge-green")">@Model.ViewingsCount</span></td>
-                                <td>@(Model.ViewingsCount > 0 ? "Блокує некаскадне вилучення (Restrict). Видаляється при каскадному режимі." : "Немає записів.")</td>
+                            <tr class="@(Model.DocumentsCount > 0 ? "table-warning" : "")">
+                                <td><strong>PlotDocuments</strong> (правовстановлюючі документи)</td>
+                                <td>@Model.DocumentsCount</td>
+                                <td>Блокують вилучення (ON DELETE RESTRICT): документи потрібні для звітності. Неверифіковані документи можна вилучити окремо у формі редагування.</td>
                             </tr>
-                            <tr>
-                                <td><strong>LegalConclusions</strong> (Юридичний аудит ДЗК)</td>
-                                <td><span class="la-badge @(Model.HasLegalConclusion ? "la-badge-amber" : "la-badge-green")">@(Model.HasLegalConclusion ? "1 висновок" : "0")</span></td>
-                                <td>@(Model.HasLegalConclusion ? "Блокує некаскадне вилучення. Видаляється при каскадному режимі." : "Немає записів.")</td>
+                            <tr class="@(Model.HasLegalConclusion ? "table-warning" : "")">
+                                <td><strong>LegalConclusions</strong> (висновок юриста)</td>
+                                <td>@(Model.HasLegalConclusion ? 1 : 0)</td>
+                                <td>Блокує вилучення (RESTRICT): висновок зберігається для аудиту земельного банку.</td>
                             </tr>
-                            <tr class="@(Model.DealsCount > 0 ? "table-danger" : "")">
-                                <td><strong>SaleDeals</strong> (Нотаріальні договори купівлі-продажу)</td>
-                                <td><span class="la-badge @(Model.DealsCount > 0 ? "la-badge-red" : "la-badge-green")">@Model.DealsCount</span></td>
-                                <td>
-                                    @if (Model.DealsCount > 0)
-                                    {
-                                        <strong class="text-danger">КРИТИЧНЕ ОБМЕЖЕННЯ (RESTRICT): Ділянка має зареєстровані угоди. Вилучення ЗАБОРОНЕНО у будь-якому режимі для захисту фінансового аудиту.</strong>
-                                    }
-                                    else
-                                    {
-                                        <span>Угод немає. Вилучення дозволено.</span>
-                                    }
-                                </td>
+                            <tr class="@(Model.ViewingsCount > 0 ? "table-warning" : "")">
+                                <td><strong>ViewingRequests</strong> (заявки на огляд)</td>
+                                <td>@Model.ViewingsCount</td>
+                                <td>Блокують вилучення (RESTRICT): огляди — історія роботи з покупцями.</td>
+                            </tr>
+                            <tr class="@(Model.DealsCount > 0 ? "table-warning" : "")">
+                                <td><strong>SaleDeals</strong> (угоди купівлі-продажу)</td>
+                                <td>@Model.DealsCount</td>
+                                <td>Блокують вилучення (RESTRICT): на угодах тримаються оплати й фінансова звітність.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            @if (Model.DealsCount > 0 || !Model.CanBeDeletedCascade)
+            @if (!Model.CanBeDeleted)
             {
                 <div class="la-alert la-alert-danger mb-4">
-                    <strong>Вилучення заблоковано:</strong>
-                    @if (Model.DealsCount == 0 && Model.Plot.Status != LandAgencyMvc.Models.PlotStatus.Sold && Model.HasLegalConclusion)
-                    {
-                        <span>Земельна ділянка @Model.Plot.CadastralNumber має юридичний висновок, який зберігається для аудиту земельного банку.
-                        Щоб вилучити її, юрист має відкликати висновок, і ділянка повернеться на перевірку.</span>
-                    }
-                    else
-                    {
-                        <span>Земельна ділянка @Model.Plot.CadastralNumber вже фігурує в укладених або завершених нотаріальних угодах.
-                        Згідно з правилом цілісності бази даних (ON DELETE RESTRICT), фінансова та архівна історія зберігається в повному обсязі.</span>
-                    }
+                    <strong>Цю ділянку вилучити не можна.</strong> Вилучається лише чернетка, яку ще не відправляли юристу і до якої не додано документів. Причини:
+                    <ul class="mb-0 mt-2">
+                        @foreach (var blocker in Model.Blockers)
+                        {
+                            <li>@blocker</li>
+                        }
+                    </ul>
                 </div>
-                <div>
-                    <a asp-action="Plots" class="la-btn la-btn-outline">Повернутися до списку</a>
+                <div class="la-action-row">
+                    @if (Model.Plot.IsEditable)
+                    {
+                        <a asp-action="EditPlot" asp-route-id="@Model.Plot.Id" class="la-btn la-btn-outline-dark">Відкрити форму редагування</a>
+                    }
+                    <a asp-action="Plots" class="la-btn la-btn-outline">Повернутися до реєстру</a>
                 </div>
             }
             else
             {
                 <div class="la-card mb-4">
-                    <h3 class="la-card-title mb-3">Оберіть режим вилучення</h3>
-                    <p class="small text-muted">Перед вилученням копія ділянки з причиною, автором і часом записується в <a asp-action="PlotArchive">архів вилучених ділянок</a>. Архів змінювати не можна.</p>
-
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded h-100 bg-light">
-                                <h4 class="fs-6 fw-bold text-dark mb-2">1. Некаскадне вилучення (ON DELETE RESTRICT)</h4>
-                                <p class="small text-muted mb-3">
-                                    Видаляє запис із таблиці <code>LandPlots</code> тільки за умови, що за об'єктом <strong>немає жодних прикріплених документів, висновків або оглядів</strong>. Якщо дочірні записи існують — СУБД та додаток повертають помилку цілісності.
-                                </p>
-                                <form method="post" asp-action="DeletePlotConfirmed" asp-route-id="@Model.Plot.Id">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="cascade" value="false" />
-                                    <label class="form-label small fw-semibold">Причина вилучення (збережеться в архіві)</label>
-                                    <input type="text" name="reason" class="form-control mb-2" required maxlength="300" />
-                                    <button type="submit" class="la-btn la-btn-outline-dark" onclick="return confirm('Виконати некаскадне вилучення ділянки @Model.Plot.CadastralNumber?');">
-                                        Видалити некаскадно (Restrict)
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded h-100 border-danger bg-light">
-                                <h4 class="fs-6 fw-bold text-danger mb-2">2. Каскадне вилучення (ON DELETE CASCADE)</h4>
-                                <p class="small text-muted mb-3">
-                                    Одночасно в межах єдиної транзакції вилучає саму ділянку та <strong>всі її підпорядковані записи</strong> (документи: @Model.DocumentsCount, огляди: @Model.ViewingsCount, правовий висновок).
-                                </p>
-                                <form method="post" asp-action="DeletePlotConfirmed" asp-route-id="@Model.Plot.Id">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="cascade" value="true" />
-                                    <label class="form-label small fw-semibold">Причина вилучення (збережеться в архіві)</label>
-                                    <input type="text" name="reason" class="form-control mb-2" required maxlength="300" />
-                                    <button type="submit" class="la-btn la-btn-danger" onclick="return confirm('УВАГА! Всі прикріплені документи, огляди та висновок юриста будуть ВИДАЛЕНІ КАСКАДНО разом із ділянкою. Продовжити?');">
-                                        Видалити каскадно (Cascade)
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
+                    <h3 class="la-card-title mb-2">Вилучення ділянки</h3>
+                    <p class="la-meta">Ділянка вилучиться разом із фото й відео (@Model.MediaCount). Перед вилученням її копія з причиною, автором і часом записується в <a asp-action="PlotArchive">архів</a>.</p>
+                    <form method="post" asp-action="DeletePlotConfirmed" asp-route-id="@Model.Plot.Id">
+                        @Html.AntiForgeryToken()
+                        <label class="form-label small fw-semibold">Причина вилучення</label>
+                        <input type="text" name="reason" class="form-control mb-3" required maxlength="300" />
+                        <button type="submit" class="la-btn la-btn-danger" onclick="return confirm('Вилучити ділянку @Model.Plot.CadastralNumber разом із фото й відео?');">Видалити ділянку</button>
+                        <a asp-action="Plots" class="la-btn la-btn-outline">Скасувати</a>
+                    </form>
                 </div>
             }
         </div>

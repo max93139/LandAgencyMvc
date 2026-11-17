@@ -6,12 +6,12 @@ namespace LandAgencyMvc.Services;
 public interface IPlotRemovalService
 {
     /// <summary>
-    /// Вилучає ділянку разом із документами, оглядами, юридичним висновком і медіа, а також прибирає її зі збігів
-    /// заявок на підбір. Ділянку потрібно завантажити з Documents, ViewingRequests, LegalConclusion і Media.
-    /// Перед видаленням у ту саму транзакцію записується архівна копія з причиною й автором вилучення,
-    /// тому історія вилучених ділянок не втрачається. Усі записи змінюються одним збереженням.
+    /// Вилучає чернетку ділянки (див. <see cref="LandPlot.CanBeDeleted"/>). Фото й відео ділянки вилучаються разом із нею
+    /// каскадно, ділянка прибирається зі збігів заявок на підбір, а її копія з причиною й автором записується в архів.
+    /// Усе відбувається одним збереженням, тобто в одній транзакції. Ділянку потрібно завантажити з Documents,
+    /// ViewingRequests, LegalConclusion і Media.
     /// </summary>
-    Task RemoveWithDependentsAsync(LandPlot plot, string reason, AppUser removedBy);
+    Task RemoveAsync(LandPlot plot, string reason, AppUser removedBy);
 }
 
 public sealed class PlotRemovalService : IPlotRemovalService
@@ -25,11 +25,16 @@ public sealed class PlotRemovalService : IPlotRemovalService
         _mediaStorage = mediaStorage;
     }
 
-    public async Task RemoveWithDependentsAsync(LandPlot plot, string reason, AppUser removedBy)
+    public async Task RemoveAsync(LandPlot plot, string reason, AppUser removedBy)
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
             throw new ArgumentException("Потрібно вказати причину вилучення ділянки.", nameof(reason));
+        }
+
+        if (!plot.CanBeDeleted)
+        {
+            throw new InvalidOperationException("Вилучити можна лише чернетку ділянки без документів, висновку й оглядів.");
         }
 
         var sellerName = await _db.Users
@@ -56,19 +61,13 @@ public sealed class PlotRemovalService : IPlotRemovalService
             RemovedAtUtc = DateTime.UtcNow
         });
 
-        _db.PlotDocuments.RemoveRange(plot.Documents);
-        _db.ViewingRequests.RemoveRange(plot.ViewingRequests);
-        if (plot.LegalConclusion != null)
-        {
-            _db.LegalConclusions.Remove(plot.LegalConclusion);
-        }
-
         var matchedRequests = await _db.SelectionRequests.Where(r => r.MatchedPlotIds != string.Empty).ToListAsync();
         foreach (var request in matchedRequests)
         {
             request.RemoveMatch(plot.Id);
         }
 
+        // Рядки PlotMedia вилучає зв'язок ON DELETE CASCADE; файли фото й відео прибираються після збереження.
         var mediaFiles = plot.Media.ToList();
         _db.LandPlots.Remove(plot);
         await _db.SaveChangesAsync();

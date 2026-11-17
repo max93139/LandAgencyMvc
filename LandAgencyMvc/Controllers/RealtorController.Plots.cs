@@ -186,7 +186,7 @@ public partial class RealtorController
             Description = (vm.Description ?? string.Empty).Trim(),
             Latitude = vm.Latitude,
             Longitude = vm.Longitude,
-            Status = PlotStatus.PendingLegalCheck,
+            Status = PlotStatus.Draft,
             CreatedAt = DateTime.Now
         };
         plot.UpdateSaleConditions(vm.SaleConditions);
@@ -220,7 +220,7 @@ public partial class RealtorController
         await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
         await transaction.CommitAsync();
 
-        TempData["RealtorMessage"] = $"Земельну ділянку {plot.CadastralNumber} успішно зареєстровано та передано в чергу юридичного аудиту.";
+        TempData["RealtorMessage"] = $"Ділянку {plot.CadastralNumber} збережено як чернетку. Коли дані й документи будуть готові, натисніть «Відправити юристу».";
         return RedirectToAction(nameof(Plots));
     }
 
@@ -311,14 +311,11 @@ public partial class RealtorController
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
         vm.ApplyTo(plot);
-        bool resubmitted = plot.ResubmitForLegalCheck();
         await _db.SaveChangesAsync();
         await _autoMatchingService.MatchNewOrUpdatedPlotAsync(plot.Id);
         await transaction.CommitAsync();
 
-        TempData["RealtorMessage"] = resubmitted
-            ? $"Виправлення ділянки {plot.CadastralNumber} збережено, ділянку повернуто юристу на повторну перевірку."
-            : $"Дані земельної ділянки {plot.CadastralNumber} та її документів збережено.";
+        TempData["RealtorMessage"] = $"Дані земельної ділянки {plot.CadastralNumber} та її документів збережено.";
         return RedirectToAction(nameof(Plots));
     }
 
@@ -410,7 +407,38 @@ public partial class RealtorController
     }
 
     /// <summary>
-    /// Сторінка підтвердження видалення ділянки з демонстрацією некаскадного та каскадного режимів.
+    /// UC-08/UC-09: рієлтор відправляє чернетку або виправлену після відхилення ділянку юристу.
+    /// Відправка — окрема свідома дія, а не наслідок збереження форми.
+    /// </summary>
+    [Authorize(Roles = AppRoles.Realtor)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendPlotForLegalCheck(int id)
+    {
+        var plot = await _db.LandPlots
+            .Include(p => p.Documents)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (plot == null)
+        {
+            return NotFound();
+        }
+
+        if (!plot.SendForLegalCheck())
+        {
+            TempData["RealtorError"] = plot.Documents.Any()
+                ? $"Ділянку {plot.CadastralNumber} у статусі «{plot.StatusDisplayName}» відправити юристу не можна."
+                : $"Ділянку {plot.CadastralNumber} не можна відправити юристу: додайте хоча б один правовстановлюючий документ.";
+            return RedirectToAction(nameof(Plots));
+        }
+
+        await _db.SaveChangesAsync();
+        TempData["RealtorMessage"] = $"Ділянку {plot.CadastralNumber} відправлено юристу на перевірку.";
+        return RedirectToAction(nameof(Plots));
+    }
+
+    /// <summary>
+    /// Сторінка вилучення ділянки: показує, що вилучиться разом із ділянкою (фото й відео) і що блокує вилучення.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
@@ -421,6 +449,7 @@ public partial class RealtorController
             .Include(p => p.Documents)
             .Include(p => p.ViewingRequests)
             .Include(p => p.LegalConclusion)
+            .Include(p => p.Media)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (plot == null)
@@ -428,27 +457,27 @@ public partial class RealtorController
             return NotFound();
         }
 
-        int dealsCount = await _db.SaleDeals.CountAsync(d => d.LandPlotId == id);
-
         var vm = new DeletePlotConfirmationViewModel
         {
             Plot = plot,
             DocumentsCount = plot.Documents.Count,
             ViewingsCount = plot.ViewingRequests.Count,
+            MediaCount = plot.Media.Count,
             HasLegalConclusion = plot.LegalConclusion != null,
-            DealsCount = dealsCount
+            DealsCount = await _db.SaleDeals.CountAsync(d => d.LandPlotId == id)
         };
 
         return View(vm);
     }
 
     /// <summary>
-    /// Виконання вилучення ділянки: некаскадного (з контролем Restrict) або каскадного.
+    /// Вилучає чернетку ділянки разом із її фото й відео (CASCADE). Документи, висновок, огляди й угоди
+    /// блокують вилучення (RESTRICT): вони потрібні для звітності.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpPost, ActionName("DeletePlotConfirmed")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeletePlotConfirmed(int id, string? reason, bool cascade = false)
+    public async Task<IActionResult> DeletePlotConfirmed(int id, string? reason)
     {
         var plot = await _db.LandPlots
             .Include(p => p.Documents)
@@ -462,30 +491,26 @@ public partial class RealtorController
             return NotFound();
         }
 
-        int dealsCount = await _db.SaleDeals.CountAsync(d => d.LandPlotId == id);
-        if (dealsCount > 0 || !plot.CanBeDeleted)
+        var check = new DeletePlotConfirmationViewModel
         {
-            TempData["RealtorError"] = dealsCount > 0 || plot.Status == PlotStatus.Sold
-                ? $"Неможливо вилучити ділянку {plot.CadastralNumber}: за об'єктом зареєстровано {dealsCount} угод купівлі-продажу. Правило цілісності (Restrict) блокує видалення."
-                : $"Неможливо вилучити ділянку {plot.CadastralNumber}: є юридичний висновок №{plot.LegalConclusion?.ConclusionNumber}, який зберігається для аудиту. Щоб вилучити ділянку, юрист має відкликати висновок.";
+            Plot = plot,
+            DocumentsCount = plot.Documents.Count,
+            ViewingsCount = plot.ViewingRequests.Count,
+            MediaCount = plot.Media.Count,
+            HasLegalConclusion = plot.LegalConclusion != null,
+            DealsCount = await _db.SaleDeals.CountAsync(d => d.LandPlotId == id)
+        };
+        if (!check.CanBeDeleted)
+        {
+            TempData["RealtorError"] = $"Ділянку {plot.CadastralNumber} вилучити не можна: {string.Join("; ", check.Blockers)}.";
             return RedirectToAction(nameof(DeletePlot), new { id });
         }
 
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["RealtorError"] = "Вкажіть причину вилучення: вона зберігається в архіві вилучених ділянок.";
+            TempData["RealtorError"] = "Вкажіть причину вилучення: вона зберігається в архіві.";
             return RedirectToAction(nameof(DeletePlot), new { id });
         }
-
-        if (!cascade && plot.HasDependentRecords)
-        {
-            TempData["RealtorError"] = $"Некаскадне вилучення неможливе (ON DELETE RESTRICT): ділянка містить {plot.Documents.Count} документів та {plot.ViewingRequests.Count} оглядів. Для видалення очистіть їх окремо або оберіть «Каскадне вилучення».";
-            return RedirectToAction(nameof(DeletePlot), new { id });
-        }
-
-        string cadNum = plot.CadastralNumber;
-        int docsRemoved = plot.Documents.Count;
-        int viewingsRemoved = plot.ViewingRequests.Count;
 
         var realtor = await GetCurrentRealtorAsync();
         if (realtor == null)
@@ -493,17 +518,13 @@ public partial class RealtorController
             return Forbid();
         }
 
-        await _plotRemoval.RemoveWithDependentsAsync(plot, reason, realtor);
+        string cadNum = plot.CadastralNumber;
+        int mediaRemoved = plot.Media.Count;
+        await _plotRemoval.RemoveAsync(plot, reason, realtor);
 
-        if (cascade)
-        {
-            TempData["RealtorMessage"] = $"Ділянку {cadNum} успішно вилучено каскадно разом із документами ({docsRemoved}) та оглядами ({viewingsRemoved}). Копію збережено в архіві вилучених ділянок.";
-        }
-        else
-        {
-            TempData["RealtorMessage"] = $"Ділянку {cadNum} (без дочірніх записів) успішно вилучено з бази даних. Копію збережено в архіві вилучених ділянок.";
-        }
-
+        TempData["RealtorMessage"] = mediaRemoved > 0
+            ? $"Ділянку {cadNum} вилучено разом із фото й відео ({mediaRemoved}). Копію збережено в архіві."
+            : $"Ділянку {cadNum} вилучено. Копію збережено в архіві.";
         return RedirectToAction(nameof(Plots));
     }
 

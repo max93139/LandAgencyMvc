@@ -17,8 +17,19 @@
                     <h1 class="la-page-title">Редагування земельної ділянки: @Model.CadastralNumber</h1>
                     <p class="la-meta mb-0">Поточний статус: <span class="la-badge la-badge-indigo">@Model.StatusDisplayName</span></p>
                 </div>
-                <div>
-                    <a asp-action="DeletePlot" asp-route-id="@Model.Id" class="la-btn la-btn-danger">Видалити ділянку</a>
+                <div class="la-action-row">
+                    @if (Model.Status is LandAgencyMvc.Models.PlotStatus.Draft or LandAgencyMvc.Models.PlotStatus.RejectedByLawyer
+                         && Model.Documents.Any(d => d.Id > 0))
+                    {
+                        <form asp-action="SendPlotForLegalCheck" asp-route-id="@Model.Id" method="post">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="la-btn la-btn-indigo">Відправити юристу</button>
+                        </form>
+                    }
+                    @if (Model.Status == LandAgencyMvc.Models.PlotStatus.Draft)
+                    {
+                        <a asp-action="DeletePlot" asp-route-id="@Model.Id" class="la-btn la-btn-danger">Видалити ділянку</a>
+                    }
                 </div>
             </div>
 
