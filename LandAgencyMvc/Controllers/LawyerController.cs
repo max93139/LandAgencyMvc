@@ -85,25 +85,13 @@ public class LawyerController : Controller
             .Include(p => p.LegalConclusion)
             .FirstOrDefaultAsync(p => p.Id == id);
 
-        if (plot == null && id > 0)
-        {
-            TempData["LawyerError"] = $"Ділянку №{id} вилучено з реєстру, тому перевіряти її вже не потрібно.";
-            return RedirectToAction(nameof(Queue));
-        }
-
         if (plot == null)
         {
-            plot = await _db.LandPlots
-                .Include(p => p.Seller)
-                .Include(p => p.Documents)
-                .Include(p => p.LegalConclusion)
-                .OrderByDescending(p => p.Status == PlotStatus.PendingLegalCheck)
-                .ThenByDescending(p => p.Id)
-                .FirstOrDefaultAsync();
-        }
+            if (id > 0)
+            {
+                TempData["LawyerError"] = $"Ділянку №{id} вилучено з реєстру, тому перевіряти її вже не потрібно.";
+            }
 
-        if (plot == null)
-        {
             return RedirectToAction(nameof(Queue));
         }
 
