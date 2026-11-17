@@ -22,6 +22,10 @@ public partial class RealtorController
             .Include(v => v.Realtor)
             .OrderByDescending(v => v.Id)
             .ToListAsync();
+
+        ViewBag.BuyerByPlot = await _db.SaleDeals
+            .Where(d => d.Status == DealStatus.CompletedAtNotary)
+            .ToDictionaryAsync(d => d.LandPlotId, d => d.BuyerId);
         return View(viewings);
     }
 

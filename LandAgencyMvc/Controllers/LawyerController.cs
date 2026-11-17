@@ -431,6 +431,7 @@ public class LawyerController : Controller
         }
 
         await _db.SaveChangesAsync();
+        await _autoMatchingService.MatchNewOrUpdatedPlotAsync(deal.LandPlotId);
         TempData["LawyerMessage"] = $"Право власності за угодою {deal.DraftContractNumber} зареєстровано. Ділянку переведено у статус «Продано».";
         return RedirectToAction(nameof(Contracts));
     }

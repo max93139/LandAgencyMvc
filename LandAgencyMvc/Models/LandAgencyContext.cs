@@ -182,33 +182,40 @@ public class LandAgencyContext : DbContext
         }
     }
 
-    public void InitializeDatabase()
+    /// <summary>
+    /// Створює схему й завантажує початкові дані, якщо база порожня. Повертає true, коли дані щойно завантажено.
+    /// </summary>
+    public bool InitializeDatabase()
     {
         Database.EnsureCreated();
         CreateArchiveProtectionTriggers();
 
-        if (!Users.Any())
+        if (Users.Any())
         {
-            var seedPath = Path.Combine(AppContext.BaseDirectory, "landagency_seed.sql");
-            if (!File.Exists(seedPath))
-            {
-                seedPath = Path.Combine(Directory.GetCurrentDirectory(), "landagency_seed.sql");
-            }
-            if (!File.Exists(seedPath))
-            {
-                seedPath = Path.Combine(Directory.GetCurrentDirectory(), "LandAgencyMvc", "landagency_seed.sql");
-            }
-
-            if (File.Exists(seedPath))
-            {
-                var sql = File.ReadAllText(seedPath);
-                using var connection = Database.GetDbConnection();
-                connection.Open();
-                using var command = connection.CreateCommand();
-                command.CommandText = sql;
-                command.ExecuteNonQuery();
-            }
+            return false;
         }
+
+        var seedPath = Path.Combine(AppContext.BaseDirectory, "landagency_seed.sql");
+        if (!File.Exists(seedPath))
+        {
+            seedPath = Path.Combine(Directory.GetCurrentDirectory(), "landagency_seed.sql");
+        }
+        if (!File.Exists(seedPath))
+        {
+            seedPath = Path.Combine(Directory.GetCurrentDirectory(), "LandAgencyMvc", "landagency_seed.sql");
+        }
+        if (!File.Exists(seedPath))
+        {
+            return false;
+        }
+
+        var sql = File.ReadAllText(seedPath);
+        using var connection = Database.GetDbConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+        return true;
     }
 
     /// <summary>

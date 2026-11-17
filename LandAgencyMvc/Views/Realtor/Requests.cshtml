@@ -35,7 +35,8 @@
                     <tbody>
                         @foreach (var r in Model.SelectionRequests)
                         {
-                            <tr>
+                            var isSelected = Model.SelectedRequestId == r.Id;
+                            <tr id="request-@r.Id">
                                 <td><strong>@r.Buyer?.FullName</strong><br /><small class="text-muted">@r.Buyer?.Phone</small></td>
                                 <td>@r.DesiredDistrict (від @r.MinAreaHa га)</td>
                                 <td>@r.Purpose</td>
@@ -45,7 +46,14 @@
                                         @if (r.EffectiveMatchedCount > 0)
                                         {
                                             <span class="la-badge la-badge-green">Знайдено варіантів: @r.EffectiveMatchedCount</span>
-                                            <a asp-controller="Realtor" asp-action="Requests" asp-route-matchedRequestId="@r.Id" class="la-btn la-btn-outline-dark la-btn-xs">Переглянути</a>
+                                            @if (isSelected)
+                                            {
+                                                <a asp-controller="Realtor" asp-action="Requests" asp-fragment="request-@r.Id" class="la-btn la-btn-outline-dark la-btn-xs">Сховати</a>
+                                            }
+                                            else
+                                            {
+                                                <a asp-controller="Realtor" asp-action="Requests" asp-route-matchedRequestId="@r.Id" asp-fragment="request-@r.Id" class="la-btn la-btn-outline-dark la-btn-xs">Переглянути</a>
+                                            }
                                         }
                                         else
                                         {
@@ -65,25 +73,35 @@
                                     </form>
                                 </td>
                             </tr>
+                            @if (isSelected)
+                            {
+                                <tr>
+                                    <td colspan="6" class="bg-light">
+                                        <strong class="la-text-sm">Підібрані ділянки для запиту клієнта @r.Buyer?.FullName:</strong>
+                                        @if (Model.MatchedPlotsPreview.Any())
+                                        {
+                                            <ul class="mt-2 mb-0 la-text-sm">
+                                                @foreach (var mp in Model.MatchedPlotsPreview)
+                                                {
+                                                    <li class="mb-1">
+                                                        <a asp-controller="Client" asp-action="Details" asp-route-id="@mp.Id"><strong>@mp.CadastralNumber</strong></a>
+                                                        — @mp.Title (@mp.AreaHectares га, @mp.Location) — <strong>$@mp.PriceUsd.ToString("N0")</strong>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <div class="la-text-sm text-muted mt-1">Опублікованих ділянок, що відповідають запиту, зараз немає.</div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
             }
 
-            @if (Model.MatchedPlotsPreview.Any())
-            {
-                <div class="la-subcard-amber mt-3 mb-0">
-                    <strong class="la-text-sm">Підібрані земельні ділянки для запиту #@Model.SelectedRequestId:</strong>
-                    <ul class="mt-2 mb-0 la-text-sm">
-                        @foreach (var mp in Model.MatchedPlotsPreview)
-                        {
-                            <li class="mb-1">
-                                <strong>@mp.CadastralNumber</strong> — @mp.Title (@mp.AreaHectares га, @mp.Location) — <strong>$@mp.PriceUsd.ToString("N0")</strong>
-                            </li>
-                        }
-                    </ul>
-                </div>
-            }
         </div>
 
         <div class="la-card">
