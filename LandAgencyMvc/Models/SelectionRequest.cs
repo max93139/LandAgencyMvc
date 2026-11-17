@@ -194,6 +194,7 @@ public class SelectionRequest
         if (currentIds.Count == 0)
         {
             IsProcessedByRealtor = false;
+            RealtorNotes = "Підібрані раніше ділянки більше не продаються (продано або знято з публікації). Потрібен повторний підбір.";
         }
 
         return true;

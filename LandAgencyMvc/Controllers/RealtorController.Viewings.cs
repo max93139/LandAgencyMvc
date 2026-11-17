@@ -68,6 +68,18 @@ public partial class RealtorController
             return $"Огляд у статусі «{viewing.StatusDisplayName}» не можна перевести в статус «{ViewingRequest.DisplayNameOf(target)}».";
         }
 
+        if (target is ViewingStatus.Scheduled or ViewingStatus.Completed)
+        {
+            var plotStatus = await _db.LandPlots
+                .Where(p => p.Id == viewing.LandPlotId)
+                .Select(p => p.Status)
+                .FirstOrDefaultAsync();
+            if (plotStatus != PlotStatus.VerifiedInCatalog)
+            {
+                return "Ділянка вже не продається (продана або знята з публікації), тому огляд можна лише скасувати.";
+            }
+        }
+
         switch (target)
         {
             case ViewingStatus.Scheduled:
