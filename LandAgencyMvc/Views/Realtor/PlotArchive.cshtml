@@ -1,6 +1,6 @@
-@model List<LandAgencyMvc.Models.ArchivedPlot>
+@model LandAgencyMvc.Models.PlotArchiveViewModel
 @{
-    ViewData["Title"] = "Архів вилучених ділянок";
+    ViewData["Title"] = "Архів ділянок";
     ViewData["ActiveNav"] = "PlotArchive";
 }
 
@@ -11,13 +11,56 @@
         <div class="container-fluid px-0">
             <div class="la-page-header">
                 <div>
-                    <h1 class="la-page-title">Архів вилучених ділянок</h1>
-                    <p class="la-meta mb-0">Кожне вилучення лишає тут копію ділянки з причиною, автором і часом. Архів лише доповнюється: змінити або видалити рядок не дозволяє сама база даних.</p>
+                    <h1 class="la-page-title">Архів ділянок</h1>
+                    <p class="la-meta mb-0">Ділянки, з якими агентство вже не працює: продані за завершеними угодами та вилучені з реєстру.</p>
                 </div>
             </div>
 
+            <div class="la-card mb-4">
+                <h3 class="la-card-title mb-1">Продані ділянки (@Model.SoldDeals.Count)</h3>
+                <p class="la-meta mb-3">Угода завершена: оплати підтвердив рієлтор, договір підписано в нотаріуса, а юрист зареєстрував право власності за покупцем.</p>
+                @if (Model.SoldDeals.Count == 0)
+                {
+                    <p class="la-meta mb-0">Проданих ділянок ще немає.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Дата в нотаріуса</th>
+                                    <th>Кадастровий номер</th>
+                                    <th>Ділянка</th>
+                                    <th>Продавець → покупець</th>
+                                    <th>Ціна / комісія</th>
+                                    <th>Договір</th>
+                                    <th>Рієлтор / юрист</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var deal in Model.SoldDeals)
+                                {
+                                    <tr>
+                                        <td>@deal.NotaryDate.ToString("dd.MM.yyyy")</td>
+                                        <td><strong>@deal.LandPlot?.CadastralNumber</strong></td>
+                                        <td>@deal.LandPlot?.Title<div class="la-meta">@deal.LandPlot?.Location, @deal.LandPlot?.AreaHectares га</div></td>
+                                        <td>@(deal.LandPlot?.Seller?.FullName ?? "—")<div class="la-meta">→ @(deal.Buyer?.FullName ?? "—")</div></td>
+                                        <td><strong>$@deal.FinalPriceUsd.ToString("N0")</strong><div class="la-meta">комісія $@deal.AgencyCommissionUsd.ToString("N0")</div></td>
+                                        <td>@deal.DraftContractNumber<div class="la-meta">@deal.NotaryOffice</div></td>
+                                        <td>@(deal.Realtor?.FullName ?? "—")<div class="la-meta">@(deal.Lawyer?.FullName ?? "—")</div></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
             <div class="la-card">
-                @if (Model.Count == 0)
+                <h3 class="la-card-title mb-1">Вилучені ділянки (@Model.RemovedPlots.Count)</h3>
+                <p class="la-meta mb-3">Кожне вилучення лишає тут копію ділянки з причиною, автором і часом. Змінити або видалити рядок не дозволяє сама база даних.</p>
+                @if (Model.RemovedPlots.Count == 0)
                 {
                     <p class="la-meta mb-0">Жодну ділянку ще не вилучено.</p>
                 }
@@ -38,7 +81,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var item in Model)
+                                @foreach (var item in Model.RemovedPlots)
                                 {
                                     <tr>
                                         <td>@item.RemovedAtUtc.ToString("dd.MM.yyyy HH:mm")</td>
