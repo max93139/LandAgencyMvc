@@ -8,17 +8,11 @@
     <div class="la-body la-auth-page">
         <div class="la-card la-auth-card-wide">
             <h4 class="mb-1">Реєстрація нового клієнта</h4>
-            <p class="la-meta mb-3">Оберіть тип облікового запису: покупець підбирає й купує земельні ділянки, продавець виставляє власні</p>
+            <p class="la-meta mb-3">Один обліковий запис клієнта дає змогу і підбирати та купувати ділянки, і виставляти власні на продаж</p>
 
             <partial name="_AlertMessages" />
 
             <form asp-controller="Account" asp-action="Register" method="post">
-                <label class="la-label">Тип облікового запису</label>
-                <div class="la-action-row mb-3">
-                    <label><input type="radio" name="accountType" value="@nameof(UserRole.Buyer)" checked /> Покупець: підбір і купівля ділянок</label>
-                    <label><input type="radio" name="accountType" value="@nameof(UserRole.Seller)" /> Продавець: продаж власних ділянок</label>
-                </div>
-
                 <label class="la-label">Прізвище, ім'я та по батькові</label>
                 <input name="fullName" class="la-input" placeholder="Прізвище Ім'я По батькові" required />
 

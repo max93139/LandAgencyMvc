@@ -10,7 +10,7 @@ public partial class ClientController
     /// <summary>
     /// Покупець після проведеного огляду ініціює проєкт угоди; далі UC-14 веде рієлтор, а UC-05 завершує покупець.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RequestPurchaseFromViewing(int viewingId)
@@ -90,7 +90,7 @@ public partial class ClientController
     /// Подання клієнтом реквізитів банківської оплати (код квитанції, IBAN) за виставленим рахунком-фактурою.
     /// Переводить платіж у статус очікування підтвердження виписки агентством.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitPayment(int paymentId, string paymentReference, string? senderIban)
@@ -141,7 +141,7 @@ public partial class ClientController
     /// UC-06 «Здійснити оплату / завдаток через банк» (спрощена форма для кабінету).
     /// Альтернативний обробник для зворотної сумісності форми кабінету.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ConfirmPayment(int dealId, string? payerIban, string? paymentReference)
@@ -175,7 +175,7 @@ public partial class ClientController
     /// Покупець підписує договір, коли юрист погодив його, а банківська виписка про оплату рахунку агентства підтверджена.
     /// Реєстровий номер нотаріальної дії присвоюється автоматично.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SignContractAtNotary(int dealId)

@@ -35,8 +35,7 @@ public class AppUser
     [NotMapped]
     public string RoleDisplayName => Role switch
     {
-        UserRole.Buyer => "Покупець",
-        UserRole.Seller => "Продавець",
+        UserRole.Buyer or UserRole.Seller => "Клієнт",
         UserRole.Realtor => "Рієлтор",
         UserRole.Lawyer => "Юрист",
         _ => Role.ToString()

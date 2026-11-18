@@ -21,10 +21,6 @@
                 {
                     <a asp-controller="Lawyer" asp-action="Queue" class="la-btn la-btn-green">До робочого місця юриста</a>
                 }
-                else if (User.IsInRole(AppRoles.Seller))
-                {
-                    <a asp-controller="Client" asp-action="Cabinet" class="la-btn la-btn-green">До особистого кабінету</a>
-                }
                 else
                 {
                     <a asp-controller="Client" asp-action="Catalog" class="la-btn la-btn-green">До каталогу ділянок</a>

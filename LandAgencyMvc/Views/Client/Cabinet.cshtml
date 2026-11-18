@@ -10,15 +10,17 @@
     <div class="la-body">
         <partial name="_AlertMessages" />
 
+        <h2 class="la-page-title mb-3">Купівля ділянок</h2>
+        <div class="la-grid-2 mb-4">
+            <partial name="_BuyerCabinet" model="Model" />
+        </div>
+
+        <div class="la-row-between mb-3">
+            <h2 class="la-page-title mb-0">Продаж моїх ділянок</h2>
+            <a class="la-btn la-btn-green la-btn-sm" asp-controller="Client" asp-action="CreatePlot">+ Виставити ділянку на продаж</a>
+        </div>
         <div class="la-grid-2">
-            @if (Model.IsSeller)
-            {
-                <partial name="_SellerCabinet" model="Model" />
-            }
-            else
-            {
-                <partial name="_BuyerCabinet" model="Model" />
-            }
+            <partial name="_SellerCabinet" model="Model" />
         </div>
     </div>
 </div>

@@ -189,10 +189,10 @@
                         Це ваше власне оголошення на продаж. Керувати ціною та документами можна у розділі <a asp-controller="Client" asp-action="Cabinet" class="fw-bold">Мій кабінет</a>.
                     </div>
                 }
-                else if (!User.IsInRole(AppRoles.Buyer))
+                else if (!User.IsInRole(AppRoles.Buyer) && !User.IsInRole(AppRoles.Seller))
                 {
                     <div class="la-subcard la-text-sm">
-                        Записатися на виїзний огляд можуть лише покупці.
+                        Записатися на виїзний огляд може лише клієнт агентства.
                     </div>
                 }
                 else if (Model.Status != LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)

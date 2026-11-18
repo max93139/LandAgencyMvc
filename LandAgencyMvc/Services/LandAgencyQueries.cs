@@ -502,7 +502,7 @@ public class LandAgencyQueries : ILandAgencyQueries
         var allViewings = await _db.ViewingRequests.AsNoTracking().ToListAsync();
 
         int totalBuyersWithAnyViewing = allUsers
-            .Count(u => u.Role == UserRole.Buyer && allViewings.Any(v => v.BuyerId == u.Id));
+            .Count(u => AppRoles.ClientRoles.Contains(u.Role) && allViewings.Any(v => v.BuyerId == u.Id));
 
         var allDistinctPurposes = allPlots
             .Select(p => p.Purpose)
@@ -526,7 +526,7 @@ public class LandAgencyQueries : ILandAgencyQueries
         var allMarketRegionsUnion = sellerDistricts.Union(buyerRequestedDistricts).OrderBy(r => r).ToList();
 
         var allClients = allUsers
-            .Where(u => u.Role == UserRole.Buyer)
+            .Where(u => AppRoles.ClientRoles.Contains(u.Role))
             .Select(u => u.FullName)
             .ToList();
 

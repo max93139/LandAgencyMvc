@@ -4,10 +4,6 @@ public class CabinetViewModel
 {
     public AppUser? CurrentUser { get; set; }
 
-    public bool IsSeller => CurrentUser?.Role == UserRole.Seller;
-
-    public bool IsBuyer => CurrentUser?.Role == UserRole.Buyer;
-
     public List<LandPlot> MyPlots { get; set; } = new();
 
     public List<SelectionRequest> MySelectionRequests { get; set; } = new();

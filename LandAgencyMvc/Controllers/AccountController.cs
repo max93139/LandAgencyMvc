@@ -99,7 +99,6 @@ public class AccountController : Controller
         string email,
         string phone,
         string password,
-        UserRole accountType = UserRole.Buyer,
         string? taxId = null,
         string? bankDetails = null)
     {
@@ -110,12 +109,6 @@ public class AccountController : Controller
         if (string.IsNullOrWhiteSpace(cleanFullName) || string.IsNullOrWhiteSpace(cleanEmail) || string.IsNullOrWhiteSpace(password))
         {
             TempData["RegisterError"] = "Заповніть обов'язкові поля ПІБ, електронної пошти та пароля.";
-            return RedirectToAction(nameof(Register));
-        }
-
-        if (!AppRoles.ClientRoles.Contains(accountType))
-        {
-            TempData["RegisterError"] = "Зареєструватися можна лише як Покупець або Продавець. Службові ролі створює агентство.";
             return RedirectToAction(nameof(Register));
         }
 
@@ -133,7 +126,7 @@ public class AccountController : Controller
             Phone = (phone ?? string.Empty).Trim(),
             TaxId = (taxId ?? string.Empty).Trim(),
             BankDetails = (bankDetails ?? string.Empty).Trim(),
-            Role = accountType
+            Role = UserRole.Buyer
         };
         user.SetPassword(password);
 
