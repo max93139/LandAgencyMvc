@@ -8,7 +8,7 @@ namespace LandAgencyMvc.Controllers;
 
 public partial class ClientController
 {
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpGet("/Plots/Create")]
     [HttpGet("/Client/CreatePlot")]
     public async Task<IActionResult> CreatePlot()
@@ -30,7 +30,7 @@ public partial class ClientController
     /// Продавець подає ділянку з правовстановлюючим документом. Кадастровий номер перевіряється за форматом і кодом області,
     /// після збереження виконується попередній запит до ДЗК/ДРРП, а остаточне рішення про публікацію ухвалює юрист.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost("/Plots/Create")]
     [HttpPost("/Client/CreatePlot")]
     [ValidateAntiForgeryToken]
@@ -165,7 +165,7 @@ public partial class ClientController
     /// UC-10 «Встановити ціну та умови продажу»: продавець змінює ціну й умови продажу власної ділянки,
     /// доки за нею немає підписаного договору.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePlotTerms(int plotId, decimal newPriceUsd, string? saleConditions)
@@ -223,7 +223,7 @@ public partial class ClientController
     /// <summary>
     /// Форма редагування власного оголошення продавцем: назва, адреса, ціна, IBAN, опис і умови продажу.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpGet]
     public async Task<IActionResult> EditOwnPlot(int id)
     {
@@ -248,7 +248,7 @@ public partial class ClientController
     /// <summary>
     /// Зберігає зміни власного оголошення. Якщо ділянку змінили в проміжку (інший користувач), збереження відхиляється.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditOwnPlot(int id, SellerPlotEditViewModel vm)
@@ -289,7 +289,7 @@ public partial class ClientController
     /// <summary>
     /// UC-08/UC-09: продавець відправляє свою чернетку (або виправлену після відхилення ділянку) юристу.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SendOwnPlotForLegalCheck(int plotId)
@@ -322,7 +322,7 @@ public partial class ClientController
     /// Продавець вилучає неверифікований документ власної чернетки або відхиленої ділянки.
     /// Верифіковані юристом документи не вилучаються.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteOwnPlotDocument(int documentId)
@@ -354,7 +354,7 @@ public partial class ClientController
     /// Вилучення власного оголошення. Вилучити можна лише чернетку без документів; фото й відео
     /// вилучаються разом із нею, а копія з причиною записується в архів.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteOwnPlot(int plotId, string? reason)
@@ -395,7 +395,7 @@ public partial class ClientController
     /// UC-11 «Завантажити правовстановлюючі документи»: продавець додає до власної ділянки документ або витяг
     /// з автоматичним підрахунком контрольної суми SHA-256.
     /// </summary>
-    [Authorize(Roles = AppRoles.Seller)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddPlotDocument(

@@ -13,7 +13,7 @@ public partial class ClientController
     /// Підтримує відбір за довільним поєднанням критеріїв (призначення, діапазон бюджету,
     /// площа, дати публікації, текстовий пошук) та багатоваріантне впорядкування (LINQ to Entities + LINQ to Objects).
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpGet("/Catalog")]
     [HttpGet("/Client/Catalog")]
     public async Task<IActionResult> Catalog(
@@ -131,7 +131,7 @@ public partial class ClientController
     /// Створює заявку покупця на індивідуальний підбір ділянок рієлтором
     /// та негайно запускає автоматичний двигун підбору (AutoMatchingService).
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitSelectionRequest(
@@ -180,7 +180,7 @@ public partial class ClientController
     /// <summary>
     /// Змінює параметри власного запиту на підбір і одразу перераховує збіги.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditSelectionRequestByClient(
@@ -221,7 +221,7 @@ public partial class ClientController
     /// <summary>
     /// Вилучення власного запиту на підбір.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteSelectionRequestByClient(int requestId)

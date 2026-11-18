@@ -132,7 +132,7 @@ public partial class RealtorController
     public async Task<IActionResult> CreatePlot()
     {
         ViewBag.Sellers = await _db.Users
-            .Where(u => u.Role == UserRole.Seller && u.IsActive)
+            .Where(u => AppRoles.ClientRoles.Contains(u.Role) && u.IsActive)
             .OrderBy(u => u.FullName)
             .ToListAsync();
 
@@ -164,7 +164,7 @@ public partial class RealtorController
         if (!ModelState.IsValid)
         {
             ViewBag.Sellers = await _db.Users
-                .Where(u => u.Role == UserRole.Seller && u.IsActive)
+                .Where(u => AppRoles.ClientRoles.Contains(u.Role) && u.IsActive)
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
             return View(vm);
@@ -250,7 +250,7 @@ public partial class RealtorController
         }
 
         ViewBag.Sellers = await _db.Users
-            .Where(u => u.Role == UserRole.Seller && u.IsActive)
+            .Where(u => AppRoles.ClientRoles.Contains(u.Role) && u.IsActive)
             .OrderBy(u => u.FullName)
             .ToListAsync();
 
@@ -300,7 +300,7 @@ public partial class RealtorController
         if (!ModelState.IsValid)
         {
             ViewBag.Sellers = await _db.Users
-                .Where(u => u.Role == UserRole.Seller && u.IsActive)
+                .Where(u => AppRoles.ClientRoles.Contains(u.Role) && u.IsActive)
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
             vm.Media = plot.Media.OrderBy(m => m.Id).ToList();

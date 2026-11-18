@@ -15,7 +15,8 @@ public static class AppRoles
     public const string Lawyer = nameof(UserRole.Lawyer);
 
     /// <summary>
-    /// Будь-який клієнтський обліковий запис (Покупець або Продавець).
+    /// Будь-який клієнтський обліковий запис. Клієнт один, а Покупцем чи Продавцем він стає в конкретній
+    /// операції: продає власну ділянку (LandPlot.Seller) або купує чужу (SaleDeal.Buyer).
     /// Лише для атрибута <c>[Authorize(Roles = ...)]</c>, де кома означає «або».
     /// </summary>
     public const string AnyClient = Buyer + "," + Seller;

@@ -11,7 +11,7 @@ public partial class ClientController
     /// UC-03 «Замовити виїзний огляд ділянки».
     /// Оформлює заявку на виїзний огляд обраної ділянки із зазначенням бажаної дати та таймслоту.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateViewing(int landPlotId, DateTime preferredDate, string timeSlot, string comment)
@@ -58,7 +58,7 @@ public partial class ClientController
     /// <summary>
     /// Скасування покупцем власної заявки з UC-03 «Замовити виїзний огляд ділянки».
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelViewingByClient(int viewingId)
@@ -86,7 +86,7 @@ public partial class ClientController
     /// UC-04 «Перенести дату огляду» (extend до UC-03 «Замовити виїзний огляд ділянки»).
     /// Покупець змінює дату й час власного огляду; заявка повертається рієлтору на повторне підтвердження.
     /// </summary>
-    [Authorize(Roles = AppRoles.Buyer)]
+    [Authorize(Roles = AppRoles.AnyClient)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RescheduleViewingByClient(int viewingId, DateTime newDate, string newTimeSlot)

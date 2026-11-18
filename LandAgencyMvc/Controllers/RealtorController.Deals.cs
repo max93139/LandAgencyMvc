@@ -23,7 +23,7 @@ public partial class RealtorController
             .ToListAsync();
 
         var clients = await _db.Users
-            .Where(u => u.Role == UserRole.Buyer)
+            .Where(u => AppRoles.ClientRoles.Contains(u.Role) && u.IsActive)
             .ToListAsync();
 
         var deals = await _db.SaleDeals
@@ -74,7 +74,7 @@ public partial class RealtorController
         var plot = await _db.LandPlots
             .Include(p => p.Seller)
             .FirstOrDefaultAsync(p => p.Id == landPlotId);
-        var buyer = await _db.Users.FirstOrDefaultAsync(u => u.Id == buyerId && u.Role == UserRole.Buyer);
+        var buyer = await _db.Users.FirstOrDefaultAsync(u => u.Id == buyerId && AppRoles.ClientRoles.Contains(u.Role));
 
         if (plot == null || plot.Status != PlotStatus.VerifiedInCatalog)
         {

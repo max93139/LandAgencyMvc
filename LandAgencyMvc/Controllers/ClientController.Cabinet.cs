@@ -77,8 +77,8 @@ public partial class ClientController
     }
 
     /// <summary>
-    /// Особистий кабінет клієнта. Продавець бачить власні ділянки, їхні документи та угоди з продажу;
-    /// покупець бачить запити на підбір, заявки на огляд, угоди купівлі та рахунки на оплату.
+    /// Особистий кабінет клієнта. Один клієнт може і купувати, і продавати, тому кабінет має два розділи:
+    /// «Купівля» (запити на підбір, огляди, угоди купівлі, рахунки) та «Продаж» (власні ділянки, документи, угоди продажу).
     /// </summary>
     [Authorize(Roles = AppRoles.AnyClient)]
     [HttpGet("/Cabinet")]
@@ -93,14 +93,8 @@ public partial class ClientController
 
         var viewModel = new CabinetViewModel { CurrentUser = currentUser };
 
-        if (currentUser.Role == UserRole.Seller)
-        {
-            await LoadSellerCabinetAsync(viewModel);
-        }
-        else
-        {
-            await LoadBuyerCabinetAsync(viewModel);
-        }
+        await LoadBuyerCabinetAsync(viewModel);
+        await LoadSellerCabinetAsync(viewModel);
 
         return View(viewModel);
     }
