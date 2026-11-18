@@ -238,13 +238,35 @@ public class LandPlot : IVersioned
     /// </summary>
     public bool ValidateCadastralFormat() => IsValidCadastralFormat(CadastralNumber);
 
-    private static readonly Regex CadastralPattern = new(@"^\d{10}:\d{2}:\d{3}:\d{4}$", RegexOptions.Compiled);
-
     /// <summary>
-    /// Та сама перевірка формату кадастрового номера без екземпляра ділянки (для масової обробки).
+    /// Та сама перевірка формату без екземпляра ділянки: групи з 10, 2, 3 і 4 цифр, розділені двокрапками.
+    /// Перевірка посимвольна, без регулярного виразу: об'єкт Regex зберігає лише один готовий обробник,
+    /// тож під час паралельної обробки потоки змагалися б за нього й створювали нові.
     /// </summary>
-    public static bool IsValidCadastralFormat(string? cadastralNumber) =>
-        !string.IsNullOrWhiteSpace(cadastralNumber) && CadastralPattern.IsMatch(cadastralNumber.Trim());
+    public static bool IsValidCadastralFormat(string? cadastralNumber)
+    {
+        if (cadastralNumber == null)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> value = cadastralNumber.AsSpan().Trim();
+        if (value.Length != 22)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < value.Length; i++)
+        {
+            bool separator = i is 10 or 13 or 17;
+            if (separator ? value[i] != ':' : value[i] is < '0' or > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public bool IsOwnedBy(System.Security.Claims.ClaimsPrincipal? user)
     {
