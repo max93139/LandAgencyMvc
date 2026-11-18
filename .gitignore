@@ -14,3 +14,6 @@ wwwroot/uploads/*
 .venv/
 sample_pdf_text.txt
 LandAgencyMvc/wwwroot/uploads/media/
+
+# Результати вимірювань ЛР6 на конкретній машині
+parallel_results.json

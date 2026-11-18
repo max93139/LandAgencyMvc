@@ -236,15 +236,15 @@ public class LandPlot : IVersioned
     /// 10 цифр області/району/зони, 2 цифри кварталу, 3 цифри блоку, 4 цифри парцелі.
     /// Приклад: 3222486200:01:002:1111.
     /// </summary>
-    public bool ValidateCadastralFormat()
-    {
-        if (string.IsNullOrWhiteSpace(CadastralNumber))
-        {
-            return false;
-        }
+    public bool ValidateCadastralFormat() => IsValidCadastralFormat(CadastralNumber);
 
-        return Regex.IsMatch(CadastralNumber.Trim(), @"^\d{10}:\d{2}:\d{3}:\d{4}$");
-    }
+    private static readonly Regex CadastralPattern = new(@"^\d{10}:\d{2}:\d{3}:\d{4}$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Та сама перевірка формату кадастрового номера без екземпляра ділянки (для масової обробки).
+    /// </summary>
+    public static bool IsValidCadastralFormat(string? cadastralNumber) =>
+        !string.IsNullOrWhiteSpace(cadastralNumber) && CadastralPattern.IsMatch(cadastralNumber.Trim());
 
     public bool IsOwnedBy(System.Security.Claims.ClaimsPrincipal? user)
     {
