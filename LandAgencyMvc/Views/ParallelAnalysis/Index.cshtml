@@ -14,6 +14,13 @@
         [AnalysisTechnique.Tasks] = "#7c3aed"
     };
     var parallelTechniques = new[] { AnalysisTechnique.Plinq, AnalysisTechnique.Threads, AnalysisTechnique.ParallelForEach, AnalysisTechnique.Tasks };
+    var shortNames = new Dictionary<AnalysisTechnique, string>
+    {
+        [AnalysisTechnique.Plinq] = "PLINQ",
+        [AnalysisTechnique.Threads] = "Thread",
+        [AnalysisTechnique.ParallelForEach] = "Parallel.ForEach",
+        [AnalysisTechnique.Tasks] = "Task.Run"
+    };
 
     string Ms(double value) => value < 1 ? value.ToString("0.0000") : value.ToString("0.00");
     string Speedup(double value) => value.ToString("0.00") + "×";
@@ -185,7 +192,7 @@
                 <h4 class="la-card-title mt-4">Масштабування: прискорення залежно від кількості потоків</h4>
                 @{
                     var degrees = current.Timings.Where(t => t.Technique != AnalysisTechnique.Sequential).Select(t => t.Threads).Distinct().OrderBy(n => n).ToList();
-                    const int plotLeft = 60, plotTop = 20, plotWidth = 640, plotHeight = 260;
+                    const int plotLeft = 60, plotTop = 20, plotWidth = 600, plotHeight = 260;
                     double maxSpeedup = Math.Max(degrees.Max(), current.Timings.Where(t => t.Technique != AnalysisTechnique.Sequential).Select(current.SpeedupOf).DefaultIfEmpty(1).Max());
                     double yMax = Math.Ceiling(maxSpeedup);
                     double X(int n) => plotLeft + (degrees.Count == 1 ? 0 : degrees.IndexOf(n) * (double)plotWidth / (degrees.Count - 1));
@@ -215,7 +222,7 @@
                             .Select(t => $"{X(t!.Threads):0.0},{Y(current.SpeedupOf(t)):0.0}");
                         <polyline fill="none" stroke="@palette[technique]" stroke-width="2.5" points="@string.Join(" ", points)"></polyline>
                         <line x1="@(plotLeft + plotWidth + 20)" x2="@(plotLeft + plotWidth + 44)" y1="@(54 + i * 22)" y2="@(54 + i * 22)" stroke="@palette[technique]" stroke-width="3"></line>
-                        @:<text x="@(plotLeft + plotWidth + 50)" y="@(58 + i * 22)" font-size="12" fill="#334155">@TechniqueTiming.DisplayNameOf(technique).Replace("TPL: ", "")</text>
+                        @:<text x="@(plotLeft + plotWidth + 50)" y="@(58 + i * 22)" font-size="12" fill="#334155">@shortNames[technique]</text>
                     }
                 </svg>
 
