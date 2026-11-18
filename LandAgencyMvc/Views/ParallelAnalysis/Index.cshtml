@@ -1,0 +1,353 @@
+@model LandAgencyMvc.Models.ParallelAnalysisViewModel
+@using LandAgencyMvc.Models
+@{
+    ViewData["Title"] = "Паралельний аналіз — LandAgency UA";
+    ViewData["ActiveNav"] = "Parallel";
+    var current = Model.Current;
+    var isSmall = Model.BenchRowCount <= ParallelAnalysisLimits.SmallSampleSize;
+    var palette = new Dictionary<AnalysisTechnique, string>
+    {
+        [AnalysisTechnique.Sequential] = "#64748b",
+        [AnalysisTechnique.Plinq] = "#2563eb",
+        [AnalysisTechnique.Threads] = "#d97706",
+        [AnalysisTechnique.ParallelForEach] = "#16a34a",
+        [AnalysisTechnique.Tasks] = "#7c3aed"
+    };
+    var parallelTechniques = new[] { AnalysisTechnique.Plinq, AnalysisTechnique.Threads, AnalysisTechnique.ParallelForEach, AnalysisTechnique.Tasks };
+    var shortNames = new Dictionary<AnalysisTechnique, string>
+    {
+        [AnalysisTechnique.Plinq] = "PLINQ",
+        [AnalysisTechnique.Threads] = "Thread",
+        [AnalysisTechnique.ParallelForEach] = "Parallel.ForEach",
+        [AnalysisTechnique.Tasks] = "Task.Run"
+    };
+
+    string Ms(double value) => value < 1 ? value.ToString("0.0000") : value.ToString("0.00");
+    string Speedup(double value) => value.ToString("0.00") + "×";
+}
+
+<div class="la-window">
+    <partial name="_RealtorNavbar" />
+
+    <div class="la-body">
+        <partial name="_AlertMessages" />
+
+        <div class="la-page-header">
+            <div>
+                <h1 class="la-page-title">Паралельний аналіз земельного банку (ЛР № 6)</h1>
+                <p class="la-meta mb-0">
+                    Один запит, «аудит земельного банку за цільовим призначенням», виконується послідовно й паралельно.
+                    Для кожної ділянки перевіряються формат кадастрового номера й контрольна сума IBAN продавця,
+                    рахуються ціна за сотку та відстань до Києва, а підсумок групується за кодом КВЦПЗ.
+                </p>
+            </div>
+        </div>
+
+        <div class="la-grid-4 mb-3">
+            <div class="la-card mb-0">
+                <div class="la-meta">Процесор</div>
+                <div class="fw-bold">@Model.ProcessorName</div>
+            </div>
+            <div class="la-card mb-0">
+                <div class="la-meta">Логічних ядер</div>
+                <div class="la-stat-num">@Model.ProcessorCount</div>
+            </div>
+            <div class="la-card mb-0">
+                <div class="la-meta">Платформа</div>
+                <div class="fw-bold">@Model.RuntimeDescription</div>
+                <div class="la-text-xs">@Model.OsDescription</div>
+            </div>
+            <div class="la-card mb-0">
+                <div class="la-meta">Збірка</div>
+                <div class="@(Model.BuildConfiguration == "Release" ? "la-stat-green" : "la-stat-amber")">@Model.BuildConfiguration</div>
+                @if (Model.BuildConfiguration != "Release")
+                {
+                    <div class="la-text-xs">Для звіту вимірюйте у збірці Release: у Debug вимкнено оптимізації.</div>
+                }
+            </div>
+        </div>
+
+        <div class="la-grid-2 mb-3">
+            <div class="la-card mb-0">
+                <h3 class="la-card-title">1. Дані для аналізу</h3>
+                <p class="la-meta">
+                    Окрема база <code>landagency_bench.db</code> зі схемою ЛР № 1–5. Робоча база не змінюється,
+                    тому 100 000 ділянок не з'являються в каталозі й реєстрі.
+                </p>
+                <div class="mb-3">
+                    Записів у таблиці <code>LandPlots</code> бази аналізу:
+                    <span class="la-stat-num ms-1">@(Model.BenchExists ? Model.BenchRowCount.ToString("N0") : "—")</span>
+                    @if (Model.BenchExists)
+                    {
+                        <span class="la-badge @(isSmall ? "la-badge-indigo" : "la-badge-green") ms-1">@(isSmall ? "мала вибірка" : "велика вибірка")</span>
+                    }
+                </div>
+                <div class="la-action-row">
+                    <form asp-action="PrepareSmallSample" method="post" data-long="Створюю базу аналізу…">
+                        <button type="submit" class="la-btn la-btn-outline">Мала вибірка: 20 ділянок</button>
+                    </form>
+                    <form asp-action="GenerateLargeSample" method="post" data-long="Генерую записи…">
+                        <button type="submit" class="la-btn la-btn-indigo">Згенерувати до 100 000 записів</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="la-card mb-0">
+                <h3 class="la-card-title">2. Запуск порівняння</h3>
+                <form asp-action="Run" method="post" data-long="Виконую запит усіма способами…">
+                    <div class="la-grid-2">
+                        <div>
+                            <label class="la-label">Кількість потоків (ядер)</label>
+                            <select name="threads" class="la-input">
+                                @foreach (var n in Model.ThreadOptions)
+                                {
+                                    <option value="@n" selected="@(n == Model.SelectedThreads)">@n@(n == Model.ProcessorCount ? " (усі ядра)" : "")</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="la-label">Повторів кожного способу</label>
+                            <input type="number" name="repetitions" value="@Model.Repetitions" min="3" max="50" class="la-input" />
+                        </div>
+                    </div>
+                    <p class="la-text-xs text-muted">
+                        Кожен спосіб виконується один раз для прогріву, потім задану кількість разів; у таблицю йде медіана.
+                        Паралельні способи додатково виконуються на 1, 2, 4, 8 і всіх ядрах для графіка масштабування.
+                    </p>
+                    <button type="submit" class="la-btn la-btn-dark" disabled="@(!Model.BenchExists)">Запустити порівняння</button>
+                </form>
+            </div>
+        </div>
+
+        @if (current == null)
+        {
+            <div class="la-card">
+                <p class="la-meta mb-0">Для поточного обсягу даних порівняння ще не запускалося.</p>
+            </div>
+        }
+        else
+        {
+            var atSelected = current.AtSelectedThreads.ToList();
+            double maxMs = atSelected.Max(t => t.MedianMs);
+
+            <div class="la-card">
+                <div class="la-row-between mb-2">
+                    <h3 class="la-card-title mb-0">3. Результати на @current.RowCount.ToString("N0") записах, @current.SelectedThreads потоків</h3>
+                    <span class="la-badge @(current.AllResultsMatch ? "la-badge-green" : "la-badge-red")">
+                        @(current.AllResultsMatch ? "усі способи дали однаковий результат ✓" : "результати відрізняються")
+                    </span>
+                </div>
+                <p class="la-meta">
+                    Виконано @current.RunAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm"), збірка @current.BuildConfiguration, повторів: @current.Repetitions.
+                </p>
+
+                <div class="table-responsive">
+                    <table class="la-table">
+                        <thead>
+                            <tr>
+                                <th>Технологія</th>
+                                <th>Потоків</th>
+                                <th>Медіана, мс</th>
+                                <th>Мін / макс, мс</th>
+                                <th>Прискорення</th>
+                                <th>Результат</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in atSelected)
+                            {
+                                var speedup = current.SpeedupOf(t);
+                                <tr>
+                                    <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:@palette[t.Technique]"></span> @t.DisplayName</td>
+                                    <td>@t.Threads</td>
+                                    <td class="fw-bold">@Ms(t.MedianMs)</td>
+                                    <td>@Ms(t.MinMs) / @Ms(t.MaxMs)</td>
+                                    <td class="@(speedup >= 1 ? "text-success" : "text-danger") fw-bold">@Speedup(speedup)</td>
+                                    <td>@(t.ResultMatches ? "збігається ✓" : "відрізняється ✗")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4 class="la-card-title mt-4">Час виконання, мс (менше — краще)</h4>
+                @{
+                    const int barLeft = 230;
+                    const int barWidth = 520;
+                    int barHeight = 26;
+                    int chartHeight = atSelected.Count * (barHeight + 10) + 10;
+                }
+                <svg viewBox="0 0 860 @chartHeight" width="100%" role="img" aria-label="Час виконання кожного способу">
+                    @for (int i = 0; i < atSelected.Count; i++)
+                    {
+                        var t = atSelected[i];
+                        int y = 10 + i * (barHeight + 10);
+                        double w = maxMs > 0 ? Math.Max(2, t.MedianMs / maxMs * barWidth) : 2;
+                        @:<text x="@(barLeft - 10)" y="@(y + barHeight / 2 + 5)" text-anchor="end" font-size="13" fill="#334155">@t.DisplayName</text>
+                        <rect x="@barLeft" y="@y" width="@w.ToString("0.0")" height="@barHeight" rx="4" fill="@palette[t.Technique]"></rect>
+                        @:<text x="@((barLeft + w + 8).ToString("0.0"))" y="@(y + barHeight / 2 + 5)" font-size="13" font-weight="700" fill="#0f172a">@Ms(t.MedianMs)</text>
+                    }
+                </svg>
+
+                <h4 class="la-card-title mt-4">Масштабування: прискорення залежно від кількості потоків</h4>
+                @{
+                    var degrees = current.Timings.Where(t => t.Technique != AnalysisTechnique.Sequential).Select(t => t.Threads).Distinct().OrderBy(n => n).ToList();
+                    const int plotLeft = 60, plotTop = 20, plotWidth = 600, plotHeight = 260;
+                    double maxSpeedup = Math.Max(degrees.Max(), current.Timings.Where(t => t.Technique != AnalysisTechnique.Sequential).Select(current.SpeedupOf).DefaultIfEmpty(1).Max());
+                    double yMax = Math.Ceiling(maxSpeedup);
+                    double X(int n) => plotLeft + (degrees.Count == 1 ? 0 : degrees.IndexOf(n) * (double)plotWidth / (degrees.Count - 1));
+                    double Y(double s) => plotTop + plotHeight - s / yMax * plotHeight;
+                }
+                <svg viewBox="0 0 860 330" width="100%" role="img" aria-label="Прискорення залежно від кількості потоків">
+                    @for (int k = 0; k <= (int)yMax; k += Math.Max(1, (int)yMax / 5))
+                    {
+                        <line x1="@plotLeft" x2="@(plotLeft + plotWidth)" y1="@Y(k).ToString("0.0")" y2="@Y(k).ToString("0.0")" stroke="#e2e8f0"></line>
+                        @:<text x="@(plotLeft - 8)" y="@((Y(k) + 4).ToString("0.0"))" text-anchor="end" font-size="12" fill="#64748b">@(k)×</text>
+                    }
+                    @foreach (var n in degrees)
+                    {
+                        @:<text x="@X(n).ToString("0.0")" y="@(plotTop + plotHeight + 20)" text-anchor="middle" font-size="12" fill="#64748b">@n</text>
+                    }
+                    <text x="@(plotLeft + plotWidth / 2)" y="@(plotTop + plotHeight + 40)" text-anchor="middle" font-size="12" fill="#334155">кількість потоків</text>
+                    <polyline fill="none" stroke="#94a3b8" stroke-dasharray="6 4" stroke-width="2"
+                              points="@string.Join(" ", degrees.Select(n => $"{X(n):0.0},{Y(Math.Min(n, yMax)):0.0}"))"></polyline>
+                    <line x1="@(plotLeft + plotWidth + 20)" x2="@(plotLeft + plotWidth + 44)" y1="30" y2="30" stroke="#94a3b8" stroke-dasharray="6 4" stroke-width="2"></line>
+                    <text x="@(plotLeft + plotWidth + 50)" y="34" font-size="12" fill="#334155">ідеальне</text>
+                    @for (int i = 0; i < parallelTechniques.Length; i++)
+                    {
+                        var technique = parallelTechniques[i];
+                        var points = degrees
+                            .Select(n => current.Timings.FirstOrDefault(t => t.Technique == technique && t.Threads == n))
+                            .Where(t => t != null)
+                            .Select(t => $"{X(t!.Threads):0.0},{Y(current.SpeedupOf(t)):0.0}");
+                        <polyline fill="none" stroke="@palette[technique]" stroke-width="2.5" points="@string.Join(" ", points)"></polyline>
+                        <line x1="@(plotLeft + plotWidth + 20)" x2="@(plotLeft + plotWidth + 44)" y1="@(54 + i * 22)" y2="@(54 + i * 22)" stroke="@palette[technique]" stroke-width="3"></line>
+                        @:<text x="@(plotLeft + plotWidth + 50)" y="@(58 + i * 22)" font-size="12" fill="#334155">@shortNames[technique]</text>
+                    }
+                </svg>
+
+                <h4 class="la-card-title mt-4">Читання даних із SQLite</h4>
+                <table class="la-table">
+                    <thead><tr><th>Спосіб</th><th>З'єднань</th><th>Медіана, мс</th><th>Прочитано рядків</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in current.ReadTimings)
+                        {
+                            <tr><td>@r.Name</td><td>@r.Connections</td><td class="fw-bold">@Ms(r.MedianMs)</td><td>@r.RowsRead.ToString("N0")</td></tr>
+                        }
+                    </tbody>
+                </table>
+                <p class="la-text-xs text-muted mb-0">
+                    Для запиту рядки читаються один раз, а розпаралелюється обробка в пам'яті. Читання показано окремо:
+                    кожен діапазон Id читає своє з'єднання у своєму потоці. На великій вибірці це помітно прискорює читання,
+                    бо більшість часу йде не на диск, а на перетворення рядків бази в об'єкти. На малій вибірці відкриття
+                    кількох з'єднань коштує більше, ніж читання 20 рядків.
+                </p>
+            </div>
+        }
+
+        <div class="la-card">
+            <h3 class="la-card-title">4. Мала вибірка проти великої</h3>
+            @if (Model.Results.Small == null || Model.Results.Large == null)
+            {
+                <p class="la-meta mb-0">
+                    Запустіть порівняння і на малій вибірці (20 записів), і на великій (100 000 записів), щоб побачити їх поруч.
+                    Зараз є: @(Model.Results.Small != null ? "мала" : "—"), @(Model.Results.Large != null ? "велика" : "—").
+                </p>
+            }
+            else
+            {
+                var small = Model.Results.Small;
+                var large = Model.Results.Large;
+                <div class="table-responsive">
+                    <table class="la-table">
+                        <thead>
+                            <tr>
+                                <th>Технологія</th>
+                                <th>@small.RowCount записів, мс</th>
+                                <th>Прискорення</th>
+                                <th>@large.RowCount.ToString("N0") записів, мс</th>
+                                <th>Прискорення</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var technique in new[] { AnalysisTechnique.Sequential }.Concat(parallelTechniques))
+                            {
+                                var s = small.AtSelectedThreads.FirstOrDefault(t => t.Technique == technique);
+                                var l = large.AtSelectedThreads.FirstOrDefault(t => t.Technique == technique);
+                                <tr>
+                                    <td>@TechniqueTiming.DisplayNameOf(technique)@(technique == AnalysisTechnique.Sequential ? "" : $" ({large.SelectedThreads} потоків)")</td>
+                                    <td>@(s != null ? Ms(s.MedianMs) : "—")</td>
+                                    <td class="@(s != null && small.SpeedupOf(s) >= 1 ? "text-success" : "text-danger") fw-bold">@(s != null ? Speedup(small.SpeedupOf(s)) : "—")</td>
+                                    <td>@(l != null ? Ms(l.MedianMs) : "—")</td>
+                                    <td class="@(l != null && large.SpeedupOf(l) >= 1 ? "text-success" : "text-danger") fw-bold">@(l != null ? Speedup(large.SpeedupOf(l)) : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="la-text-sm mb-0 mt-2">
+                    На 20 записах обробка займає мікросекунди, тому створення потоків і злиття підсумків коштує більше, ніж сама робота,
+                    і паралельні способи повільніші за послідовний. На 100 000 записах роботи достатньо, щоб розподілити її між ядрами.
+                    Прискорення менше за кількість ядер: частина роботи послідовна (злиття підсумків, запуск потоків), ядра процесора
+                    різні за продуктивністю, а потоки змагаються за пам'ять (закон Амдала).
+                </p>
+            }
+        </div>
+
+        @if (current != null)
+        {
+            <div class="la-card">
+                <h3 class="la-card-title">5. Результат запиту (однаковий для всіх способів)</h3>
+                <div class="table-responsive">
+                    <table class="la-table">
+                        <thead>
+                            <tr>
+                                <th>КВЦПЗ</th>
+                                <th>Ділянок</th>
+                                <th>Некоректний кадастровий №</th>
+                                <th>Некоректний IBAN</th>
+                                <th>Середня ціна за сотку</th>
+                                <th>Максимальна ціна за сотку</th>
+                                <th>Середня відстань до Києва</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var g in current.Groups)
+                            {
+                                <tr>
+                                    <td class="fw-bold">@g.PurposeCode</td>
+                                    <td>@g.Count.ToString("N0")</td>
+                                    <td>@g.InvalidCadastralCount.ToString("N0")</td>
+                                    <td>@g.InvalidIbanCount.ToString("N0")</td>
+                                    <td>$@g.AvgPricePerSotkaUsd.ToString("N2")</td>
+                                    <td>$@g.MaxPricePerSotkaUsd.ToString("N2")</td>
+                                    <td>@g.AvgDistanceKm.ToString("0.0") км</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="laLongRun" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;align-items:center;justify-content:center;">
+    <div class="la-card mb-0 text-center" style="min-width:280px;">
+        <div class="spinner-border text-primary mb-2" role="status"></div>
+        <div class="fw-bold" id="laLongRunText">Виконується…</div>
+        <div class="la-text-xs text-muted">Сторінка оновиться, щойно роботу буде завершено.</div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('form[data-long]').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                document.getElementById('laLongRunText').textContent = form.getAttribute('data-long');
+                document.getElementById('laLongRun').style.display = 'flex';
+                form.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+            });
+        });
+    </script>
+}

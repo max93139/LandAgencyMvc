@@ -236,14 +236,36 @@ public class LandPlot : IVersioned
     /// 10 цифр області/району/зони, 2 цифри кварталу, 3 цифри блоку, 4 цифри парцелі.
     /// Приклад: 3222486200:01:002:1111.
     /// </summary>
-    public bool ValidateCadastralFormat()
+    public bool ValidateCadastralFormat() => IsValidCadastralFormat(CadastralNumber);
+
+    /// <summary>
+    /// Та сама перевірка формату без екземпляра ділянки: групи з 10, 2, 3 і 4 цифр, розділені двокрапками.
+    /// Перевірка посимвольна, без регулярного виразу: об'єкт Regex зберігає лише один готовий обробник,
+    /// тож під час паралельної обробки потоки змагалися б за нього й створювали нові.
+    /// </summary>
+    public static bool IsValidCadastralFormat(string? cadastralNumber)
     {
-        if (string.IsNullOrWhiteSpace(CadastralNumber))
+        if (cadastralNumber == null)
         {
             return false;
         }
 
-        return Regex.IsMatch(CadastralNumber.Trim(), @"^\d{10}:\d{2}:\d{3}:\d{4}$");
+        ReadOnlySpan<char> value = cadastralNumber.AsSpan().Trim();
+        if (value.Length != 22)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < value.Length; i++)
+        {
+            bool separator = i is 10 or 13 or 17;
+            if (separator ? value[i] != ':' : value[i] is < '0' or > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public bool IsOwnedBy(System.Security.Claims.ClaimsPrincipal? user)

@@ -2,7 +2,8 @@
     var activeNav = (ViewData["ActiveNav"] as string) ?? "";
     var currentUser = (Model as LandAgencyMvc.Models.RealtorRequestsViewModel)?.CurrentUser
         ?? (Model as LandAgencyMvc.Models.RealtorDealsViewModel)?.CurrentUser
-        ?? (Model as LandAgencyMvc.Models.PeriodTurnoverViewModel)?.CurrentUser;
+        ?? (Model as LandAgencyMvc.Models.PeriodTurnoverViewModel)?.CurrentUser
+        ?? (Model as LandAgencyMvc.Models.ParallelAnalysisViewModel)?.CurrentUser;
     var fullName = currentUser?.FullName ?? (User.Identity?.IsAuthenticated == true ? User.Identity.Name : "Рієлтор");
     var rawLicense = !string.IsNullOrEmpty(currentUser?.LicenseNumber)
         ? currentUser.LicenseNumber
@@ -20,6 +21,7 @@
         <a class="@(activeNav == "Deals" ? "active" : "")" asp-controller="Realtor" asp-action="Deals">Угоди та нотаріат</a>
         <a class="@(activeNav == "Analytics" ? "active" : "")" asp-controller="Realtor" asp-action="Analytics">Фінансова аналітика</a>
         <a class="@(activeNav == "Clients" ? "active" : "")" asp-controller="Realtor" asp-action="Clients">Клієнти</a>
+        <a class="@(activeNav == "Parallel" ? "active" : "")" asp-controller="ParallelAnalysis" asp-action="Index">Паралельний аналіз</a>
     </div>
     <div class="la-topbar-user">
         <span>@fullName@license</span>

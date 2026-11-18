@@ -29,6 +29,7 @@ builder.Services.AddScoped<IAutoMatchingService, AutoMatchingService>();
 builder.Services.AddScoped<ILandAgencyQueries, LandAgencyQueries>();
 builder.Services.AddScoped<IPlotMediaStorage, PlotMediaStorage>();
 builder.Services.AddScoped<IPlotRemovalService, PlotRemovalService>();
+builder.Services.AddSingleton<IParallelAnalysisService, ParallelAnalysisService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
