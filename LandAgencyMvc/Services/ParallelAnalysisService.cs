@@ -290,6 +290,7 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         var readTimings = MeasureReads(selectedThreads, out var rows);
 
         var expected = RunSequential(rows);
+        WarmUp(rows);
         var report = new ParallelRunReport
         {
             RowCount = rows.Length,
@@ -313,6 +314,27 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         }
 
         return report;
+    }
+
+    /// <summary>
+    /// Прогрів перед вимірюваннями: JIT спершу компілює методи без оптимізацій і лише після кількох викликів
+    /// замінює їх оптимізованими. Без прогріву перший виміряний спосіб (послідовний) був би несправедливо повільним.
+    /// </summary>
+    private void WarmUp(PlotAnalysisRow[] rows)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        do
+        {
+            RunSequential(rows);
+            foreach (int n in ThreadOptions)
+            {
+                RunPlinq(rows, n);
+                RunThreads(rows, n);
+                RunParallelForEach(rows, n);
+                RunTasks(rows, n);
+            }
+        }
+        while (stopwatch.ElapsedMilliseconds < 1500);
     }
 
     private static TechniqueTiming Measure(

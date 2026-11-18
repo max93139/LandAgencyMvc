@@ -109,6 +109,8 @@ public static class LandBankAudit
 /// Проміжний підсумок по групах КВЦПЗ. Кожен потік накопичує власний екземпляр, а наприкінці екземпляри
 /// зливаються методом <see cref="Merge"/>. Суми цілочисельні або decimal, тому результат не залежить
 /// від порядку обробки рядків і однаковий для всіх способів розпаралелювання.
+/// Ключ словника — повне значення призначення, щоб не створювати рядок коду КВЦПЗ для кожної ділянки:
+/// виділення пам'яті в кожному рядку змушувало б потоки чекати на збирач сміття.
 /// </summary>
 public sealed class LandBankAccumulator
 {
@@ -116,11 +118,10 @@ public sealed class LandBankAccumulator
 
     public void Add(PlotAnalysisRow row)
     {
-        var code = LandBankAudit.PurposeCode(row.Purpose);
-        if (!_groups.TryGetValue(code, out var stats))
+        if (!_groups.TryGetValue(row.Purpose, out var stats))
         {
-            stats = new PurposeGroupStats { PurposeCode = code };
-            _groups[code] = stats;
+            stats = new PurposeGroupStats { PurposeCode = LandBankAudit.PurposeCode(row.Purpose) };
+            _groups[row.Purpose] = stats;
         }
 
         stats.Count++;
@@ -153,28 +154,36 @@ public sealed class LandBankAccumulator
 
     public void Merge(LandBankAccumulator other)
     {
-        foreach (var (code, theirs) in other._groups)
+        foreach (var (purpose, theirs) in other._groups)
         {
-            if (!_groups.TryGetValue(code, out var mine))
+            if (_groups.TryGetValue(purpose, out var mine))
             {
-                _groups[code] = theirs.Clone();
-                continue;
+                mine.Add(theirs);
             }
-
-            mine.Count += theirs.Count;
-            mine.InvalidCadastralCount += theirs.InvalidCadastralCount;
-            mine.InvalidIbanCount += theirs.InvalidIbanCount;
-            mine.SumPricePerSotkaUsd += theirs.SumPricePerSotkaUsd;
-            mine.MaxPricePerSotkaUsd = Math.Max(mine.MaxPricePerSotkaUsd, theirs.MaxPricePerSotkaUsd);
-            mine.WithCoordinatesCount += theirs.WithCoordinatesCount;
-            mine.SumDistanceMeters += theirs.SumDistanceMeters;
+            else
+            {
+                _groups[purpose] = theirs.Clone();
+            }
         }
     }
 
-    public List<PurposeGroupStats> ToResult() => _groups.Values
-        .OrderBy(g => g.PurposeCode, StringComparer.Ordinal)
-        .Select(g => g.Clone())
-        .ToList();
+    public List<PurposeGroupStats> ToResult()
+    {
+        var byCode = new Dictionary<string, PurposeGroupStats>();
+        foreach (var stats in _groups.Values)
+        {
+            if (byCode.TryGetValue(stats.PurposeCode, out var existing))
+            {
+                existing.Add(stats);
+            }
+            else
+            {
+                byCode[stats.PurposeCode] = stats.Clone();
+            }
+        }
+
+        return byCode.Values.OrderBy(g => g.PurposeCode, StringComparer.Ordinal).ToList();
+    }
 }
 
 /// <summary>
@@ -203,6 +212,17 @@ public sealed class PurposeGroupStats
     public double AvgDistanceKm => WithCoordinatesCount > 0 ? Math.Round(SumDistanceMeters / 1000.0 / WithCoordinatesCount, 1) : 0;
 
     public PurposeGroupStats Clone() => (PurposeGroupStats)MemberwiseClone();
+
+    public void Add(PurposeGroupStats other)
+    {
+        Count += other.Count;
+        InvalidCadastralCount += other.InvalidCadastralCount;
+        InvalidIbanCount += other.InvalidIbanCount;
+        SumPricePerSotkaUsd += other.SumPricePerSotkaUsd;
+        MaxPricePerSotkaUsd = Math.Max(MaxPricePerSotkaUsd, other.MaxPricePerSotkaUsd);
+        WithCoordinatesCount += other.WithCoordinatesCount;
+        SumDistanceMeters += other.SumDistanceMeters;
+    }
 
     public bool SameAs(PurposeGroupStats other) =>
         PurposeCode == other.PurposeCode &&
