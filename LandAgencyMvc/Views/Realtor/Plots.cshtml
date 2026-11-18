@@ -31,7 +31,7 @@
                     <div class="col-md-4">
                         <select name="status" class="la-input mb-0">
                             <option value="">Всі статуси лістингу</option>
-                            <option value="Draft" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.Draft)">Чернетки (ще не надіслано юристу)</option>
+                            <option value="Draft" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.Draft)">Чернетки</option>
                             <option value="PendingLegalCheck" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck)">На перевірці у юриста</option>
                             <option value="VerifiedInCatalog" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.VerifiedInCatalog)">Опубліковано в каталозі</option>
                             <option value="RejectedByLawyer" selected="@(currentStatus == LandAgencyMvc.Models.PlotStatus.RejectedByLawyer)">Відхилено юристом</option>

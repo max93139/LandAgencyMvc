@@ -118,7 +118,7 @@ public class PlotEditViewModel : PlotCreateViewModel
 
     public string StatusDisplayName => Status switch
     {
-        PlotStatus.Draft => "Чернетка (ще не надіслано юристу)",
+        PlotStatus.Draft => "Чернетка",
         PlotStatus.PendingLegalCheck => "На перевірці у юриста (ДЗК)",
         PlotStatus.VerifiedInCatalog => "Опубліковано ✓",
         PlotStatus.RejectedByLawyer => "Відхилено (Акт ризиків)",
