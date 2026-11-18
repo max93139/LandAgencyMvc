@@ -103,7 +103,7 @@
                             }
                         </div>
                     }
-                    @if (myPlot.Status != LandAgencyMvc.Models.PlotStatus.Sold)
+                    @if (myPlot.Status is LandAgencyMvc.Models.PlotStatus.Draft or LandAgencyMvc.Models.PlotStatus.RejectedByLawyer)
                     {
                         <details class="mt-2 la-text-xs">
                             <summary class="fw-bold text-primary">➕ Додати правовстановлюючий документ або витяг ДЗК</summary>

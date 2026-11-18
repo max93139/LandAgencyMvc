@@ -411,6 +411,12 @@ public partial class ClientController
         var plot = await _db.LandPlots.FirstOrDefaultAsync(p => p.Id == plotId && p.SellerId == currentUserId);
         if (plot != null && currentUser != null)
         {
+            if (plot.AreLegalFactsLocked || !plot.IsEditable)
+            {
+                TempData["CabinetError"] = $"До ділянки {plot.CadastralNumber} документи зараз не додаються: її перевіряє юрист, вона вже опублікована або продана.";
+                return RedirectToAction(nameof(Cabinet));
+            }
+
             string cleanDocType = !string.IsNullOrWhiteSpace(docType) ? docType.Trim() : "Витяг з ДЗК";
             string cleanDocNum = (documentNumber ?? string.Empty).Trim();
             string cleanTitle = !string.IsNullOrWhiteSpace(title)
@@ -425,7 +431,7 @@ public partial class ClientController
                 DocType = cleanDocType,
                 DocumentNumber = cleanDocNum,
                 IssueDate = issueDate ?? DateTime.Today,
-                IsVerified = plot.Status == PlotStatus.VerifiedInCatalog
+                IsVerified = false
             };
             doc.AttachFile(savedFileUrl, fileBytes, mimeType);
 
