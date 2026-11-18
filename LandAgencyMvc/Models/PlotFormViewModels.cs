@@ -162,14 +162,16 @@ public class PlotEditViewModel : PlotCreateViewModel
             }).ToList()
         };
 
-        // Запасний порожній рядок для додавання нового документа при редагуванні
-        vm.Documents.Add(new DocumentEditItem
+        if (!plot.AreLegalFactsLocked)
         {
-            Title = string.Empty,
-            DocType = "Витяг з ДЗК",
-            DocumentNumber = string.Empty,
-            IssueDate = DateTime.Today
-        });
+            vm.Documents.Add(new DocumentEditItem
+            {
+                Title = string.Empty,
+                DocType = "Витяг з ДЗК",
+                DocumentNumber = string.Empty,
+                IssueDate = DateTime.Today
+            });
+        }
 
         return vm;
     }
@@ -193,6 +195,11 @@ public class PlotEditViewModel : PlotCreateViewModel
         plot.UpdateSaleConditions(SaleConditions);
         plot.Latitude = Latitude;
         plot.Longitude = Longitude;
+
+        if (plot.AreLegalFactsLocked)
+        {
+            return;
+        }
 
         foreach (var item in Documents)
         {

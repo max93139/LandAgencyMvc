@@ -392,6 +392,12 @@ public partial class RealtorController
                 return RedirectToAction(nameof(EditPlot), new { id = plotId });
             }
 
+            if (plot != null && plot.AreLegalFactsLocked)
+            {
+                TempData["RealtorError"] = "Документи ділянки, яку перевіряє юрист або вже опубліковано, не змінюються.";
+                return RedirectToAction(nameof(EditPlot), new { id = plotId });
+            }
+
             if (doc.IsVerified)
             {
                 TempData["RealtorError"] = $"Документ «{doc.Title}» верифіковано юристом, тому рієлтор його не вилучає. Щоб змінити документи, юрист відкликає висновок.";

@@ -44,9 +44,20 @@
                 <partial name="_PlotFormFields" model="Model" />
 
                 <div class="la-card mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h3 class="la-card-title mb-0">Прикріплені правовстановлюючі документи (@(Model.Documents.Count - 1))</h3>
-                        <span class="la-meta small">Для збереження нових документів або вилучення заповніть поля та натисніть «Зберегти зміни»</span>
+                    <div class="mb-3">
+                        <h3 class="la-card-title mb-1">Прикріплені правовстановлюючі документи (@Model.Documents.Count(d => d.Id > 0))</h3>
+                        @if (Model.LegalFactsLocked)
+                        {
+                            <div class="la-alert la-alert-warning mb-0">
+                                @(Model.Status == LandAgencyMvc.Models.PlotStatus.PendingLegalCheck
+                                    ? "Ділянку перевіряє юрист, тому документи не змінюються: юрист перевіряє саме ці документи. Змінити їх можна після відхилення."
+                                    : "Ділянку опубліковано за висновком юриста, тому документи не змінюються. Змінити їх можна, лише якщо юрист відкличе висновок.")
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="la-meta small">Щоб додати документ, заповніть порожній рядок; щоб вилучити, позначте «Видалити». Потім натисніть «Зберегти зміни».</span>
+                        }
                     </div>
 
                     <div class="table-responsive">
@@ -65,10 +76,11 @@
                                 {
                                     var isNewRow = !Model.Documents[i].Id.HasValue || Model.Documents[i].Id == 0;
                                     var verified = Model.Documents[i].IsVerified;
+                                    var readOnly = verified || Model.LegalFactsLocked;
                                     <tr class="@(isNewRow ? "table-light" : "")">
                                         <td>
                                             <input type="hidden" asp-for="Documents[i].Id" />
-                                            @if (verified)
+                                            @if (readOnly)
                                             {
                                                 <input type="hidden" asp-for="Documents[i].Title" />
                                                 <span>@Model.Documents[i].Title</span>
@@ -80,7 +92,7 @@
                                             }
                                         </td>
                                         <td>
-                                            @if (verified)
+                                            @if (readOnly)
                                             {
                                                 <input type="hidden" asp-for="Documents[i].DocType" />
                                                 <span>@Model.Documents[i].DocType</span>
@@ -97,7 +109,7 @@
                                             }
                                         </td>
                                         <td>
-                                            @if (verified)
+                                            @if (readOnly)
                                             {
                                                 <input type="hidden" asp-for="Documents[i].DocumentNumber" />
                                                 <span>@Model.Documents[i].DocumentNumber</span>
@@ -108,7 +120,7 @@
                                             }
                                         </td>
                                         <td>
-                                            @if (verified)
+                                            @if (readOnly)
                                             {
                                                 <input type="hidden" asp-for="Documents[i].IssueDate" />
                                                 <span>@Model.Documents[i].IssueDate.ToString("dd.MM.yyyy")</span>
@@ -122,6 +134,10 @@
                                             @if (verified)
                                             {
                                                 <span class="la-badge la-badge-green">Верифіковано юристом</span>
+                                            }
+                                            else if (readOnly)
+                                            {
+                                                <span class="la-badge la-badge-amber">На перевірці</span>
                                             }
                                             else if (!isNewRow)
                                             {
