@@ -4,6 +4,9 @@
     ViewData["ActiveNav"] = "Plots";
     var search = ViewBag.Search as string;
     var currentStatus = ViewBag.Status as LandAgencyMvc.Models.PlotStatus?;
+    int currentPage = ViewBag.Page ?? 1;
+    int totalPages = ViewBag.TotalPages ?? 1;
+    int totalCount = ViewBag.TotalCount ?? 0;
 }
 
 <div class="la-window">
@@ -123,6 +126,24 @@
                             }
                         </tbody>
                     </table>
+                </div>
+                <div class="la-row-between mt-3">
+                    <span class="la-meta">Знайдено @totalCount.ToString("N0") ділянок · сторінка @currentPage з @totalPages.ToString("N0")</span>
+                    @if (totalPages > 1)
+                    {
+                        <div class="la-action-row">
+                            @if (currentPage > 1)
+                            {
+                                <a class="la-btn la-btn-outline" asp-action="Plots" asp-route-search="@search" asp-route-status="@currentStatus" asp-route-page="1">« Перша</a>
+                                <a class="la-btn la-btn-outline" asp-action="Plots" asp-route-search="@search" asp-route-status="@currentStatus" asp-route-page="@(currentPage - 1)">‹ Попередня</a>
+                            }
+                            @if (currentPage < totalPages)
+                            {
+                                <a class="la-btn la-btn-outline" asp-action="Plots" asp-route-search="@search" asp-route-status="@currentStatus" asp-route-page="@(currentPage + 1)">Наступна ›</a>
+                                <a class="la-btn la-btn-outline" asp-action="Plots" asp-route-search="@search" asp-route-status="@currentStatus" asp-route-page="@totalPages">Остання »</a>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
         </div>

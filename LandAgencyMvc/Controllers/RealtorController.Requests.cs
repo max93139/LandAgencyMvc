@@ -21,8 +21,10 @@ public partial class RealtorController
             .OrderByDescending(r => r.Id)
             .ToListAsync();
 
+        // Швидке оновлення — для ділянок, з якими працює агентство; чернетки клієнт ще готує сам.
         var allPlots = await _db.LandPlots
             .Include(p => p.Seller)
+            .Where(p => p.Status != PlotStatus.Sold && p.Status != PlotStatus.Draft)
             .OrderByDescending(p => p.Id)
             .ToListAsync();
 

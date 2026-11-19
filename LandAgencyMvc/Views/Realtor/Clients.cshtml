@@ -76,7 +76,8 @@
                 <tbody>
                     @foreach (var u in Model.Users)
                     {
-                        var hasHistory = u.OwnedPlots.Any() || u.ViewingRequests.Any();
+                        var plotCount = Model.PlotCountOf(u);
+                        var hasHistory = plotCount > 0 || u.ViewingRequests.Any();
 
                         <tr>
                             <td class="text-center">#@u.Id</td>
@@ -94,9 +95,9 @@
                                 }
                             </td>
                             <td class="text-center">
-                                @if (u.OwnedPlots.Any())
+                                @if (plotCount > 0)
                                 {
-                                    <span class="la-badge la-badge-green">@u.OwnedPlots.Count діл.</span>
+                                    <span class="la-badge la-badge-green">@plotCount.ToString("N0") діл.</span>
                                 }
                                 else
                                 {

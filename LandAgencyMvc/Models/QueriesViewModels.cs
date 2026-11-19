@@ -36,6 +36,14 @@ public class LandBankViewModel
 public class UsersManagementViewModel
 {
     public List<AppUser> Users { get; set; } = new();
+
+    /// <summary>
+    /// Кількість ділянок кожного клієнта, порахована в базі одним запитом GROUP BY.
+    /// </summary>
+    public Dictionary<int, int> PlotCounts { get; set; } = new();
+
+    public int PlotCountOf(AppUser user) => PlotCounts.GetValueOrDefault(user.Id);
+
     public string? SearchEmail { get; set; }
     public AppUser? FoundUser { get; set; }
 }

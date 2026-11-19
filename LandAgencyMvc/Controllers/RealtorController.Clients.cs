@@ -17,7 +17,6 @@ public partial class RealtorController
     {
         var clientsQuery = _db.Users
             .Where(u => AppRoles.ClientRoles.Contains(u.Role))
-            .Include(u => u.OwnedPlots)
             .Include(u => u.ViewingRequests)
             .AsNoTracking();
 
@@ -43,9 +42,17 @@ public partial class RealtorController
             }
         }
 
+        var clientIds = clients.Select(u => u.Id).ToList();
+        var plotCounts = await _db.LandPlots
+            .Where(p => clientIds.Contains(p.SellerId))
+            .GroupBy(p => p.SellerId)
+            .Select(g => new { SellerId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SellerId, x => x.Count);
+
         var model = new UsersManagementViewModel
         {
             Users = clients,
+            PlotCounts = plotCounts,
             SearchEmail = searchEmail,
             FoundUser = foundUser
         };
