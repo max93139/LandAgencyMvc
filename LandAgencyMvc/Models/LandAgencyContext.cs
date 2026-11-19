@@ -184,10 +184,13 @@ public class LandAgencyContext : DbContext
 
     /// <summary>
     /// Створює схему й завантажує початкові дані, якщо база порожня. Повертає true, коли дані щойно завантажено.
+    /// Режим журналу WAL зберігається у файлі бази: читачі не блокують запис і один одного, тому кілька потоків
+    /// можуть читати базу одночасно (ЛР6).
     /// </summary>
     public bool InitializeDatabase()
     {
         Database.EnsureCreated();
+        Database.ExecuteSqlRaw("PRAGMA journal_mode = WAL;");
         CreateArchiveProtectionTriggers();
 
         if (Users.Any())

@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using System.Collections.Concurrent;
 using System.Text.Json;
+using LandAgencyMvc.Data;
 using LandAgencyMvc.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -8,39 +8,68 @@ using Microsoft.EntityFrameworkCore;
 namespace LandAgencyMvc.Services;
 
 /// <summary>
-/// ЛР6 «Паралельна обробка даних». Окрема база landagency_bench.db має ту саму схему, що й робоча, тому
-/// 100 000 згенерованих ділянок не потрапляють у каталог, реєстр рієлтора та підбір.
+/// Шляхи до баз і файлу результатів ЛР6.
+/// </summary>
+/// <param name="MainConnectionString">Рядок підключення робочої бази застосунку.</param>
+/// <param name="SmallDatabasePath">Файл окремої малої бази з 20 записами (пункт 2 завдання).</param>
+/// <param name="ResultsPath">Файл, у якому зберігаються результати останніх досліджень.</param>
+public sealed record ParallelAnalysisOptions(string MainConnectionString, string SmallDatabasePath, string ResultsPath);
+
+/// <summary>
+/// ЛР6 «Паралельна обробка даних»: підготовка даних, вимірювання й збереження результатів.
+/// Мала база — окремий файл, у таблиці LandPlots якого рівно 20 записів. Велике дослідження виконується на
+/// робочій базі: її таблицю LandPlots програмно доповнено до 100 000 записів.
 /// </summary>
 public interface IParallelAnalysisService
 {
-    bool BenchExists { get; }
-
-    Task<int> CountBenchRowsAsync();
-
-    /// <summary>
-    /// Створює базу аналізу заново й копіює в таблицю LandPlots 20 ділянок із робочої бази.
-    /// </summary>
-    Task<int> PrepareSmallSampleAsync(LandAgencyContext mainDb);
-
-    /// <summary>
-    /// Програмно доповнює таблицю LandPlots бази аналізу до 100 000 записів.
-    /// </summary>
-    /// <returns>Кількість доданих записів і час генерації.</returns>
-    Task<(int Added, TimeSpan Elapsed)> GenerateLargeSampleAsync(LandAgencyContext mainDb);
-
-    Task<ParallelRunReport> RunComparisonAsync(int selectedThreads, int repetitions);
-
-    ParallelResultsStore LoadResults();
-
     IReadOnlyList<int> ThreadOptions { get; }
 
     string BuildConfiguration { get; }
+
+    /// <summary>
+    /// Кількість записів у малій базі або null, якщо її ще не створено.
+    /// </summary>
+    Task<int?> CountSmallRowsAsync();
+
+    Task<int> CountMainRowsAsync();
+
+    /// <summary>
+    /// Скільки записів робочої бази згенеровано програмно для ЛР6.
+    /// </summary>
+    Task<int> CountGeneratedRowsAsync();
+
+    Task<DatabaseConditions> GetConditionsAsync();
+
+    /// <summary>
+    /// Створює малу базу заново й копіює в її таблицю LandPlots 20 ділянок робочої бази.
+    /// </summary>
+    Task<int> PrepareSmallDatabaseAsync();
+
+    /// <summary>
+    /// Програмно доповнює таблицю LandPlots робочої бази до заданої кількості записів однією транзакцією.
+    /// </summary>
+    Task<(int Added, TimeSpan Elapsed)> FillMainDatabaseAsync(int targetRows = ParallelAnalysisLimits.LargeSampleSize);
+
+    /// <summary>
+    /// Прибирає з робочої бази записи, згенеровані для ЛР6, і повертає її до демонстраційного стану.
+    /// </summary>
+    Task<int> RemoveGeneratedAsync();
+
+    Task<ParallelRunReport> RunComparisonAsync(AnalysisDatabase database, int selectedThreads, int repetitions);
+
+    ParallelResultsStore LoadResults();
 }
 
 public sealed class ParallelAnalysisService : IParallelAnalysisService
 {
-    private const string BenchSellerEmail = "bench.seller@landagency.ua";
+    /// <summary>
+    /// Власник згенерованих ділянок. Обліковий запис неактивний і без відомого пароля, а ділянки мають статус
+    /// «Чернетка», тому не потрапляють у каталог, чергу юриста, автоматичний підбір і угоди.
+    /// </summary>
+    public const string LoadSellerEmail = "lab6.load@landagency.ua";
+
     private const int InsertBatchSize = 5_000;
+    private const int WarmUpMilliseconds = 1_000;
 
     private static readonly string[] KoatuuCodes =
     {
@@ -69,17 +98,22 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         ("11.02 Для розміщення промислових підприємств", 1200m)
     };
 
-    private readonly string _benchPath;
-    private readonly string _resultsPath;
+    private readonly ParallelAnalysisOptions _options;
+    private readonly string _smallConnectionString;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public ParallelAnalysisService(IWebHostEnvironment environment)
+    public ParallelAnalysisService(ParallelAnalysisOptions options)
     {
-        _benchPath = Path.Combine(environment.ContentRootPath, "landagency_bench.db");
-        _resultsPath = Path.Combine(environment.ContentRootPath, "parallel_results.json");
-    }
+        _options = options;
+        _smallConnectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = options.SmallDatabasePath,
+            ForeignKeys = true,
+            Pooling = true
+        }.ToString();
 
-    public bool BenchExists => File.Exists(_benchPath);
+        EnsureThreadPoolCapacity();
+    }
 
     public string BuildConfiguration =>
 #if DEBUG
@@ -93,18 +127,64 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         .OrderBy(n => n)
         .ToList();
 
-    public async Task<int> CountBenchRowsAsync()
+    /// <summary>
+    /// Коли частини запиту чекають на читання з бази, вони займають потоки пулу. Пул додає нові потоки повільно,
+    /// приблизно по одному за пів секунди, тому без запасу частини стояли б у черзі й вимір показував би очікування
+    /// пулу, а не роботу. Мінімум потоків пулу піднімається до найбільшої кількості частин плюс кількість ядер.
+    /// </summary>
+    private int RequiredWorkerThreads => ThreadOptions.Max() + Environment.ProcessorCount;
+
+    private void EnsureThreadPoolCapacity()
     {
-        if (!BenchExists)
+        ThreadPool.GetMinThreads(out int workers, out int io);
+        if (workers < RequiredWorkerThreads)
         {
-            return 0;
+            ThreadPool.SetMinThreads(RequiredWorkerThreads, io);
+        }
+    }
+
+    public async Task<int?> CountSmallRowsAsync()
+    {
+        if (!File.Exists(_options.SmallDatabasePath))
+        {
+            return null;
         }
 
-        await using var db = CreateBenchContext();
+        await using var db = CreateSmallContext();
         return await db.LandPlots.CountAsync();
     }
 
-    public async Task<int> PrepareSmallSampleAsync(LandAgencyContext mainDb)
+    public async Task<int> CountMainRowsAsync()
+    {
+        await using var db = CreateMainReadContext();
+        return await db.LandPlots.CountAsync();
+    }
+
+    public async Task<int> CountGeneratedRowsAsync()
+    {
+        await using var db = CreateMainReadContext();
+        return await db.LandPlots.CountAsync(p => p.Seller != null && p.Seller.Email == LoadSellerEmail);
+    }
+
+    public async Task<DatabaseConditions> GetConditionsAsync()
+    {
+        await using var connection = new SqliteConnection(_options.MainConnectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode;";
+        var journalMode = (string?)await command.ExecuteScalarAsync() ?? string.Empty;
+
+        ThreadPool.GetMinThreads(out int workers, out _);
+        return new DatabaseConditions
+        {
+            JournalMode = journalMode,
+            PoolingEnabled = new SqliteConnectionStringBuilder(_options.MainConnectionString).Pooling,
+            MinWorkerThreads = workers,
+            RequiredWorkerThreads = RequiredWorkerThreads
+        };
+    }
+
+    public async Task<int> PrepareSmallDatabaseAsync()
     {
         await _gate.WaitAsync();
         try
@@ -112,28 +192,26 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
             SqliteConnection.ClearAllPools();
             foreach (var suffix in new[] { "", "-shm", "-wal", "-journal" })
             {
-                File.Delete(_benchPath + suffix);
+                File.Delete(_options.SmallDatabasePath + suffix);
             }
 
-            await using var db = CreateBenchContext();
-            await db.Database.EnsureCreatedAsync();
-
-            var seller = new AppUser
+            List<LandPlot> source;
+            await using (var mainDb = CreateMainReadContext())
             {
-                FullName = "Продавець вибірки ЛР6",
-                Email = BenchSellerEmail,
-                Phone = "+380000000000",
-                Role = UserRole.Seller
-            };
-            seller.SetPassword(Guid.NewGuid().ToString("N"));
+                source = await mainDb.LandPlots
+                    .Where(p => p.Seller == null || p.Seller.Email != LoadSellerEmail)
+                    .OrderBy(p => p.Id)
+                    .Take(ParallelAnalysisLimits.SmallSampleSize)
+                    .ToListAsync();
+            }
+
+            await using var db = CreateSmallContext();
+            await db.Database.EnsureCreatedAsync();
+            await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode = WAL;");
+
+            var seller = NewLoadSeller();
             db.Users.Add(seller);
             await db.SaveChangesAsync();
-
-            var source = await mainDb.LandPlots
-                .AsNoTracking()
-                .OrderBy(p => p.Id)
-                .Take(ParallelAnalysisLimits.SmallSampleSize)
-                .ToListAsync();
 
             db.LandPlots.AddRange(source.Select(p => new LandPlot
             {
@@ -162,35 +240,45 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         }
     }
 
-    public async Task<(int Added, TimeSpan Elapsed)> GenerateLargeSampleAsync(LandAgencyContext mainDb)
+    public async Task<(int Added, TimeSpan Elapsed)> FillMainDatabaseAsync(int targetRows = ParallelAnalysisLimits.LargeSampleSize)
     {
-        if (!BenchExists)
-        {
-            await PrepareSmallSampleAsync(mainDb);
-        }
-
         await _gate.WaitAsync();
         try
         {
             var stopwatch = Stopwatch.StartNew();
-            await using var db = CreateBenchContext();
+            await using var db = CreateMainWriteContext();
             db.ChangeTracker.AutoDetectChangesEnabled = false;
 
-            int sellerId = await db.Users.Where(u => u.Email == BenchSellerEmail).Select(u => u.Id).FirstAsync();
             int existing = await db.LandPlots.CountAsync();
-            int toAdd = Math.Max(0, ParallelAnalysisLimits.LargeSampleSize - existing);
-
-            var random = new Random(2026);
-            var createdBase = new DateTime(2025, 1, 1, 9, 0, 0);
+            int toAdd = Math.Max(0, targetRows - existing);
+            if (toAdd == 0)
+            {
+                return (0, stopwatch.Elapsed);
+            }
 
             await using var transaction = await db.Database.BeginTransactionAsync();
+
+            var seller = await db.Users.FirstOrDefaultAsync(u => u.Email == LoadSellerEmail);
+            if (seller == null)
+            {
+                seller = NewLoadSeller();
+                db.Users.Add(seller);
+                await db.SaveChangesAsync();
+            }
+
+            int alreadyGenerated = await db.LandPlots.CountAsync(p => p.SellerId == seller.Id);
+            var random = new Random(2026 + alreadyGenerated);
+            // Дати згенерованих записів раніші за справжні, тож реєстр рієлтора, відсортований від нових до старих,
+            // і далі починається зі справжніх ділянок.
+            var createdBase = new DateTime(2020, 1, 1, 9, 0, 0);
+
             for (int start = 0; start < toAdd; start += InsertBatchSize)
             {
                 int end = Math.Min(start + InsertBatchSize, toAdd);
                 var batch = new List<LandPlot>(end - start);
                 for (int i = start; i < end; i++)
                 {
-                    batch.Add(GeneratePlot(i, sellerId, random, createdBase));
+                    batch.Add(GeneratePlot(alreadyGenerated + i, seller.Id, random, createdBase));
                 }
 
                 db.LandPlots.AddRange(batch);
@@ -199,6 +287,7 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
             }
 
             await transaction.CommitAsync();
+            await db.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
             stopwatch.Stop();
             return (toAdd, stopwatch.Elapsed);
         }
@@ -206,6 +295,50 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         {
             _gate.Release();
         }
+    }
+
+    public async Task<int> RemoveGeneratedAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await using var db = CreateMainWriteContext();
+            var seller = await db.Users.FirstOrDefaultAsync(u => u.Email == LoadSellerEmail);
+            if (seller == null)
+            {
+                return 0;
+            }
+
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            int removed = await db.LandPlots.Where(p => p.SellerId == seller.Id).ExecuteDeleteAsync();
+            db.Users.Remove(seller);
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            await db.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+
+            var store = LoadResults();
+            store.Large = null;
+            await SaveResultsAsync(store);
+            return removed;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private static AppUser NewLoadSeller()
+    {
+        var seller = new AppUser
+        {
+            FullName = "Тестове наповнення ЛР6",
+            Email = LoadSellerEmail,
+            Phone = "+380000000000",
+            Role = UserRole.Seller,
+            IsActive = false
+        };
+        seller.SetPassword(Guid.NewGuid().ToString("N"));
+        return seller;
     }
 
     /// <summary>
@@ -234,9 +367,6 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
             iban = iban[..10] + (iban[10] == '9' ? '0' : (char)(iban[10] + 1)) + iban[11..];
         }
 
-        double roll = random.NextDouble();
-        var status = roll < 0.70 ? PlotStatus.VerifiedInCatalog : roll < 0.85 ? PlotStatus.PendingLegalCheck : PlotStatus.Draft;
-
         return new LandPlot
         {
             CadastralNumber = cadastral,
@@ -248,7 +378,7 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
             Description = "Запис згенеровано програмно для ЛР6.",
             OwnershipDocNumber = $"ДРРП-{50_000_000 + i}",
             SellerBankIban = iban,
-            Status = status,
+            Status = PlotStatus.Draft,
             SellerId = sellerId,
             CreatedAt = createdBase.AddMinutes(i),
             Latitude = Math.Round(latitude + (random.NextDouble() - 0.5) * 0.5, 6),
@@ -257,17 +387,18 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         };
     }
 
-    public async Task<ParallelRunReport> RunComparisonAsync(int selectedThreads, int repetitions)
+    public async Task<ParallelRunReport> RunComparisonAsync(AnalysisDatabase database, int selectedThreads, int repetitions)
     {
         selectedThreads = Math.Clamp(selectedThreads, 1, 64);
-        repetitions = Math.Clamp(repetitions, 3, 50);
+        repetitions = Math.Clamp(repetitions, 3, 30);
 
         await _gate.WaitAsync();
         try
         {
-            var report = await Task.Run(() => RunComparison(selectedThreads, repetitions));
+            EnsureThreadPoolCapacity();
+            var report = await Task.Run(() => RunComparisonCoreAsync(database, selectedThreads, repetitions));
             var store = LoadResults();
-            if (report.RowCount <= ParallelAnalysisLimits.SmallSampleSize)
+            if (database == AnalysisDatabase.Small)
             {
                 store.Small = report;
             }
@@ -276,7 +407,7 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
                 store.Large = report;
             }
 
-            await File.WriteAllTextAsync(_resultsPath, JsonSerializer.Serialize(store, new JsonSerializerOptions { WriteIndented = true }));
+            await SaveResultsAsync(store);
             return report;
         }
         finally
@@ -285,31 +416,39 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         }
     }
 
-    private ParallelRunReport RunComparison(int selectedThreads, int repetitions)
+    private async Task<ParallelRunReport> RunComparisonCoreAsync(AnalysisDatabase database, int selectedThreads, int repetitions)
     {
-        var readTimings = MeasureReads(selectedThreads, out var rows);
+        Func<LandAgencyContext> createContext = database == AnalysisDatabase.Small ? CreateSmallContext : CreateMainReadContext;
+        var degrees = ThreadOptions.Append(selectedThreads).Distinct().OrderBy(n => n).ToList();
 
-        var expected = RunSequential(rows);
-        WarmUp(rows);
+        var expected = await LandBankQuery.RunOnDatabaseAsync(AnalysisTechnique.Sequential, createContext, 1);
+        var rows = LandBankQuery.LoadRows(createContext);
+        await WarmUpAsync(createContext, rows, degrees);
+
         var report = new ParallelRunReport
         {
+            Database = database,
             RowCount = rows.Length,
             SelectedThreads = selectedThreads,
             Repetitions = repetitions,
             RunAtUtc = DateTime.UtcNow,
             BuildConfiguration = BuildConfiguration,
-            ReadTimings = readTimings,
             Groups = expected
         };
 
-        report.Timings.Add(Measure(AnalysisTechnique.Sequential, 1, repetitions, expected, () => RunSequential(rows)));
+        report.DatabaseQuery.Timings.Add(await MeasureAsync(AnalysisTechnique.Sequential, 1, repetitions, expected,
+            () => LandBankQuery.RunOnDatabaseAsync(AnalysisTechnique.Sequential, createContext, 1)));
+        report.MemoryOnly.Timings.Add(await MeasureAsync(AnalysisTechnique.Sequential, 1, repetitions, expected,
+            () => Task.FromResult(LandBankQuery.RunSequential(rows))));
 
-        var degrees = ThreadOptions.Append(selectedThreads).Distinct().OrderBy(n => n).ToList();
-        foreach (var technique in new[] { AnalysisTechnique.Plinq, AnalysisTechnique.Threads, AnalysisTechnique.ParallelForEach, AnalysisTechnique.Tasks })
+        foreach (var technique in TechniqueTiming.ParallelTechniques)
         {
             foreach (int n in degrees)
             {
-                report.Timings.Add(Measure(technique, n, repetitions, expected, () => Run(technique, rows, n)));
+                report.DatabaseQuery.Timings.Add(await MeasureAsync(technique, n, repetitions, expected,
+                    () => LandBankQuery.RunOnDatabaseAsync(technique, createContext, n)));
+                report.MemoryOnly.Timings.Add(await MeasureAsync(technique, n, repetitions, expected,
+                    () => Task.FromResult(LandBankQuery.RunInMemory(technique, rows, n))));
             }
         }
 
@@ -318,40 +457,50 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
 
     /// <summary>
     /// Прогрів перед вимірюваннями: JIT спершу компілює методи без оптимізацій і лише після кількох викликів
-    /// замінює їх оптимізованими. Без прогріву перший виміряний спосіб (послідовний) був би несправедливо повільним.
+    /// замінює їх оптимізованими, EF Core будує модель і кешує скомпільовані запити, пул відкриває з'єднання,
+    /// а SQLite заповнює кеш сторінок. Без прогріву перший виміряний спосіб був би несправедливо повільним.
     /// </summary>
-    private void WarmUp(PlotAnalysisRow[] rows)
+    private static async Task WarmUpAsync(Func<LandAgencyContext> createContext, PlotAnalysisRow[] rows, IReadOnlyList<int> degrees)
     {
+        foreach (var technique in TechniqueTiming.ParallelTechniques)
+        {
+            await LandBankQuery.RunOnDatabaseAsync(technique, createContext, degrees[^1]);
+        }
+
         var stopwatch = Stopwatch.StartNew();
         do
         {
-            RunSequential(rows);
-            foreach (int n in ThreadOptions)
+            LandBankQuery.RunSequential(rows);
+            foreach (var technique in TechniqueTiming.ParallelTechniques)
             {
-                RunPlinq(rows, n);
-                RunThreads(rows, n);
-                RunParallelForEach(rows, n);
-                RunTasks(rows, n);
+                foreach (int n in degrees)
+                {
+                    LandBankQuery.RunInMemory(technique, rows, n);
+                }
             }
         }
-        while (stopwatch.ElapsedMilliseconds < 1500);
+        while (stopwatch.ElapsedMilliseconds < WarmUpMilliseconds);
     }
 
-    private static TechniqueTiming Measure(
-        AnalysisTechnique technique, int threads, int repetitions, List<PurposeGroupStats> expected, Func<List<PurposeGroupStats>> run)
+    /// <summary>
+    /// Один прогін без виміру, потім задана кількість вимірюваних прогонів; у результат іде медіана.
+    /// Кожен прогін порівнюється з результатом послідовного запиту.
+    /// </summary>
+    private static async Task<TechniqueTiming> MeasureAsync(
+        AnalysisTechnique technique, int threads, int repetitions, List<PurposeGroupStats> expected,
+        Func<Task<List<PurposeGroupStats>>> run)
     {
-        var warmup = run();
-        bool matches = SameResult(expected, warmup);
+        bool matches = LandBankQuery.SameResult(expected, await run());
 
         var samples = new double[repetitions];
         var stopwatch = new Stopwatch();
         for (int r = 0; r < repetitions; r++)
         {
             stopwatch.Restart();
-            var result = run();
+            var result = await run();
             stopwatch.Stop();
             samples[r] = stopwatch.Elapsed.TotalMilliseconds;
-            matches &= SameResult(expected, result);
+            matches &= LandBankQuery.SameResult(expected, result);
         }
 
         Array.Sort(samples);
@@ -370,230 +519,16 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         };
     }
 
-    private static bool SameResult(List<PurposeGroupStats> expected, List<PurposeGroupStats> actual) =>
-        expected.Count == actual.Count && expected.Zip(actual).All(pair => pair.First.SameAs(pair.Second));
-
-    private static List<PurposeGroupStats> Run(AnalysisTechnique technique, PlotAnalysisRow[] rows, int threads) => technique switch
-    {
-        AnalysisTechnique.Plinq => RunPlinq(rows, threads),
-        AnalysisTechnique.Threads => RunThreads(rows, threads),
-        AnalysisTechnique.ParallelForEach => RunParallelForEach(rows, threads),
-        AnalysisTechnique.Tasks => RunTasks(rows, threads),
-        _ => RunSequential(rows)
-    };
-
-    /// <summary>
-    /// Послідовне виконання запиту в одному потоці.
-    /// </summary>
-    public static List<PurposeGroupStats> RunSequential(PlotAnalysisRow[] rows)
-    {
-        var accumulator = new LandBankAccumulator();
-        foreach (var row in rows)
-        {
-            accumulator.Add(row);
-        }
-
-        return accumulator.ToResult();
-    }
-
-    /// <summary>
-    /// PLINQ на заданій кількості ядер: кожен потік накопичує свій підсумок, потім підсумки зливаються.
-    /// </summary>
-    public static List<PurposeGroupStats> RunPlinq(PlotAnalysisRow[] rows, int threads) =>
-        rows.AsParallel()
-            .WithDegreeOfParallelism(threads)
-            .Aggregate(
-                () => new LandBankAccumulator(),
-                (accumulator, row) => { accumulator.Add(row); return accumulator; },
-                (left, right) => { left.Merge(right); return left; },
-                accumulator => accumulator.ToResult());
-
-    /// <summary>
-    /// Багатопоточність вручну: масив ділиться на рівні частини, кожну обробляє окремий Thread.
-    /// </summary>
-    public static List<PurposeGroupStats> RunThreads(PlotAnalysisRow[] rows, int threads)
-    {
-        var partials = new LandBankAccumulator[threads];
-        var workers = new Thread[threads];
-        int chunk = (rows.Length + threads - 1) / threads;
-
-        for (int t = 0; t < threads; t++)
-        {
-            int index = t;
-            int from = Math.Min(rows.Length, index * chunk);
-            int to = Math.Min(rows.Length, from + chunk);
-            workers[t] = new Thread(() =>
-            {
-                var accumulator = new LandBankAccumulator();
-                for (int i = from; i < to; i++)
-                {
-                    accumulator.Add(rows[i]);
-                }
-
-                partials[index] = accumulator;
-            });
-            workers[t].Start();
-        }
-
-        foreach (var worker in workers)
-        {
-            worker.Join();
-        }
-
-        return MergeAll(partials);
-    }
-
-    /// <summary>
-    /// TPL: Parallel.ForEach по діапазонах індексів із локальним підсумком для кожного потоку.
-    /// </summary>
-    public static List<PurposeGroupStats> RunParallelForEach(PlotAnalysisRow[] rows, int threads)
-    {
-        var total = new LandBankAccumulator();
-        var sync = new object();
-        int rangeSize = Math.Max(1, rows.Length / (threads * 4));
-
-        Parallel.ForEach(
-            Partitioner.Create(0, rows.Length, rangeSize),
-            new ParallelOptions { MaxDegreeOfParallelism = threads },
-            () => new LandBankAccumulator(),
-            (range, _, accumulator) =>
-            {
-                for (int i = range.Item1; i < range.Item2; i++)
-                {
-                    accumulator.Add(rows[i]);
-                }
-
-                return accumulator;
-            },
-            accumulator =>
-            {
-                lock (sync)
-                {
-                    total.Merge(accumulator);
-                }
-            });
-
-        return total.ToResult();
-    }
-
-    /// <summary>
-    /// TPL: окреме завдання Task.Run на кожну частину масиву, очікування всіх завдань.
-    /// </summary>
-    public static List<PurposeGroupStats> RunTasks(PlotAnalysisRow[] rows, int threads)
-    {
-        int chunk = (rows.Length + threads - 1) / threads;
-        var tasks = new Task<LandBankAccumulator>[threads];
-        for (int t = 0; t < threads; t++)
-        {
-            int from = Math.Min(rows.Length, t * chunk);
-            int to = Math.Min(rows.Length, from + chunk);
-            tasks[t] = Task.Run(() =>
-            {
-                var accumulator = new LandBankAccumulator();
-                for (int i = from; i < to; i++)
-                {
-                    accumulator.Add(rows[i]);
-                }
-
-                return accumulator;
-            });
-        }
-
-        Task.WaitAll(tasks);
-        return MergeAll(tasks.Select(t => t.Result));
-    }
-
-    private static List<PurposeGroupStats> MergeAll(IEnumerable<LandBankAccumulator> partials)
-    {
-        var total = new LandBankAccumulator();
-        foreach (var partial in partials)
-        {
-            total.Merge(partial);
-        }
-
-        return total.ToResult();
-    }
-
-    /// <summary>
-    /// Читання рядків із бази: одним з'єднанням і паралельно діапазонами Id, кожен діапазон своїм контекстом
-    /// (DbContext не можна ділити між потоками).
-    /// </summary>
-    private List<ReadTiming> MeasureReads(int threads, out PlotAnalysisRow[] rows)
-    {
-        const int readRepetitions = 3;
-        var sequentialSamples = new List<double>();
-        var parallelSamples = new List<double>();
-        PlotAnalysisRow[] sequentialRows = Array.Empty<PlotAnalysisRow>();
-        int parallelCount = 0;
-
-        ReadSequential();
-        for (int r = 0; r < readRepetitions; r++)
-        {
-            var stopwatch = Stopwatch.StartNew();
-            sequentialRows = ReadSequential();
-            sequentialSamples.Add(stopwatch.Elapsed.TotalMilliseconds);
-
-            stopwatch.Restart();
-            parallelCount = ReadParallel(threads).Length;
-            parallelSamples.Add(stopwatch.Elapsed.TotalMilliseconds);
-        }
-
-        rows = sequentialRows;
-        return new List<ReadTiming>
-        {
-            new() { Name = "Послідовне читання", Connections = 1, MedianMs = Math.Round(Median(sequentialSamples), 3), RowsRead = sequentialRows.Length },
-            new() { Name = "Паралельне читання діапазонами Id", Connections = threads, MedianMs = Math.Round(Median(parallelSamples), 3), RowsRead = parallelCount }
-        };
-    }
-
-    private PlotAnalysisRow[] ReadSequential()
-    {
-        using var db = CreateBenchContext();
-        return Project(db.LandPlots.AsNoTracking()).ToArray();
-    }
-
-    private PlotAnalysisRow[] ReadParallel(int threads)
-    {
-        int minId, maxId;
-        using (var db = CreateBenchContext())
-        {
-            minId = db.LandPlots.Min(p => p.Id);
-            maxId = db.LandPlots.Max(p => p.Id);
-        }
-
-        int span = (maxId - minId + threads) / threads;
-        var parts = new PlotAnalysisRow[threads][];
-        Parallel.For(0, threads, new ParallelOptions { MaxDegreeOfParallelism = threads }, t =>
-        {
-            int from = minId + t * span;
-            int to = from + span;
-            using var db = CreateBenchContext();
-            parts[t] = Project(db.LandPlots.AsNoTracking().Where(p => p.Id >= from && p.Id < to)).ToArray();
-        });
-
-        return parts.SelectMany(p => p).ToArray();
-    }
-
-    private static IQueryable<PlotAnalysisRow> Project(IQueryable<LandPlot> plots) => plots.Select(p => new PlotAnalysisRow(
-        p.CadastralNumber, p.Purpose, p.AreaHectares, p.PriceUsd, p.SellerBankIban, p.Latitude, p.Longitude));
-
-    private static double Median(List<double> samples)
-    {
-        var sorted = samples.OrderBy(x => x).ToList();
-        int n = sorted.Count;
-        return n % 2 == 1 ? sorted[n / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
-    }
-
     public ParallelResultsStore LoadResults()
     {
-        if (!File.Exists(_resultsPath))
+        if (!File.Exists(_options.ResultsPath))
         {
             return new ParallelResultsStore();
         }
 
         try
         {
-            return JsonSerializer.Deserialize<ParallelResultsStore>(File.ReadAllText(_resultsPath)) ?? new ParallelResultsStore();
+            return JsonSerializer.Deserialize<ParallelResultsStore>(File.ReadAllText(_options.ResultsPath)) ?? new ParallelResultsStore();
         }
         catch (JsonException)
         {
@@ -601,7 +536,26 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         }
     }
 
-    private LandAgencyContext CreateBenchContext() => new(new DbContextOptionsBuilder<LandAgencyContext>()
-        .UseSqlite($"Data Source={_benchPath};Foreign Keys=True")
+    private Task SaveResultsAsync(ParallelResultsStore store) =>
+        File.WriteAllTextAsync(_options.ResultsPath, JsonSerializer.Serialize(store, new JsonSerializerOptions { WriteIndented = true }));
+
+    /// <summary>
+    /// Контекст для читання робочої бази: кожна паралельна частина створює власний, бо DbContext не можна
+    /// використовувати з кількох потоків одночасно. З'єднання береться з пулу, тож не відкривається щоразу заново.
+    /// </summary>
+    private LandAgencyContext CreateMainReadContext() => new(new DbContextOptionsBuilder<LandAgencyContext>()
+        .UseSqlite(_options.MainConnectionString)
+        .Options);
+
+    /// <summary>
+    /// Контекст для запису в робочу базу з тим самим перехоплювачем надійності, що й у застосунку.
+    /// </summary>
+    private LandAgencyContext CreateMainWriteContext() => new(new DbContextOptionsBuilder<LandAgencyContext>()
+        .UseSqlite(_options.MainConnectionString)
+        .AddInterceptors(new SqliteDurabilityInterceptor())
+        .Options);
+
+    private LandAgencyContext CreateSmallContext() => new(new DbContextOptionsBuilder<LandAgencyContext>()
+        .UseSqlite(_smallConnectionString)
         .Options);
 }

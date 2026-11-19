@@ -20,8 +20,10 @@ builder.Services.Configure<WebEncoderOptions>(options =>
 {
     options.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All);
 });
+var connectionString = builder.Configuration.GetConnectionString("LandAgency")
+    ?? "Data Source=landagency.db;Foreign Keys=True;Pooling=True";
 builder.Services.AddDbContext<LandAgencyContext>(options => options
-    .UseSqlite("Data Source=landagency.db;Foreign Keys=True")
+    .UseSqlite(connectionString)
     .AddInterceptors(new SqliteDurabilityInterceptor()));
 
 builder.Services.AddScoped<ICadastralValidationService, CadastralValidationService>();
@@ -29,7 +31,11 @@ builder.Services.AddScoped<IAutoMatchingService, AutoMatchingService>();
 builder.Services.AddScoped<ILandAgencyQueries, LandAgencyQueries>();
 builder.Services.AddScoped<IPlotMediaStorage, PlotMediaStorage>();
 builder.Services.AddScoped<IPlotRemovalService, PlotRemovalService>();
-builder.Services.AddSingleton<IParallelAnalysisService, ParallelAnalysisService>();
+builder.Services.AddSingleton<IParallelAnalysisService>(services => new ParallelAnalysisService(new ParallelAnalysisOptions(
+    connectionString,
+    builder.Configuration["Lab6:SmallDatabasePath"] ?? "landagency_lab6_small.db",
+    builder.Configuration["Lab6:ResultsPath"]
+        ?? Path.Combine(services.GetRequiredService<IWebHostEnvironment>().ContentRootPath, "parallel_results.json"))));
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -93,3 +99,8 @@ app.MapControllerRoute(
     .WithStaticAssets();
 
 app.Run();
+
+/// <summary>
+/// Точка входу доступна тестам через WebApplicationFactory.
+/// </summary>
+public partial class Program;

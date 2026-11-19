@@ -11,7 +11,8 @@ namespace LandAgencyMvc.Controllers;
 
 /// <summary>
 /// ЛР6 «Паралельна обробка даних»: сторінка рієлтора, на якій один і той самий запит аудиту земельного банку
-/// виконується послідовно й паралельно (PLINQ, Thread, Parallel.ForEach, Task) на 20 і на 100 000 записах.
+/// виконується послідовно й паралельно (PLINQ, Thread, Parallel.ForEach, Task.Run) на малій базі з 20 записами
+/// і на робочій базі, доповненій до 100 000 записів.
 /// </summary>
 [Authorize(Roles = AppRoles.Realtor)]
 public class ParallelAnalysisController : Controller
@@ -28,9 +29,10 @@ public class ParallelAnalysisController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(AnalysisDatabase? show)
     {
         var results = _analysis.LoadResults();
+        var shown = show ?? (results.For(AnalysisDatabase.Main) != null ? AnalysisDatabase.Main : AnalysisDatabase.Small);
         var model = new ParallelAnalysisViewModel
         {
             CurrentUser = await GetCurrentRealtorAsync(),
@@ -39,14 +41,17 @@ public class ParallelAnalysisController : Controller
             RuntimeDescription = RuntimeInformation.FrameworkDescription,
             OsDescription = RuntimeInformation.OSDescription,
             BuildConfiguration = _analysis.BuildConfiguration,
-            BenchExists = _analysis.BenchExists,
-            BenchRowCount = await _analysis.CountBenchRowsAsync(),
+            SmallRowCount = await _analysis.CountSmallRowsAsync(),
+            MainRowCount = await _analysis.CountMainRowsAsync(),
+            GeneratedRowCount = await _analysis.CountGeneratedRowsAsync(),
+            Conditions = await _analysis.GetConditionsAsync(),
             ThreadOptions = _analysis.ThreadOptions,
             SelectedThreads = Environment.ProcessorCount,
-            Results = results
+            Results = results,
+            Shown = shown
         };
 
-        var current = model.Current;
+        var current = model.ShownReport;
         if (current != null)
         {
             model.SelectedThreads = current.SelectedThreads;
@@ -57,50 +62,64 @@ public class ParallelAnalysisController : Controller
     }
 
     /// <summary>
-    /// Мала вибірка: база аналізу створюється заново, у таблицю LandPlots копіюються 20 ділянок робочої бази.
+    /// Пункт 2 завдання: окрема мала база, у таблиці LandPlots якої рівно 20 записів, скопійованих із робочої бази.
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> PrepareSmallSample()
+    public async Task<IActionResult> PrepareSmallDatabase()
     {
-        int copied = await _analysis.PrepareSmallSampleAsync(_db);
-        TempData["RealtorMessage"] = $"Базу аналізу створено заново: у таблиці LandPlots {copied} ділянок, скопійованих із робочої бази.";
-        return RedirectToAction(nameof(Index));
+        int copied = await _analysis.PrepareSmallDatabaseAsync();
+        TempData["RealtorMessage"] = $"Малу базу створено заново: у таблиці LandPlots {copied} записів, скопійованих із робочої бази.";
+        return RedirectToAction(nameof(Index), new { show = AnalysisDatabase.Small });
     }
 
     /// <summary>
-    /// Завдання 3 ЛР6: програмне доповнення таблиці LandPlots бази аналізу до 100 000 записів.
+    /// Пункт 3 завдання: програмне доповнення таблиці LandPlots робочої бази до 100 000 записів.
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> GenerateLargeSample()
+    public async Task<IActionResult> FillMainDatabase()
     {
-        var (added, elapsed) = await _analysis.GenerateLargeSampleAsync(_db);
-        int total = await _analysis.CountBenchRowsAsync();
+        var (added, elapsed) = await _analysis.FillMainDatabaseAsync();
+        int total = await _analysis.CountMainRowsAsync();
         TempData["RealtorMessage"] = added > 0
-            ? $"Програмно додано {added:N0} ділянок за {elapsed.TotalSeconds:F1} с; у таблиці LandPlots бази аналізу {total:N0} записів."
-            : $"У таблиці LandPlots бази аналізу вже {total:N0} записів.";
-        return RedirectToAction(nameof(Index));
+            ? $"Програмно додано {added:N0} записів за {elapsed.TotalSeconds:F1} с; у таблиці LandPlots робочої бази {total:N0} записів."
+            : $"У таблиці LandPlots робочої бази вже {total:N0} записів.";
+        return RedirectToAction(nameof(Index), new { show = AnalysisDatabase.Main });
     }
 
     /// <summary>
-    /// Виконує запит усіма способами на поточному обсязі даних і зберігає результати.
+    /// Прибирає згенеровані записи, щоб повернути робочу базу до демонстраційного стану ЛР № 4–5.
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Run(int threads, int repetitions)
+    public async Task<IActionResult> RemoveGenerated()
     {
-        if (!_analysis.BenchExists)
+        int removed = await _analysis.RemoveGeneratedAsync();
+        TempData["RealtorMessage"] = removed > 0
+            ? $"З робочої бази прибрано {removed:N0} згенерованих записів."
+            : "Згенерованих записів у робочій базі немає.";
+        return RedirectToAction(nameof(Index), new { show = AnalysisDatabase.Main });
+    }
+
+    /// <summary>
+    /// Виконує запит усіма способами на обраній базі й зберігає результати.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Run(AnalysisDatabase database, int threads, int repetitions)
+    {
+        if (database == AnalysisDatabase.Small && await _analysis.CountSmallRowsAsync() is not > 0)
         {
-            TempData["RealtorError"] = "Спершу підготуйте малу вибірку або згенеруйте 100 000 записів.";
-            return RedirectToAction(nameof(Index));
+            TempData["RealtorError"] = "Спершу створіть малу базу (крок 1).";
+            return RedirectToAction(nameof(Index), new { show = database });
         }
 
-        var report = await _analysis.RunComparisonAsync(threads, repetitions);
+        var report = await _analysis.RunComparisonAsync(database, threads, repetitions);
         TempData["RealtorMessage"] = report.AllResultsMatch
-            ? $"Порівняння на {report.RowCount:N0} записах виконано: усі способи дали однаковий результат."
-            : $"Порівняння на {report.RowCount:N0} записах виконано, але результати деяких способів відрізняються від послідовного.";
-        return RedirectToAction(nameof(Index));
+            ? $"Дослідження на {report.RowCount:N0} записах виконано: усі способи дали однаковий результат."
+            : $"Дослідження на {report.RowCount:N0} записах виконано, але результати деяких способів відрізняються від послідовного.";
+        return RedirectToAction(nameof(Index), new { show = database });
     }
 
     private async Task<AppUser?> GetCurrentRealtorAsync()
