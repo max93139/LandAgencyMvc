@@ -55,6 +55,12 @@ public interface IParallelAnalysisService
     /// </summary>
     Task<int> RemoveGeneratedAsync();
 
+    /// <summary>
+    /// Повертає дослідження до початку: прибирає згенеровані записи робочої бази, видаляє малу базу
+    /// і збережені результати. Повертає кількість прибраних записів.
+    /// </summary>
+    Task<int> ResetStudyAsync();
+
     Task<ParallelRunReport> RunComparisonAsync(AnalysisDatabase database, int selectedThreads, int repetitions);
 
     ParallelResultsStore LoadResults();
@@ -302,20 +308,7 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         await _gate.WaitAsync();
         try
         {
-            await using var db = CreateMainWriteContext();
-            var seller = await db.Users.FirstOrDefaultAsync(u => u.Email == LoadSellerEmail);
-            if (seller == null)
-            {
-                return 0;
-            }
-
-            await using var transaction = await db.Database.BeginTransactionAsync();
-            int removed = await db.LandPlots.Where(p => p.SellerId == seller.Id).ExecuteDeleteAsync();
-            db.Users.Remove(seller);
-            await db.SaveChangesAsync();
-            await transaction.CommitAsync();
-            await db.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
-
+            int removed = await DeleteGeneratedRowsAsync();
             var store = LoadResults();
             store.Large = null;
             await SaveResultsAsync(store);
@@ -325,6 +318,46 @@ public sealed class ParallelAnalysisService : IParallelAnalysisService
         {
             _gate.Release();
         }
+    }
+
+    public async Task<int> ResetStudyAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            int removed = await DeleteGeneratedRowsAsync();
+
+            SqliteConnection.ClearPool(new SqliteConnection(_smallConnectionString));
+            foreach (var suffix in new[] { "", "-shm", "-wal", "-journal" })
+            {
+                File.Delete(_options.SmallDatabasePath + suffix);
+            }
+
+            File.Delete(_options.ResultsPath);
+            return removed;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<int> DeleteGeneratedRowsAsync()
+    {
+        await using var db = CreateMainWriteContext();
+        var seller = await db.Users.FirstOrDefaultAsync(u => u.Email == LoadSellerEmail);
+        if (seller == null)
+        {
+            return 0;
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        int removed = await db.LandPlots.Where(p => p.SellerId == seller.Id).ExecuteDeleteAsync();
+        db.Users.Remove(seller);
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        await db.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+        return removed;
     }
 
     private static AppUser NewLoadSeller()

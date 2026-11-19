@@ -156,6 +156,17 @@
                     <a href="#results">«Результати»</a> — таблиці за кількістю потоків і графіки для кожної бази.
                 </p>
             </div>
+
+            <div class="la-row-between mt-3">
+                <p class="la-text-xs text-muted mb-0">
+                    Скидання прибирає згенеровані записи з робочої бази, видаляє малу базу й збережені результати,
+                    щоб пройти кроки 1–5 ще раз. Демонстраційні дані ЛР № 4–5 не змінюються.
+                </p>
+                <form asp-action="Reset" method="post" data-long="Скидаю дослідження…"
+                      onsubmit="return confirm('Скинути дослідження? Згенеровані записи, мала база й результати будуть видалені.');">
+                    <button type="submit" class="la-btn la-btn-outline">Скинути дослідження</button>
+                </form>
+            </div>
         </div>
 
         <div class="la-grid-2 mb-3">

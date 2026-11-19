@@ -103,6 +103,20 @@ public class ParallelAnalysisController : Controller
     }
 
     /// <summary>
+    /// Скидає дослідження до кроку 1, щоб пройти всі кроки ще раз.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Reset()
+    {
+        int removed = await _analysis.ResetStudyAsync();
+        TempData["RealtorMessage"] = removed > 0
+            ? $"Дослідження скинуто: прибрано {removed:N0} згенерованих записів, малу базу й результати видалено."
+            : "Дослідження скинуто: малу базу й результати видалено.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
     /// Виконує запит усіма способами на обраній базі й зберігає результати.
     /// </summary>
     [HttpPost]
