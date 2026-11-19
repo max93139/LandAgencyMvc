@@ -114,6 +114,26 @@ public class ParallelAnalysisServiceTests
     }
 
     [Fact]
+    public async Task Reset_returns_the_study_to_step_one()
+    {
+        using var database = new TestDatabase(demoPlots: 22);
+        var service = database.CreateService();
+        await service.PrepareSmallDatabaseAsync();
+        await service.RunComparisonAsync(AnalysisDatabase.Small, selectedThreads: 2, repetitions: 1);
+        await service.FillMainDatabaseAsync(targetRows: 1_200);
+
+        int removed = await service.ResetStudyAsync();
+
+        Assert.Equal(1_178, removed);
+        Assert.Equal(22, await service.CountMainRowsAsync());
+        Assert.Null(await service.CountSmallRowsAsync());
+        Assert.Null(service.LoadResults().For(AnalysisDatabase.Small));
+        Assert.Null(service.LoadResults().For(AnalysisDatabase.Main));
+
+        Assert.Equal(ParallelAnalysisLimits.SmallSampleSize, await service.PrepareSmallDatabaseAsync());
+    }
+
+    [Fact]
     public async Task Every_technique_gives_the_sequential_result_when_ids_have_gaps()
     {
         using var database = new TestDatabase(demoPlots: 22);
