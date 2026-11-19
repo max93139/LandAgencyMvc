@@ -88,11 +88,17 @@ public partial class RealtorController
     }
 
     /// <summary>
+    /// Реєстр показує ділянки сторінками: після доповнення бази до 100 000 записів (ЛР6) з бази читається лише
+    /// потрібна сторінка, тож реєстр відкривається так само швидко.
+    /// </summary>
+    private const int PlotsPageSize = 50;
+
+    /// <summary>
     /// Реєстр земельних ділянок агентства з повним набором операцій CRUD.
     /// </summary>
     [Authorize(Roles = AppRoles.Realtor)]
     [HttpGet]
-    public async Task<IActionResult> Plots(string? search, PlotStatus? status)
+    public async Task<IActionResult> Plots(string? search, PlotStatus? status, int page = 1)
     {
         var query = _db.LandPlots
             .Include(p => p.Seller)
@@ -117,9 +123,21 @@ public partial class RealtorController
             query = query.Where(p => p.Status == status.Value);
         }
 
-        var plots = await query.OrderByDescending(p => p.CreatedAt).ToListAsync();
+        int totalCount = await query.CountAsync();
+        int totalPages = Math.Max(1, (totalCount + PlotsPageSize - 1) / PlotsPageSize);
+        page = Math.Clamp(page, 1, totalPages);
+
+        var plots = await query
+            .OrderByDescending(p => p.CreatedAt)
+            .ThenByDescending(p => p.Id)
+            .Skip((page - 1) * PlotsPageSize)
+            .Take(PlotsPageSize)
+            .ToListAsync();
         ViewBag.Search = search;
         ViewBag.Status = status;
+        ViewBag.Page = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
 
         return View(plots);
     }

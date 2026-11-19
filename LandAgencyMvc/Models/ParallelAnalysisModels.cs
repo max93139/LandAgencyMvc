@@ -235,6 +235,12 @@ public sealed class PurposeGroupStats
         SumDistanceMeters == other.SumDistanceMeters;
 }
 
+
+/// <summary>
+/// Діапазон первинних ключів, який читає й обробляє одна паралельна частина запиту. Межі включні.
+/// </summary>
+public readonly record struct IdRange(int From, int To);
+
 /// <summary>
 /// Спосіб виконання запиту.
 /// </summary>
@@ -245,6 +251,15 @@ public enum AnalysisTechnique
     Threads,
     ParallelForEach,
     Tasks
+}
+
+/// <summary>
+/// База, на якій виконується дослідження: окрема мала база з 20 записами або робоча база застосунку.
+/// </summary>
+public enum AnalysisDatabase
+{
+    Small,
+    Main
 }
 
 /// <summary>
@@ -268,34 +283,68 @@ public sealed class TechniqueTiming
 
     public static string DisplayNameOf(AnalysisTechnique technique) => technique switch
     {
-        AnalysisTechnique.Sequential => "Послідовний LINQ",
+        AnalysisTechnique.Sequential => "Послідовно (LINQ)",
         AnalysisTechnique.Plinq => "PLINQ (кілька ядер)",
         AnalysisTechnique.Threads => "Багатопоточність (Thread)",
         AnalysisTechnique.ParallelForEach => "TPL: Parallel.ForEach",
-        AnalysisTechnique.Tasks => "TPL: Task.Run + Task.WaitAll",
+        AnalysisTechnique.Tasks => "TPL: Task.Run",
         _ => technique.ToString()
+    };
+
+    public static string ShortNameOf(AnalysisTechnique technique) => technique switch
+    {
+        AnalysisTechnique.Sequential => "Послідовно",
+        AnalysisTechnique.Plinq => "PLINQ",
+        AnalysisTechnique.Threads => "Thread",
+        AnalysisTechnique.ParallelForEach => "Parallel.ForEach",
+        AnalysisTechnique.Tasks => "Task.Run",
+        _ => technique.ToString()
+    };
+
+    public static IReadOnlyList<AnalysisTechnique> ParallelTechniques { get; } = new[]
+    {
+        AnalysisTechnique.Plinq, AnalysisTechnique.Threads, AnalysisTechnique.ParallelForEach, AnalysisTechnique.Tasks
     };
 }
 
 /// <summary>
-/// Час читання рядків із бази: послідовно одним з'єднанням або паралельно діапазонами Id.
+/// Виміри одного режиму: послідовний спосіб і кожен паралельний спосіб на кожній кількості потоків.
 /// </summary>
-public sealed class ReadTiming
+public sealed class TimingSet
 {
-    public string Name { get; set; } = string.Empty;
+    public List<TechniqueTiming> Timings { get; set; } = new();
 
-    public int Connections { get; set; }
+    public double SequentialMedianMs => Timings.FirstOrDefault(t => t.Technique == AnalysisTechnique.Sequential)?.MedianMs ?? 0;
 
-    public double MedianMs { get; set; }
+    public IEnumerable<int> Degrees => Timings
+        .Where(t => t.Technique != AnalysisTechnique.Sequential)
+        .Select(t => t.Threads)
+        .Distinct()
+        .OrderBy(n => n);
 
-    public int RowsRead { get; set; }
+    public TechniqueTiming? Find(AnalysisTechnique technique, int threads) => Timings.FirstOrDefault(t =>
+        t.Technique == technique && (technique == AnalysisTechnique.Sequential || t.Threads == threads));
+
+    /// <summary>
+    /// Прискорення відносно послідовного способу: у скільки разів паралельний спосіб швидший.
+    /// </summary>
+    public double SpeedupOf(TechniqueTiming timing) => timing.MedianMs > 0 ? SequentialMedianMs / timing.MedianMs : 0;
+
+    public TechniqueTiming? Best => Timings
+        .Where(t => t.Technique != AnalysisTechnique.Sequential)
+        .OrderBy(t => t.MedianMs)
+        .FirstOrDefault();
 }
 
 /// <summary>
-/// Результати одного прогону порівняння на певному обсязі даних.
+/// Результати одного дослідження на певній базі.
+/// Database — повний запит: кожна частина сама читає свій діапазон рядків із бази й обробляє його.
+/// Memory — лише обчислювальна частина над рядками, уже прочитаними в пам'ять.
 /// </summary>
 public sealed class ParallelRunReport
 {
+    public AnalysisDatabase Database { get; set; }
+
     public int RowCount { get; set; }
 
     public int SelectedThreads { get; set; }
@@ -306,30 +355,47 @@ public sealed class ParallelRunReport
 
     public string BuildConfiguration { get; set; } = string.Empty;
 
-    public List<TechniqueTiming> Timings { get; set; } = new();
+    public TimingSet DatabaseQuery { get; set; } = new();
 
-    public List<ReadTiming> ReadTimings { get; set; } = new();
+    public TimingSet MemoryOnly { get; set; } = new();
 
     public List<PurposeGroupStats> Groups { get; set; } = new();
 
-    public double SequentialMedianMs => Timings.FirstOrDefault(t => t.Technique == AnalysisTechnique.Sequential)?.MedianMs ?? 0;
+    public bool IsComplete => DatabaseQuery.Timings.Count > 0;
 
-    public IEnumerable<TechniqueTiming> AtSelectedThreads => Timings
-        .Where(t => t.Technique == AnalysisTechnique.Sequential || t.Threads == SelectedThreads);
-
-    public double SpeedupOf(TechniqueTiming timing) => timing.MedianMs > 0 ? SequentialMedianMs / timing.MedianMs : 0;
-
-    public bool AllResultsMatch => Timings.All(t => t.ResultMatches);
+    public bool AllResultsMatch => DatabaseQuery.Timings.Concat(MemoryOnly.Timings).All(t => t.ResultMatches);
 }
 
 /// <summary>
-/// Збережені результати для малої (до 20 записів) і великої вибірки.
+/// Збережені результати для малої бази й робочої бази.
 /// </summary>
 public sealed class ParallelResultsStore
 {
     public ParallelRunReport? Small { get; set; }
 
     public ParallelRunReport? Large { get; set; }
+
+    public ParallelRunReport? For(AnalysisDatabase database)
+    {
+        var report = database == AnalysisDatabase.Small ? Small : Large;
+        return report is { IsComplete: true } ? report : null;
+    }
+}
+
+/// <summary>
+/// Умови, без яких кілька потоків не можуть ефективно читати одну базу SQLite.
+/// </summary>
+public sealed class DatabaseConditions
+{
+    public string JournalMode { get; set; } = string.Empty;
+
+    public bool PoolingEnabled { get; set; }
+
+    public int MinWorkerThreads { get; set; }
+
+    public int RequiredWorkerThreads { get; set; }
+
+    public bool IsWal => string.Equals(JournalMode, "wal", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -349,19 +415,32 @@ public sealed class ParallelAnalysisViewModel
 
     public string BuildConfiguration { get; set; } = string.Empty;
 
-    public bool BenchExists { get; set; }
+    /// <summary>
+    /// Кількість записів у таблиці LandPlots малої бази або null, якщо малу базу ще не створено.
+    /// </summary>
+    public int? SmallRowCount { get; set; }
 
-    public int BenchRowCount { get; set; }
+    public int MainRowCount { get; set; }
+
+    public int GeneratedRowCount { get; set; }
+
+    public DatabaseConditions Conditions { get; set; } = new();
 
     public int SelectedThreads { get; set; }
 
-    public int Repetitions { get; set; } = 10;
+    public int Repetitions { get; set; } = ParallelAnalysisLimits.DefaultRepetitions;
 
     public IReadOnlyList<int> ThreadOptions { get; set; } = Array.Empty<int>();
 
     public ParallelResultsStore Results { get; set; } = new();
 
-    public ParallelRunReport? Current => BenchRowCount <= ParallelAnalysisLimits.SmallSampleSize ? Results.Small : Results.Large;
+    public AnalysisDatabase Shown { get; set; }
+
+    public ParallelRunReport? ShownReport => Results.For(Shown);
+
+    public bool SmallReady => SmallRowCount is > 0;
+
+    public bool MainFilled => MainRowCount >= ParallelAnalysisLimits.LargeSampleSize;
 }
 
 public static class ParallelAnalysisLimits
@@ -369,4 +448,6 @@ public static class ParallelAnalysisLimits
     public const int SmallSampleSize = 20;
 
     public const int LargeSampleSize = 100_000;
+
+    public const int DefaultRepetitions = 7;
 }
